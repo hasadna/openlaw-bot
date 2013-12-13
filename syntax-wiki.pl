@@ -35,7 +35,7 @@ s/ - / -- /g;
 s/ -\n/ --\n/g;
 s/(\S) ([,.:;])/$1$2/g;
 
-s/(?<=\<ויקי\>)(.*?)(?=\<\/\>)/&escapeText($1)/egm;
+s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escapeText($1)/egm;
 
 # Parse various elements
 s/^<שם>\s*\n?(.*)\n/&parseTitle($1)/em;
@@ -59,7 +59,7 @@ s/\(\(\s*(.*?)[|](.*?)\s*\)\)/&parseTip($1,$2)/egm;
 s/\(\(\s*(\(.*?\).*?)\s*\)\)/&parseRemark($1)/egm;
 s/\(\(\s*(.*?)\s*\)\)/&parseRemark($1)/egm;
 
-s/(?<=<ויקי>)(.*?)(?=<\/>)/&unescapeText($1)/egm;
+s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&unescapeText($1)/egm;
 
 print $_;
 exit;
