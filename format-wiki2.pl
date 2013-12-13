@@ -1369,17 +1369,19 @@ sub printSignatures {
 	my $line;
 	my $first = 1;
 	for $line (@text) {
+		$line =~ s/^\s*(.*?)\s*$/$1/;
+		return if (length($line)==0);
 		if ($first) {
 			# print "    <tr><td width=\"150\" align=\"center\">\n";
 			$first = 0;
 		} else {
 			# print "\n    <td width=\"150\" align=\"center\">\n";
-		}			
-		if ($line =~ /^\s*(.*?)\s*\|\s*(.*?)\s*$/) {
+		}
+		if ($line =~ /^(.*?)\s*\|\s*(.*?)\s*$/) {
 			# print "      <b>$1</b><br>$2\n";
 			print "* '''$1'''<br>$2\n";
-		} else {
-			print "* $line\n";
+		} elsif ($line =~ /^\s*(.*?)\s*$/) {
+			print "* '''$1'''\n";
 		}
 		# print "    </td>";
 	}
