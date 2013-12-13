@@ -112,7 +112,7 @@ sub parseChapter {
 	$num =~ s/[.,]$//;
 	
 	my $str = "<$type $num>\n";
-	$str .= "<תיאור $desc>\n" if ($desc);
+	$str .= "<תיאור \"$desc\">\n" if ($desc);
 	$str .= "<תיקון $fix>\n" if ($fix);
 	$str .= "<אחר $extra>\n" if ($extra);
 	return $str;

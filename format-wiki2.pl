@@ -418,7 +418,9 @@ sub initAPPENDIX {
 }
 
 sub gotDESC {
-	$object{"desc"} = shift;
+	$_ = shift;
+	s/<קישור\s*(.*?)>(.*?)<\/\>/&inline_HREF($2,$1)/egm;
+	$object{"desc"} = $_;
 }
 sub gotFIX {
 	$_ = shift;
@@ -740,6 +742,20 @@ sub close_A {
 	$textline = $textline . "}}";
 }
 
+sub inline_HREF {
+	my $local = $textline;
+	my $text = shift;
+	my $helper = shift;
+	$textline = '';
+	open_A_GENERIC($helper);
+	$textline .= $text;
+	$href{text} = $text;
+	close_A_GENERIC();
+	$text = $textline;
+	$textline = $local;
+	return $text;
+}
+
 sub open_A_GENERIC {
 	if ($href{type}>0) {
 		# ERROR...
@@ -926,14 +942,14 @@ sub makeENG {
 
 sub typeHREF {
 	shift;
-	return (/(\bו?[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו)\b)|#/ ? 2 : 1);
+	return (/(\bו?[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|דבר המלך)\b)|#/ ? 2 : 1);
 }
 
 sub findHREF {
 	$_ = shift;
 	if (!$_) { return $_; }
 
-	if (/\bו?[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו)\b/p) {
+	if (/\bו?[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|דבר המלך)\b/p) {
 		# print STDERR "GOT |${^PREMATCH}|${^MATCH}|${^POSTMATCH}|\n";
 		my $pre = findHREF(${^PREMATCH});
 		my $post = findExtRef(${^MATCH}.${^POSTMATCH});
