@@ -11,6 +11,7 @@ class WikiConnect:
     __cookie_jar = None
     __session = None
     __tokens = {}
+    __error = {}
 
     def __init__(self, config_file):
         self.__config = ConfigParser()
@@ -79,15 +80,20 @@ class WikiConnect:
             result = self.__session.get(self.url(base), params=params)
         return result
 
-    def query(self, params={}):
+    def query(self, params={}, method='get'):
         payload = {
             'action': 'query',
             'format': 'json',
         }
         for index in params:
             payload[index] = params[index]
-        result = self.request('api', payload, 'get')
-        return result.json()[payload['action']]
+        result = self.request('api', payload, method)
+        json = result.json()
+        if payload['action'] in json:
+            return result.json()[payload['action']]
+        else:
+            self.__error = json['error']
+            return {}
 
     def category_members(self, category):
         category = category or self.config('wiki', 'category')
@@ -115,7 +121,17 @@ class WikiConnect:
         result = self.request('index', payload, 'get')
         return result
 
-    def push(self, title, text):
+    def revisions(self, title):
+        payload = {
+            'prop': 'revisions',
+            'titles': title,
+            'rvprop': 'ids|timestamp|user|comment|content',
+        }
+        result = self.query(payload)
+        return result
+
+    def push(self, title, text, comment=''):
+        text += '\n[[קטגוריה:בוט חוקים]]\n'
         payload = {
             'action': 'edit',
             'title': title,
@@ -124,9 +140,8 @@ class WikiConnect:
             'contentformat': 'text/x-wiki',
             'contentmodel': 'wikitext',
             'token': self.token('edit'),
-            'format': 'json',
-            'summary': '',
+            'summary': comment,
         }
-        result = self.request('api', payload, 'post')
+        result = self.query(payload, 'post')
         return result
 
