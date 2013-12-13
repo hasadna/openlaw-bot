@@ -1101,7 +1101,7 @@ sub flushSeperator {
 }
 
 sub printBibiolography {
-	my $bib = join("\n  ", @text);
+	my $bib = join("\n", @text);
 	$bib = fixFormat($bib);
 	@text = ();
 	print <<EOF;
