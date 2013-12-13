@@ -129,6 +129,7 @@ sub parseLine {
 	my $str;
 	$str = "ת"x($len+($id?1:0));
 	$str = ($id ? "<$str $id>\n" : "<$str>\n");
+	$str .= '<הגדרה>' if ($line =~ s/^[-]\s*//);
 	$str .= "  $line\n" if (length($line)>0);
 	return $str;
 }
