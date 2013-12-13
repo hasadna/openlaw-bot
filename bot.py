@@ -16,12 +16,15 @@ args = parser.parse_args()
 if args.dry_run is True:
     print('Will dry-run now, no changes will be uploaded to wiki-source.')
 
+category = 'בוט חוקים'
+source_suffix = '/מקור'
+
 wiki = WikiConnect('config.ini')
-titles = args.titles or wiki.category_titles(wiki.config('wiki', 'category'))
+titles = args.titles or wiki.category_titles(category)
 wiki.connect()
 
 for title in titles:
-    src_title = title + wiki.config('wiki', 'source_suffix')
+    src_title = title + source_suffix
     dst_title = title
 
     # dst_revisions = wiki.revisions(dst_art)
