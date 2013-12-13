@@ -237,6 +237,11 @@ my %markup = (
 		init => "open_TITLE",
 		done => "close_TITLE",
 	},
+	"ויקי" => {
+		context => 1,
+		init => "open_WIKI",
+		done => "close_WIKI",
+	},
 	"/" => {
 		context => -2,
 	},
@@ -271,6 +276,7 @@ my @text = ();
 my @text2 = ();
 my $textline;
 
+my @footer = ();
 
 while (my $line = <$FIN>) {
 	$textline = "";
@@ -836,6 +842,25 @@ sub close_B {
 	$textline = $textline . "<\/b>";
 }
 
+sub open_WIKI {
+	my $param = shift;
+	# push @context, "ויקי";
+	$object{class} = $param;
+}
+
+sub close_WIKI {
+	if ($object{class} =~ /קטגוריה/) {
+		$textline = chomp($textline);
+		$textline = "[[קטגוריה:$textline]]\n";
+	} 
+	elsif ($object{class} =~ /תבנית/) {
+		$textline = chomp($textline);
+		$textline = "{{$textline}}\n";
+	}
+	push @footer, $textline;
+	$textline = '';
+}
+
 ###################################################################################################
 
 sub fixFormat {
@@ -1091,6 +1116,8 @@ sub printHeader {
 
 sub printFooter {
 	print "\n{{ח:סוף}}\n";
+	
+	print "\n" . join("\n", @footer) if (@footer);
 }
 
 ## BIBLIOGRAPHY & INTRO ###############
