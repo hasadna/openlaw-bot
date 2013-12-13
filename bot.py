@@ -1,7 +1,8 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import os
 from subprocess import Popen, PIPE, STDOUT
-from wikifetch import WikiFetch
+from wikiconnect import WikiConnect
 from argparse import ArgumentParser
 
 
@@ -10,9 +11,9 @@ parser.add_argument('-t', '--title', help='Wiki titles to fetch by the bot', des
 # parser.add_argument('-o', '--output', help='Output the final format', dest='output', action='store_true')
 args = parser.parse_args()
 
-wiki = WikiFetch('config.ini')
-#wiki.connect()
+wiki = WikiConnect('config.ini')
 titles = args.titles or wiki.category_titles(wiki.config('wiki', 'category'))
+wiki.connect()
 
 for title in titles:
     src_art = title + wiki.config('wiki', 'source_suffix')
@@ -23,5 +24,6 @@ for title in titles:
     w_syntax = p1.communicate(input=src_text.encode('utf8'))[0]
     p2 = Popen('./format-wiki2.pl', stdout=PIPE, stdin=PIPE, stderr=STDOUT, shell=True)
     w_format = p2.communicate(input=w_syntax)[0]
-    print(w_format.decode('utf8'))
+    result = wiki.push(dst_art, w_format.decode('utf8'))
+    print(result.json())
 

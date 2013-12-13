@@ -9,15 +9,20 @@ class WikiConnect:
     __index_path = '/w/index.php'
     __connection = False
     __cookie_jar = None
+    __session = None
+    __tokens = {}
 
     def __init__(self, config_file):
         self.__config = ConfigParser()
         self.__config.read(config_file)
         self.__config.sections()
+        self.__session = requests.Session()
 
     def connect(self):
+        if self.connected():
+            return True
         if 'login' not in self.__config:
-            return None
+            return False
         payload = {
             'action': 'login',
             'lgname': self.config('login', 'lgname'),
@@ -25,23 +30,24 @@ class WikiConnect:
             'format': 'json',
         }
         url = 'https://' + self.config('login', 'host') + self.__api_path
-        r1 = requests.post(url, data=payload)
+        r1 = self.__session.post(url, data=payload)
 
         r1j = r1.json()['login']
         if r1j['result'] == 'Success':
             return self.__connected(r1.cookies)
         payload['lgtoken'] = r1j['token']
-        r2 = requests.post(url, data=payload, cookies=r1.cookies)
+        r2 = self.__session.post(url, data=payload)
         r2j = r2.json()['login']
         if r2j['result'] == 'Success':
-            return self.__connected(r2.cookies)
+            self.__connection = True
+            return True
         return False
 
-    def __connected(self, cookie_jar):
-        self.__cookie_jar = cookie_jar
-        # TODO: add a check for sessionid to make sure cookie is useful
-        self.__connection = True
-        return self.connected()
+    def token(self, token_type):
+        if token_type not in self.__tokens:
+            token_req = self.query({'action': 'tokens', 'type': token_type})
+            self.__tokens[token_type] = token_req[token_type + 'token']
+        return self.__tokens[token_type]
 
     def connected(self):
         return self.__connection
@@ -63,11 +69,64 @@ class WikiConnect:
             url += self.__api_path
         return url
 
-    def request(self, base='api', params={}, method='get', use_cookie=False):
-        if method == 'post':
-            result = requests.post(self.url(base), params=params)
+    def request(self, base='api', params={}, method='get'):
+        if method is 'post':
+            headers = {
+                'content-type': 'application/x-www-form-urlencoded',
+            }
+            result = self.__session.post(self.url(base), data=params, headers=headers)
         else:
-            result = requests.get(self.url(base), params=params)
+            result = self.__session.get(self.url(base), params=params)
         return result
 
+    def query(self, params={}):
+        payload = {
+            'action': 'query',
+            'format': 'json',
+        }
+        for index in params:
+            payload[index] = params[index]
+        result = self.request('api', payload, 'get')
+        return result.json()[payload['action']]
+
+    def category_members(self, category):
+        category = category or self.config('wiki', 'category')
+        params = {
+            'list': 'categorymembers',
+            'cmtitle': 'category:' + category,
+            'cmsort': 'timestamp',
+            'cmdir': 'desc',
+        }
+        return self.query(params=params)
+
+    def category_titles(self, category):
+        cat_json = self.category_members(category)
+        category_members = cat_json['categorymembers']
+        titles = []
+        for article in category_members:
+            titles.append(article['title'])
+        return titles
+
+    def text(self, title):
+        payload = {
+            'action': 'raw',
+            'title': title,
+        }
+        result = self.request('index', payload, 'get')
+        return result
+
+    def push(self, title, text):
+        payload = {
+            'action': 'edit',
+            'title': title,
+            'section': 0,
+            'text': text,
+            'contentformat': 'text/x-wiki',
+            'contentmodel': 'wikitext',
+            'token': self.token('edit'),
+            'format': 'json',
+            'summary': '',
+        }
+        result = self.request('api', payload, 'post')
+        return result
 
