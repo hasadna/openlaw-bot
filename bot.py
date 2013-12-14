@@ -11,6 +11,7 @@ from argparse import ArgumentParser
 parser = ArgumentParser(description='Process law-source files to wiki-source.')
 parser.add_argument('titles', help='Wiki titles to fetch by the bot', nargs='*', metavar='TITLE', default=[])
 parser.add_argument('-d', '--dry-run', help='Run the process with no commit', dest='dry_run', action='store_true')
+parser.add_argument('-f', '--force', help='Force changing contents of destination', dest='force', action='store_true')
 parser.add_argument('-l', '--log', help='Set a custom log file', dest='log', type=str)
 # parser.add_argument('--log-level', help='Set a custom log level for console log', dest='log_level', type=str)
 parser.add_argument('-o', '--output', help='Output the final format', dest='output', action='store_true')
@@ -63,29 +64,31 @@ for title in titles:
     dst_title = title if not regex else regex.group(1)
     logger.info('working on title: %s', src_title)
 
-    dst_revisions = wiki.revisions(dst_title)
-    dst_page_id, dst_page = dst_revisions['pages'].popitem()
-    dst_revision = dst_page['revisions'][0]
-    logger.debug('destination comment: %s', dst_revision['comment'])
-
     src_revisions = wiki.revisions(src_title)
     src_page_id, src_page = src_revisions['pages'].popitem()
     logger.debug('page id is %s', src_page_id)
     src_revision = src_page['revisions'][0]
     logger.info('working on revision id %s', src_revision['revid'])
 
-    dst_comment_regex = re.search('^\[(\d+)]', dst_revision['comment'])
-    if not dst_comment_regex:
-        logger.debug('destination has no revid in comment, going forward')
-    else:
-        dst_revid = dst_comment_regex.group(1)
-        logger.debug('destination source revid: %s', dst_revid)
-        if dst_revid == str(src_revision['revid']):
-            logger.debug('destination revision id is %s', dst_revid)
-            logger.info('current source is already in final format, skipping')
-            continue
+    if not args.force:
+        dst_revisions = wiki.revisions(dst_title)
+        dst_page_id, dst_page = dst_revisions['pages'].popitem()
+        dst_revision = dst_page['revisions'][0]
+        logger.debug('destination comment: %s', dst_revision['comment'])
+        dst_comment_regex = re.search('^\[(\d+)]', dst_revision['comment'])
+        if not dst_comment_regex:
+            logger.debug('destination has no revid in comment, going forward')
         else:
-            logger.debug('destination source revid is different, going forward')
+            dst_revid = dst_comment_regex.group(1)
+            logger.debug('destination source revid: %s', dst_revid)
+            if dst_revid == str(src_revision['revid']):
+                logger.debug('destination revision id is %s', dst_revid)
+                logger.info('current source is already in final format, skipping')
+                continue
+            else:
+                logger.debug('destination source revid is different, going forward')
+    else:
+        logger.debug('skipping the check of destination source revid')
 
     dst_comment = '[' + str(src_revision['revid']) + ']'
     if src_revision['comment'] is not '':
