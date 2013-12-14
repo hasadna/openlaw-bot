@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import os
+#import os
+import re
 from subprocess import Popen, PIPE, STDOUT
 from wikiconnect import WikiConnect
 from argparse import ArgumentParser
@@ -24,8 +25,9 @@ titles = args.titles or wiki.category_titles(category)
 wiki.connect()
 
 for title in titles:
-    src_title = title + source_suffix
-    dst_title = title
+    regex = re.search('^(.*)/מקור$', title)
+    src_title = title + source_suffix if regex is None else title
+    dst_title = title if regex is None else regex.group(1)
 
     # dst_revisions = wiki.revisions(dst_art)
     # dst_page_id, dst_page = dst_revisions['pages'].popitem()
