@@ -353,7 +353,7 @@ while (@context > 0) {
 }
 printFooter();
 
-print "\n";
+# print "\n";
 
 1;
 
@@ -696,7 +696,7 @@ sub close_A_EXTERNAL {
 	# print STDERR "##  TEXT = $href{text}\n";
 	if ($href{type}==2) {
 		my $text = $href{text};
-		if ($text =~ /^[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו)/) {
+		if ($text =~ /^[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר המלך)/) {
 			$text = findExtRef($text);
 			if (!replaceAll('?HREF?', $text, 1)) {
 				print STDERR "ERROR: HREF not found...\n";
@@ -860,7 +860,7 @@ sub close_B {
 
 sub open_WIKI {
 	my $param = shift;
-	# push @context, "ויקי";
+	push @context, "ויקי";
 	$object{class} = $param;
 }
 
@@ -873,8 +873,10 @@ sub close_WIKI {
 		$textline = chomp($textline);
 		$textline = "{{$textline}}\n";
 	}
+	push @footer, @text;
 	push @footer, $textline;
 	$textline = '';
+	@text = ();
 }
 
 ###################################################################################################
@@ -942,14 +944,14 @@ sub makeENG {
 
 sub typeHREF {
 	shift;
-	return (/(\bו?[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|תקנון|דבר המלך)\b)|#/ ? 2 : 1);
+	return (/(\bו?[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר המלך)\b)|#/ ? 2 : 1);
 }
 
 sub findHREF {
 	$_ = shift;
 	if (!$_) { return $_; }
 
-	if (/\bו?[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|תקנון|דבר המלך)\b/p) {
+	if (/\bו?[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר המלך)\b/p) {
 		# print STDERR "GOT |${^PREMATCH}|${^MATCH}|${^POSTMATCH}|\n";
 		my $pre = findHREF(${^PREMATCH});
 		my $post = findExtRef(${^MATCH}.${^POSTMATCH});
@@ -1066,7 +1068,7 @@ sub findExtRef {
 	s/\,[^\,]*$//;
 	s/\[[^\]]*\]//g;
 	s/^\s*(.*?)\s*$/$1/;
-	s/^ו?[בהל]?(חוק|צו|פקודה|פקודת|תקנה|תקנות|תקנון|דבר המלך)/$1/;
+	s/^ו?[בהל]?(חוק|פקודה|פקודת|תקנה|תקנות|צו|החלטה|תקנון|דבר המלך)/$1/;
 	s/\s[-——]+\s/_XX_/g;
 	s/[-]+/ /g;
 	s/_XX_/ - /g;
@@ -1132,8 +1134,10 @@ sub printHeader {
 
 sub printFooter {
 	print "\n{{ח:סוף}}\n";
-	
-	print "\n" . join("\n", @footer) if (@footer);
+	if (@footer) {
+		print "\n";
+		print join("\n", @footer);
+	}
 }
 
 ## BIBLIOGRAPHY & INTRO ###############
@@ -1363,31 +1367,16 @@ sub printAppendix {
 
 sub printSignatures {
 	print "{{ח:חתימות}}\n";
-
-	# print "  $object{other}\n" if ($object{other});
-	# print "  <table border=\"0\" cellpadding=\"3\" cellspacing=\"0\" class=\"PARAGRAPH\" dir=\"rtl\" align=\"center\">\n";
 	my $line;
-	my $first = 1;
-	for $line (@text) {
-		$line =~ s/^\s*(.*?)\s*$/$1/;
-		return if (length($line)==0);
-		if ($first) {
-			# print "    <tr><td width=\"150\" align=\"center\">\n";
-			$first = 0;
-		} else {
-			# print "\n    <td width=\"150\" align=\"center\">\n";
-		}
-		if ($line =~ /^(.*?)\s*\|\s*(.*?)\s*$/) {
-			# print "      <b>$1</b><br>$2\n";
+	foreach $line (@text) {
+		last unless ($line =~ /^\s*[*]/);
+		if ($line =~ /^\s*\*\s*(.*?)\s*\|\s*(.*?)\s*$/) {
 			print "* '''$1'''<br>$2\n";
-		} elsif ($line =~ /^\s*(.*?)\s*$/) {
+		} elsif ($line =~ /^\s*\*\s*(.*?)\s*$/) {
 			print "* '''$1'''\n";
 		}
-		# print "    </td>";
 	}
-	# print "</tr>\n";
-	# print "  </table>\n";
-	# print "</td></tr>\n\n";
+	@text = ();
 }
 
 
