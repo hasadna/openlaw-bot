@@ -30,14 +30,12 @@ s/$/\n/s;          # Add last linefeed
 s/\n{3,}/\n\n/sg;  # Convert three+ linefeeds
 s/\n\n$/\n/sg;     # Remove last linefeed
 
+$_ = unescapeText($_);
 s/ - / -- /g;
 s/ -\n/ --\n/g;
-s/&quote;/"/g;
-s/&lt;/</g;
-s/&gt;/>/g;
-s/&ndash;/–/g;
-s/&amp;/&/g;
 s/(\S) ([,.:;])/$1$2/g;
+
+s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escapeText($1)/egs;
 
 # Parse various elements
 s/^<שם>\s*\n?(.*)\n/&parseTitle($1)/em;
@@ -52,14 +50,16 @@ s/^-{3,}$/<מפריד>\n/gm;
 
 # Parse links and remarks
 ## s/\[\[\s*([^]]*?)\s*\=\s*(.*?)\s*\]\]/&parseDefLink($1,$2)/egm;
-s/\[\[\[/\[\[ \[/g;
-s/\]\]\]/\] \]\]/g;
-s/\[\[\s*([^]]*?)\s*[|]\s*(.*?)\s*\]\]/&parseLink($1,$2)/egm;
-s/\[\[\s*(.*?)\s*\]\]/&parseLink('',$1)/egm;
+# s/\[\[\[/\[\[ \[/g;
+# s/\]\]\]/\] \]\]/g;
+s/(?<=[^\[])\[\[\s*([^]]*?)\s*[|]\s*(.*?)\s*\]\](?=[^\]])/&parseLink($1,$2)/egm;
+s/(?<=[^\[])\[\[\s*(.*?)\s*\]\](?=[^\]])/&parseLink('',$1)/egm;
 
-s/\(\(\s*(.*?)[|](.*?)\s*\)\)/&parseTip($1,$2)/egm;
-s/\(\(\s*(\(.*?\).*?)\s*\)\)/&parseRemark($1)/egm;
-s/\(\(\s*(.*?)\s*\)\)/&parseRemark($1)/egm;
+s/(?<=[^\(])\(\(\s*(.*?)[|](.*?)\s*\)\)(?=[^\)])/&parseTip($1,$2)/egs;
+s/(?<=[^\(])\(\(\s*(\(.*?\).*?)\s*\)\)(?=[^\)])/&parseRemark($1)/egs;
+s/(?<=[^\(])\(\(\s*(.*?)\s*\)\)(?=[^\)])/&parseRemark($1)/egs;
+
+s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&unescapeText($1)/egs;
 
 print $_;
 exit;
@@ -112,7 +112,7 @@ sub parseChapter {
 	$num =~ s/[.,]$//;
 	
 	my $str = "<$type $num>\n";
-	$str .= "<תיאור $desc>\n" if ($desc);
+	$str .= "<תיאור \"$desc\">\n" if ($desc);
 	$str .= "<תיקון $fix>\n" if ($fix);
 	$str .= "<אחר $extra>\n" if ($extra);
 	return $str;
@@ -129,6 +129,7 @@ sub parseLine {
 	my $str;
 	$str = "ת"x($len+($id?1:0));
 	$str = ($id ? "<$str $id>\n" : "<$str>\n");
+	$str .= '<הגדרה>' if ($line =~ s/^[-]\s*//);
 	$str .= "  $line\n" if (length($line)>0);
 	return $str;
 }
@@ -162,8 +163,8 @@ sub parseSignatures {
 	my $_ = shift;
 	my $str = "<חתימות>\n";
 	foreach (split("\n")) {
-		/\*\s*([^,]*)[,]\s*(.*)/;
-		$str .= "  $1 | $2\n";
+		/^\*\s*([^,|]*?)\s*[,|]\s*(.*?)\s*$/;
+		$str .= "* $1 | $2\n";
 	}
 	return $str;
 }
@@ -183,6 +184,27 @@ sub unparent {
 	s/^\[(.*?)\]$/$1/;
 	s/^\{(.*?)\}$/$1/;
 	s/^\s*(.*?)\s*$/$1/;
+	return $_;
+}
+
+sub escapeText {
+	my $_ = unquote(shift);
+#	print STDERR "|$_|";
+	s/&/\&amp;/g;
+	s/([(){}"'\[\]<>])/"&#" . ord($1) . ";"/ge;
+#	print STDERR "$_|\n";
+	return $_;
+}
+
+sub unescapeText {
+	my $_ = shift;
+	s/&#(\d+);/chr($1)/ge;
+	s/&quote;/"/g;
+	s/&lt;/</g;
+	s/&gt;/>/g;
+	s/&ndash;/–/g;
+	s/&amp;/&/g;
+#	print STDERR "|$_|\n";
 	return $_;
 }
 

@@ -1,0 +1,14 @@
+# Test and backup files
+test*
+*~
+*.bak
+*.rar
+
+# Credentials
+wiki_credentials.txt
+.mediawiki*
+
+# Various project files
+.settings
+.project
+
