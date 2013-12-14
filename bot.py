@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #import os
 import re
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen, PIPE
 from wikiconnect import WikiConnect
 from argparse import ArgumentParser
 
@@ -45,9 +45,9 @@ for title in titles:
 
     src_text = src_revision['*']
 
-    p1 = Popen('./syntax-wiki.pl', stdout=PIPE, stdin=PIPE, stderr=STDOUT, shell=True)
+    p1 = Popen('./syntax-wiki.pl', stdout=PIPE, stdin=PIPE, shell=True)
     w_syntax = p1.communicate(input=src_text.encode('utf8'))[0]
-    p2 = Popen('./format-wiki2.pl', stdout=PIPE, stdin=PIPE, stderr=STDOUT, shell=True)
+    p2 = Popen('./format-wiki2.pl', stdout=PIPE, stdin=PIPE, shell=True)
     w_format = p2.communicate(input=w_syntax)[0]
     if args.dry_run is False:
         result = wiki.push(dst_title, w_format.decode('utf8'), dst_comment)
