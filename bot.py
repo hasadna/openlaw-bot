@@ -95,7 +95,7 @@ for title in titles:
     p1 = Popen('./syntax-wiki.pl', stdout=PIPE, stdin=PIPE, shell=True)
     w_syntax = p1.communicate(input=src_text.encode('utf8'))[0]
     logger.info('parsed text syntax with syntax-wiki.pl')
-    p2 = Popen('./format-wiki2.pl', stdout=PIPE, stdin=PIPE, shell=True)
+    p2 = Popen('./format-wiki.pl', stdout=PIPE, stdin=PIPE, shell=True)
     w_format = p2.communicate(input=w_syntax)[0]
     logger.info('parsed text format with format-wiki2.pl')
     if args.dry_run is False:
