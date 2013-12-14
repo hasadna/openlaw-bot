@@ -66,6 +66,9 @@ for title in titles:
 
     src_revisions = wiki.revisions(src_title)
     src_page_id, src_page = src_revisions['pages'].popitem()
+    if src_page_id == '-1':
+        logger.info('page with title "%s" does not exist, skipping', src_title)
+        continue
     logger.debug('page id is %s', src_page_id)
     src_revision = src_page['revisions'][0]
     logger.info('working on revision id %s', src_revision['revid'])
