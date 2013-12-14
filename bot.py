@@ -29,7 +29,7 @@ file_formatter = logging.Formatter('%(asctime)s %(name)-12s %(levelname)-8s %(me
 file_logger.setFormatter(file_formatter)
 logger.addHandler(file_logger)
 
-if args.silent is not True:
+if not args.silent:
     console_logger = logging.StreamHandler()
     console_logger.setLevel(logging.ERROR)
     if args.verbose is True:
@@ -50,22 +50,23 @@ credential_file = 'config.ini'
 wiki = WikiConnect(credential_file)
 connected = wiki.connect()
 
-if args.title is []:
-    titles = args.title
-    logger.debug('got titles from input arguments')
-else:
+if not args.titles:
     titles = wiki.category_titles(category)
     logger.debug('got titles from category on wiki site')
+else:
+    titles = args.titles
+    logger.debug('got titles from input arguments')
 
 for title in titles:
     regex = re.search('^(.*)/מקור$', title)
-    src_title = title + source_suffix if regex is None else title
-    dst_title = title if regex is None else regex.group(1)
+    src_title = title + source_suffix if not regex else title
+    dst_title = title if not regex else regex.group(1)
     logger.info('working on title: %s', src_title)
 
-    # dst_revisions = wiki.revisions(dst_art)
-    # dst_page_id, dst_page = dst_revisions['pages'].popitem()
-    # dst_revision = dst_page['revisions'][0]
+    dst_revisions = wiki.revisions(dst_title)
+    dst_page_id, dst_page = dst_revisions['pages'].popitem()
+    dst_revision = dst_page['revisions'][0]
+    logger.debug('destination comment: %s', dst_revision['comment'])
 
     src_revisions = wiki.revisions(src_title)
     src_page_id, src_page = src_revisions['pages'].popitem()
@@ -73,12 +74,22 @@ for title in titles:
     src_revision = src_page['revisions'][0]
     logger.info('working on revision id %s', src_revision['revid'])
 
+    dst_comment_regex = re.search('^\[(\d+)]', dst_revision['comment'])
+    if not dst_comment_regex:
+        logger.debug('destination has no revid in comment, going forward')
+    else:
+        dst_revid = dst_comment_regex.group(1)
+        logger.debug('destination source revid: %s', dst_revid)
+        if dst_revid == str(src_revision['revid']):
+            logger.debug('destination revision id is %s', dst_revid)
+            logger.info('current source is already in final format, skipping')
+            continue
+        else:
+            logger.debug('destination source revid is different, going forward')
+
     dst_comment = '[' + str(src_revision['revid']) + ']'
     if src_revision['comment'] is not '':
         dst_comment += ' ' + src_revision['comment']
-
-    # print(dst_comment)
-
     src_text = src_revision['*']
 
     p1 = Popen('./syntax-wiki.pl', stdout=PIPE, stdin=PIPE, shell=True)
