@@ -50,6 +50,9 @@ logger.debug('using source suffix "%s"', source_suffix)
 credential_file = 'config.ini'
 wiki = WikiConnect(credential_file)
 connected = wiki.connect()
+if not connected:
+    logger.error('can\'t use connection to site, please check configuration')
+    exit()
 
 if not args.titles:
     titles = wiki.category_titles(category)
@@ -108,8 +111,10 @@ for title in titles:
         result = wiki.push(dst_title, w_format.decode('utf8'), dst_comment)
         logger.info('pushed final wikitext for page %s', dst_title)
         logger.debug('push comment is: %s', dst_comment)
-        for key in result:
-            logger.debug('key[%s]: %s', key, result[key])
+        if 'nochange' in result:
+            logger.info('page "%s" was not changed')
+        else:
+            logger.info('page "%s" was changed, new revid is %s', result['title'], result['newrevid'])
     if args.output_to is not None:
         logger.info('Output to file is not yet implemented... sorry!')
     if args.output is True:
