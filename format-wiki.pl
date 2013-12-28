@@ -4,6 +4,7 @@ use strict;
 no strict 'refs';
 use English;
 use utf8;
+use Data::Dumper;
 binmode STDOUT, "utf8";
 binmode STDERR, "utf8";
 
@@ -199,6 +200,11 @@ my %markup = (
 		init => "nop",
 		done => "printSignatures",
 	},
+	"פרסום" => {
+		context => 1,
+		init => "nop",
+		done => "printPubDate",
+	},
 
 	"לוח_השוואה" => {
 		context => 2,
@@ -276,7 +282,10 @@ my @text = ();
 my @text2 = ();
 my $textline;
 
-my @footer = ();
+my %global = ();
+@{$global{footer}} = ();
+$global{date} = '';
+
 
 while (my $line = <$FIN>) {
 	$textline = "";
@@ -319,7 +328,7 @@ while (my $line = <$FIN>) {
 			$curr = $command;
 			if ($level==1) { 
 				printText() if (scalar(@text));
-				%object = (); 
+				%object = ();
 				@text = ();
 			}
 		} elsif ($level==-1) {
@@ -360,7 +369,8 @@ printFooter();
 ###################################################################################################
 
 sub nop {
-	return;	
+	print STDERR "date = $object{date}\n" if (defined $object{date});
+	return;
 }
 
 ## PART SECTION SUBSECTION ############
@@ -696,7 +706,7 @@ sub close_A_EXTERNAL {
 	# print STDERR "##  TEXT = $href{text}\n";
 	if ($href{type}==2) {
 		my $text = $href{text};
-		if ($text =~ /^[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר המלך)/) {
+		if ($text =~ /^[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)/) {
 			$text = findExtRef($text);
 			if (!replaceAll('?HREF?', $text, 1)) {
 				print STDERR "ERROR: HREF not found...\n";
@@ -787,45 +797,50 @@ sub close_A_GENERIC {
 }
 
 sub processHREF {
-	my $text = findHREF($href{text});
+	my ($text,$ext) = findHREF($href{text});
 	my $helper = $href{helper};
 	my $marker = '';
 	
-	my $ext = findExtRef($text);
-	my $type = typeHREF($text);
+	# my $ext = findExtRef($text);
+	# my $type = typeHREF($text);
+	my $type = ($ext) ? 2 : 1;
 	
 	if ($type == 1) {
 		$ext = '';
 	}
 	
 	if ($helper eq "") {
-		replaceOnce('?HREF?',$text);
-	} elsif ($helper eq '$') {
-		$href{mark} = $ext;
+	} elsif ($helper =~ /^#\s*(.*)/) {
 		$type = 2;
-		replaceAll('?EXT?',$ext);
-		replaceOnce('?HREF?',$text);
-	} elsif ($helper =~ /^\$(.*)/) {
+		$ext = findExtRef($1);
+	} elsif ($helper =~ /^=\s*(.*)/) {
 		$type = 2;
 		$helper = $1;
-		$marker = "?EXT-$helper?";
 		$href{marks}{$helper} = $ext;
-		replaceAll($marker,$ext);
-		replaceOnce('?HREF?',$text);
 	} elsif ($helper eq "+") {
 		$type = 2;
 		replaceOnce('?HREF?','?EXT?#?HREF?');
-		replaceOnce('?HREF?',$text);
 	} elsif ($helper eq "-") {
 		$type = 2;
-		replaceOnce('?HREF?',$href{mark}.'#'.$text);
+		replaceOnce('?HREF?',$href{mark}.'#?HREF?');
 	} elsif ($helper) {
-		$helper = findHREF($helper);
+		($text,$ext) = findHREF($helper);
 		$type = typeHREF($helper);
-		replaceOnce('?HREF?',$helper);
+	} else {
+	}
+	
+	# if (($type==2) && ($ext)) {
+	if ($ext) {
+		$ext = $href{marks}{$ext} if ($href{marks}{$ext});
+		replaceOnce('?HREF?',$ext . ($text ? "#$text" : ""));
+		replaceAll('?EXT?',$ext);
+		$href{mark} = $ext;
 	} else {
 		replaceOnce('?HREF?',$text);
 	}
+	
+	# print STDERR "## X |$href{text}| X |$ext|$text| X |$helper|\n";
+	
 	return $type;
 }
 
@@ -873,8 +888,8 @@ sub close_WIKI {
 		$textline = chomp($textline);
 		$textline = "{{$textline}}\n";
 	}
-	push @footer, @text;
-	push @footer, $textline;
+	push @{$global{footer}}, @text;
+	push @{$global{footer}}, $textline;
 	$textline = '';
 	@text = ();
 }
@@ -944,23 +959,29 @@ sub makeENG {
 
 sub typeHREF {
 	shift;
-	return (/(\bו?[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר המלך)\b)|#/ ? 2 : 1);
+	return (/(\bו?[בהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b)|#/ ? 2 : 1);
 }
 
 sub findHREF {
-	$_ = shift;
+	my $_ = shift;
 	if (!$_) { return $_; }
-
-	if (/\bו?[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר המלך)\b/p) {
-		# print STDERR "GOT |${^PREMATCH}|${^MATCH}|${^POSTMATCH}|\n";
-		my $pre = findHREF(${^PREMATCH});
-		my $post = findExtRef(${^MATCH}.${^POSTMATCH});
-		$_ = $post;
-		$_ .= "#$pre" if ($pre);
-		return $_;
+	
+	my $ext = '';
+	
+	if (/^(.*?)\s*(\bו?[בהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b.*)$/) {
+		$_ = $1;
+		$ext = findExtRef($2);
+		# $ext = findExtRef($ext) unless ($3 =~ /^\s*([זה|זאת|זו])\s*/);
 	}
 	
-	# print STDERR "GOT |$_|\n";
+#	if (/(.*?)\bו?[בהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b/p) {
+#		# print STDERR "GOT |${^PREMATCH}|${^MATCH}|${^POSTMATCH}|\n";
+#		my ($link) = findHREF(${^PREMATCH});
+#		my $ext = findExtRef(${^MATCH}.${^POSTMATCH});
+#		$_ = $ext;
+#		$_ .= "#$link" if ($link);
+#		return ($link,$ext);
+#	}
 	
 	s/[\(_]/ ( /g;
 	s/[\"\']//g;
@@ -979,96 +1000,103 @@ sub findHREF {
 	s/[א-ת]*תשיעית?/9/g;
 	s/[א-ת]*עשירית?/10/g;
 	
-	#print STDERR "GOT |$_|\n";
-	my @parts = split /[ ,.\-\)]+/;
-
-	my $href = "";
-	my $level = 1;
-	my $class = undef;
-	my @found = (undef, undef, undef);
-
-	if (/part|חלק/) { $class = "חלק"; }
-	if (/sup|תוספת/) { $class = "תוספת"; }
-	if (/sec|פרק|סימ[נן]/) { $class = "פרק"; }
-	if (/chap|סעי[פף]|תקנ[הות]/) { $class = "סעיף"; }
+	if ($_) {
 	
-	foreach $_ (@parts) {
-		if (/chap|סעי[פף]|תקנ[הות]/) { 
-			$class = "סעיף";
-			$level = 1;
-		}
-		elsif (/קט[נן]|פסקה|פסקאות|משנה|\(|פריט/) {
-			$level = 2;
-		}
-		elsif (/part|חלק/) { 
-			$class = "חלק";
-			$level = 1;
-		}
-		elsif (/sec|פרק/) { 
-			$class = "פרק";
-			$level = 2;
-		}
-		elsif (/סימ[נן]/) {
-			$class = "סימן";
-			$level = 3;
-		}
-		elsif (/sup|תוספת/) { 
-			$class = "תוספת";
-			$level = 1;
-		}
-		elsif (/זה|זו|זאת/) {
-			if ($class eq "סעיף" && $level==1) {
-				$found[0] = $object{number} unless ($found[0]);
+		#print STDERR "GOT |$_|\n";
+		my @parts = split /[ ,.\-\)]+/;
+		
+		my $href = "";
+		my $level = 1;
+		my $class = undef;
+		my @found = (undef, undef, undef);
+		
+		if (/part|חלק/) { $class = "חלק"; }
+		if (/sup|תוספת/) { $class = "תוספת"; }
+		if (/sec|פרק|סימ[נן]/) { $class = "פרק"; }
+		if (/chap|סעי[פף]|תקנ[הות]/) { $class = "סעיף"; }
+		
+		foreach $_ (@parts) {
+			if (/chap|סעי[פף]|תקנ[הות]/) { 
+				$class = "סעיף";
+				$level = 1;
 			}
-			elsif ($class eq "סעיף" && $level==2) {
-				# $found[1] = $object{sub} unless ($found[1]);
+			elsif (/קט[נן]|פסקה|פסקאות|משנה|\(|פריט/) {
+				$level = 2;
 			}
-			elsif ($class eq "פרק" && $level==1) {
-				$found[0] = $part unless ($found[0]);
+			elsif (/part|חלק/) { 
+				$class = "חלק";
+				$level = 1;
 			}
-			elsif ($class eq "פרק" && $level==2) {
-				$found[1] = $section unless ($found[1]);
+			elsif (/sec|פרק/) { 
+				$class = "פרק";
+				$level = 2;
 			}
-			elsif ($class eq "פרק" && $level==3) {
-				$found[1] = $section unless ($found[1]);
-				$found[2] = $subsection unless ($found[2]);
+			elsif (/סימ[נן]/) {
+				$class = "סימן";
+				$level = 3;
 			}
-			elsif ($class eq "תוספת" && $level==1) {
+			elsif (/sup|תוספת/) { 
+				$class = "תוספת";
+				$level = 1;
+			}
+			elsif (/זה|זו|זאת/) {
+				if ($class eq "סעיף" && $level==1) {
+					$found[0] = $object{number} unless ($found[0]);
+				}
+				elsif ($class eq "סעיף" && $level==2) {
+					# $found[1] = $object{sub} unless ($found[1]);
+				}
+				elsif ($class eq "פרק" && $level==1) {
+					$found[0] = $part unless ($found[0]);
+				}
+				elsif ($class eq "פרק" && $level==2) {
+					$found[1] = $section unless ($found[1]);
+				}
+				elsif ($class eq "פרק" && $level==3) {
+					$found[1] = $section unless ($found[1]);
+					$found[2] = $subsection unless ($found[2]);
+				}
+				elsif ($class eq "תוספת" && $level==1) {
+				}
+			}
+			else {
+				$found[$level-1] = $_ unless ($found[$level-1]);
 			}
 		}
-		else {
-			$found[$level-1] = $_ unless ($found[$level-1]);
+		
+		$class = "סעיף" if (!$class);
+		if ($class eq "סעיף") {
+			$found[0] = $object{number} if (!$found[0]);
+			$found[1] = undef;
+			$found[2] = undef;
 		}
+		
+		$_ = $class;
+		$_ .= " " . $found[0] if ($found[0]);
+		$_ .= " " . $found[1] if ($found[1]);
+		$_ .= " " . $found[2] if ($found[2]);
 	}
-	
-	$class = "סעיף" if (!$class);
-	if ($class eq "סעיף") {
-		$found[0] = $object{number} if (!$found[0]);
-		$found[1] = undef;
-		$found[2] = undef;
-	}
-	
-	$_ = $class;
-	$_ .= " " . $found[0] if ($found[0]);
-	$_ .= " " . $found[1] if ($found[1]);
-	$_ .= " " . $found[2] if ($found[2]);
 	
 	s/  / /g;
-	return $_;
+	# print STDERR "GOT |$_|$ext|\n";
+	return ($_,$ext);
+	# return $_;
 }	
 
 sub findExtRef {
 	$_ = shift;
-	return $_ if (/^http:\/\//);
+	return $_ if (/^https?:\/\//);
 	tr/"'`//;
 	s/\(נוסח (חדש|משולב)\)//g;
 	s/\[נוסח (חדש|משולב)\]//g;
 #	s/(^[^\,\.]*).*/$1/;
+	s/#.*$//;
 	s/\.[^\.]*$//;
 	s/\,[^\,]*$//;
-	s/\[[^\]]*\]//g;
+	s/\[.*?\]//g;
 	s/^\s*(.*?)\s*$/$1/;
-	s/^ו?[בהל]?(חוק|פקודה|פקודת|תקנה|תקנות|צו|החלטה|תקנון|דבר המלך)/$1/;
+	s/^ו?[בהל]?(חוק|פקודה|פקודת|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b(.*)$/$1$2/;
+	return '' if ($2 eq 'זאת');
 	s/\s[-——]+\s/_XX_/g;
 	s/[-]+/ /g;
 	s/_XX_/ - /g;
@@ -1087,7 +1115,7 @@ sub replaceAll {
 	}
 	
 	$src =~ s/\\?\?/\\\?/g;
-	$dst =~ s/\\?\?/\\\?/g;
+	$dst =~ s/\\?\?/\?/g;
 	
 	my $count = my $total = shift;
 	$count = -1 unless ($count);
@@ -1122,7 +1150,6 @@ sub printError {
 	$textline = $textline . " <span class=\"ERROR\">&nbsp;$text&nbsp;</span> ";
 }
 
-
 ## HEADER & FOOTER ####################
 
 sub printHeader {
@@ -1134,16 +1161,15 @@ sub printHeader {
 
 sub printFooter {
 	print "\n{{ח:סוף}}\n";
-	if (@footer) {
+	if (@{$global{footer}}) {
 		print "\n";
-		print join("\n", @footer);
+		print join("\n", @{$global{footer}});
 	}
 }
 
 ## BIBLIOGRAPHY & INTRO ###############
 
 sub flushSeperator {
-	# push @text, "  <hr class=\"SEPERATOR\">\n";
 	push @text, "{{ח:מפריד}}\n";
 }
 
@@ -1151,25 +1177,19 @@ sub printBibiolography {
 	my $bib = join("\n", @text);
 	$bib = fixFormat($bib);
 	@text = ();
-	print <<EOF;
-{{ח:פתיח-התחלה}}
-$bib
-{{ח:פתיח-סוף}}
-
-EOF
+	print "{{ח:פתיח-התחלה}}\n";
+	print "$bib\n";
+	print "{{ח:סוגר}}\n";
+	print "{{ח:מפריד}}\n\n";
 }
 
 sub printIntro {
 	my $text = join("<br>\n  ", @text);
 	$text = fixFormat($text);
 	@text = ();
-	print <<EOF;
-<tr><td colspan="7" class="PARGRAPH BOLD">
-  $text
-  <br><br>
-</td></tr>
-
-EOF
+	print "{{ח:מבוא}}\n";
+	print "$text\n";
+	print "{{ח:סוגר}}\n\n";
 }
 
 sub printIntro2 {
@@ -1221,32 +1241,14 @@ sub printText {
 
 sub printChapter {
 	my @lines = @{$object{lines}};
-	my $rows = scalar(@{$object{lines}});
+#	my $rows = scalar(@{$object{lines}});
 	my $desc = fixFormat($object{desc});
 	my $number = makeENG($object{number});
 	my $fix; 
 	$fix = "תיקון: $object{fix}" if (defined $object{fix});
-	my $chap = "chap";
-	$chap = "sup_$supplemental" if ($supplemental);
+#	my $chap = "chap";
+#	$chap = "sup_$supplemental" if ($supplemental);
 	
-	# print "<tr><td ";
-	# print "rowspan=\"$rows\" " if ($rows>1);
-	# print "class=\"DESCRIPTION\">\n";
-	# print "  $desc<br>\n" if ($desc);
-	# print "  <span class=\"NOTE\">$fix</span>\n" if (defined $fix);
-	# print "</td>\n";
-	# print "<td ";
-	# print "rowspan=\"$rows\" " if ($rows>1);
-	# print "class=\"NUMBER1\">\n";
-	# print "  <a name=\"${chap}_$number\"></a>\n" unless ($object{noankor} || !$number);
-	# while ($object{ankors} && $#{$object{ankors}}) {
-	# 	$_ = shift @{$object{ankors}};
-	# 	print "  <a name=\"${chap}_" . $_ . "\"></a>\n";
-	# }
-	# print "  $object{number}.\n" if ($number);
-	# print "  <br><span class=\"NOTE\">$object{other}</span>\n" if defined ($object{other});
-	# print "</td>\n";
-
 	print "{{ח:סעיף|$number|$desc";
 	print "|$fix" if (defined $fix);
 	print "|אחר=$object{other}" if (defined $object{other});
@@ -1255,71 +1257,24 @@ sub printChapter {
 	my $first = 1;
 	my $line;
 	for $line (@lines) {
-		# print "<tr>" unless $first;
 		if ($line->{indent}==0 && !$first) { 
 			print "{{ח:ת}} ";
 		}
 		$first = 0;
-		if (defined $line->{sub}) {
-			# my $sub = makeENG($line->{sub});
-			# print "<td ";
-			# print "rowspan=\"$line->{scnt}\" " if ($line->{scnt}>1);
-			# print "class=\"NUMBER\">\n";
-			# print "  <a name=\"${chap}_${number}_$sub\"></a>\n" if ($line->{ankor});
-			# while ($line->{ankors} && $#{$line->{ankors}}) {
-			# 	$_ = shift @{$line->{ankors}};
-			# 	print "  <a name=\"${chap}_${number}_" . $_ . "\"></a>\n";
-			# }
-			# print "  ($line->{sub})\n"  if ($line->{sub});
-			# print "</td>\n";
-			print "{{ח:תת|$line->{sub}}} ";
-		}
-		if (defined $line->{ssub}) {
-			# print "<td ";
-			# print "rowspan=\"$line->{sscnt}\" " if ($line->{sscnt}>1);
-			# print "class=\"NUMBER\">\n";
-			# print "  ($line->{ssub})\n" if ($line->{ssub});
-			# print "</td>\n";
-			print "{{ח:תתת|$line->{ssub}}} ";
-		}
-		if (defined $line->{sssub}) {
-			# print "<td ";
-			# print "rowspan=\"$line->{ssscnt}\" " if ($line->{ssscnt}>1);
-			# print "class=\"NUMBER\">\n";
-			# print "  ($line->{sssub})\n"  if ($line->{sssub});
-			# print "</td>\n";
-			print "{{ח:תתתת|$line->{sssub}}} ";
-		}
-		if (defined $line->{ssssub}) {
-			# print "<td ";
-			# print "rowspan=\"$line->{sssscnt}\" " if ($line->{sssscnt}>1);
-			# print "class=\"NUMBER\">\n";
-			# print "  ($line->{ssssub})\n"  if ($line->{ssssub});
-			# print "</td>\n";
-			print "{{ח:תתתתת|$line->{ssssub}}} ";
-		}
-		my $colspan = 5 - $line->{indent};
-		# print "<td";
-		# print " colspan=\"$colspan\"" if ($colspan>1);
-		# print " class=\"$line->{class}\"" if defined $line->{class};
-		# print ">\n";
+		print "{{ח:תת|$line->{sub}}} " if (defined $line->{sub});
+		print "{{ח:תתת|$line->{ssub}}} " if (defined $line->{ssub});
+		print "{{ח:תתתת|$line->{sssub}}} " if (defined $line->{sssub});
+		print "{{ח:תתתתת|$line->{ssssub}}} " if (defined $line->{ssssub});
 		my $text = join("\n", @{$line->{text}});
 		$text = fixFormat($text);
 		if ($line->{class}) {
 			print "{{$line->{class}|$text}}\n"; 
 		} else {
-			print $text . "\n";
+			print "$text\n";
 		}
-		# print "</td></tr>\n";
-	}
-	if ($first) {
-		# print "<td colspan=\"5\" class=\"PARAGRAPH\">\n";
-		# print "  \n";
-		# print "</td></tr>\n";
 	}
 	
 	print "\n";
-
 }
 
 sub printAppendix {
@@ -1366,7 +1321,9 @@ sub printAppendix {
 ## SIGNATURES #########################
 
 sub printSignatures {
-	print "{{ח:חתימות}}\n";
+	print "{{ח:חתימות";
+	print "|" . $global{date} if (defined $global{date});
+	print "}}\n";
 	my $line;
 	foreach $line (@text) {
 		last unless ($line =~ /^\s*[*]/);
@@ -1376,9 +1333,18 @@ sub printSignatures {
 			print "* '''$1'''\n";
 		}
 	}
+	print "{{ח:סוגר}}\n";
 	@text = ();
 }
 
+sub printPubDate {
+	my $text = join("\n", @text);
+	@text = ();
+	return if ($text !~ /\S/);
+	return if (scalar(@text));
+	$global{date} = $text;
+	# print "{{ח:ת}}<small>$text</small>{{ח:סוגר}}\n";
+}
 
 sub initCompareTable {
 	@text2 = @text;
