@@ -53,6 +53,7 @@ s/^-{3,}$/<מפריד>\n/gm;
 s/^=([^=].*)=/&parseTitle($1)/em;
 s/^(==+)([^=]+?)\1/&parseSection($2)/egm;
 s/^<סעיף (\S+)>(.*)\n/&parseChapter($1,$2,"סעיף")/egm;
+s/^@\s*(\d\S*)\s*\n/&parseChapter($1,"","סעיף")/egm;
 s/^@\s*(\d\S*)\s*(.*)\n/&parseChapter($1,$2,"סעיף")/egm;
 s/^@\s*(\S+)\s+(\S+)\s+(.*)\n/&parseChapter($2,$3,$1)/egm;
 s/^([:]+)\s*(\(\S+\)|)\s*(.*)\n/&parseLine(length($1),$2,$3)/egm;

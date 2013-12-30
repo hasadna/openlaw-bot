@@ -825,7 +825,7 @@ sub processHREF {
 		replaceOnce('?HREF?',$href{mark}.'#?HREF?');
 	} elsif ($helper) {
 		($text,$ext) = findHREF($helper);
-		$type = typeHREF($helper);
+		$type = ($ext) ? 2 : 1;
 	} else {
 	}
 	
@@ -974,6 +974,11 @@ sub findHREF {
 		# $ext = findExtRef($ext) unless ($3 =~ /^\s*([זה|זאת|זו])\s*/);
 	}
 	
+	if (/^(.*)#(.*)$/) {
+		$_ = $2;
+		$ext = findExtRef($1);
+	}
+
 #	if (/(.*?)\bו?[בהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b/p) {
 #		# print STDERR "GOT |${^PREMATCH}|${^MATCH}|${^POSTMATCH}|\n";
 #		my ($link) = findHREF(${^PREMATCH});
@@ -1040,6 +1045,7 @@ sub findHREF {
 				$level = 1;
 			}
 			elsif (/זה|זו|זאת/) {
+				$class = "סעיף" if (!defined $class);
 				if ($class eq "סעיף" && $level==1) {
 					$found[0] = $object{number} unless ($found[0]);
 				}
@@ -1084,7 +1090,7 @@ sub findHREF {
 }	
 
 sub findExtRef {
-	$_ = shift;
+	my $_ = shift;
 	return $_ if (/^https?:\/\//);
 	tr/"'`//;
 	s/\(נוסח (חדש|משולב)\)//g;
@@ -1095,8 +1101,10 @@ sub findExtRef {
 	s/\,[^\,]*$//;
 	s/\[.*?\]//g;
 	s/^\s*(.*?)\s*$/$1/;
-	s/^ו?[בהל]?(חוק|פקודה|פקודת|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b(.*)$/$1$2/;
-	return '' if ($2 eq 'זאת');
+	if (/^ו?[בהל]?(חוק|פקודה|פקודת|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b(.*)$/) {
+		$_ = "$1$2";
+		return '' if ($2 eq 'זאת');
+	}
 	s/\s[-——]+\s/_XX_/g;
 	s/[-]+/ /g;
 	s/_XX_/ - /g;
@@ -1184,12 +1192,13 @@ sub printBibiolography {
 }
 
 sub printIntro {
-	my $text = join("<br>\n  ", @text);
+	my $text = join("<br>\n", @text);
 	$text = fixFormat($text);
 	@text = ();
 	print "{{ח:מבוא}}\n";
 	print "$text\n";
-	print "{{ח:סוגר}}\n\n";
+	print "{{ח:סוגר}}\n";
+	print "{{ח:מפריד}}\n\n";
 }
 
 sub printIntro2 {
