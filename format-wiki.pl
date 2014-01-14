@@ -543,7 +543,7 @@ sub flushText {
 	$object{sssub} = undef;
 	$object{ssssub} = undef;
 	@text = ();
-	$href{mark} = undef;
+	# $href{mark} = undef;
 	$object{ankors2} = undef;
 }
 

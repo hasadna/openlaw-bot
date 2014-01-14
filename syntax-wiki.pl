@@ -49,6 +49,7 @@ s/^<שם>\s*\n?(.*)\n/&parseTitle($1)/em;
 s/^<חתימות>\s*\n?(((\*.*\n)+)|(.*\n))/&parseSignatures($1)/egm;
 s/^<פרסום>\s*\n?(.*)\n/&parsePubDate($1)/egm;
 # s/^<מקור>\s*\n?(.*)\n\n/<מקור>\n$1\n<\\מקור>\n\n/egm;
+s/^<(מבוא|הקדמה)>\s*\n?/<הקדמה>\n/gm;
 s/^-{3,}$/<מפריד>\n/gm;
 s/^=([^=].*)=/&parseTitle($1)/em;
 s/^(==+)([^=]+?)\1/&parseSection($2)/egm;
@@ -56,7 +57,7 @@ s/^<סעיף (\S+)>(.*)\n/&parseChapter($1,$2,"סעיף")/egm;
 s/^@\s*(\d\S*)\s*\n/&parseChapter($1,"","סעיף")/egm;
 s/^@\s*(\d\S*)\s*(.*)\n/&parseChapter($1,$2,"סעיף")/egm;
 s/^@\s*(\S+)\s+(\S+)\s+(.*)\n/&parseChapter($2,$3,$1)/egm;
-s/^([:]+)\s*(\(\S+\)|)\s*(.*)\n/&parseLine(length($1),$2,$3)/egm;
+s/^([:]+)\s*(\([^( ]+\)|)\s*(.*)\n/&parseLine(length($1),$2,$3)/egm;
 
 # Parse links and remarks
 s/(?<=[^\[])\[\[\s*([^\]]*?)\s*[|]\s*(.*?)\s*\]\](?=[^\]])/&parseLink($1,$2)/egm;
@@ -81,7 +82,7 @@ sub parseTitle {
 	$_ = unquote($_);
 	my $str = "<כותרת>\n";
 	$str .= "<תיקון $fix>\n" if ($fix);
-	$str .= "  $_\n";
+	$str .= "$_\n";
 	return $str;
 }
 
@@ -97,12 +98,13 @@ sub parseSection {
 		/(\S+)\s*[:]/ || /\S+\s+(\S+)/;
 		$num = $1;
 	}
-	$fix = unquote($1) if (s/\(תיקון[:]?\s*([^)]+)\s*\)//);
+	$fix = unquote($1) if (s|\(תי?קון:?\s*(.*?)\s*\)||);
+	$fix = unquote($1) if (s|\[תי?קון:?\s*(.*?)\s*\]||);
 	$num =~ s/[.,'"]//;
 	($type) = /^(\S+)/;
 	my $str = "<$type $num>\n";
 	$str .= "<תיקון $fix>\n" if ($fix);
-	$str .= "  $_";
+	$str .= "$_";
 	return $str;
 }
 
@@ -111,7 +113,9 @@ sub parseChapter {
 	my (@fix, $fix, $extra);
 	
 	@fix = ();
-	push @fix, unquote($1) while ($desc =~ s/[\(\[\<\{]תי?קון[:]?(.*?)[\)\]\>\}]//);
+	push @fix, unquote($1) while ($desc =~ s/\[\s*תי?קון:?\s*(.*?)\s*\]//);
+	push @fix, unquote($1) while ($desc =~ s/\(\s*תי?קון:?\s*(.*?)\s*\)//);
+	# ($desc =~ s/(\[)\s*תי?קון:?\s*(.*?)\s*${bracket_match($1)}//);
 	$fix = join(', ',@fix);
 	$extra = unquote($1) if ($desc =~ s/\[([^]]+)\s*\]$//);
 	
@@ -127,6 +131,7 @@ sub parseChapter {
 
 sub parseLine {
 	my ($len,$id,$line) = @_;
+	# print STDERR "|$id|$line|\n";
 	if ($id =~ /\(\(/) {
 		# ((remark))
 		$line = $id.$line;
@@ -149,13 +154,6 @@ sub parseLink {
 	$str = ($id ? "<קישור $id>$txt</>" : "<קישור>$txt</>");
 	return $str;
 }
-
-# sub parseDefLink {
-# 	my ($id,$txt) = @_;
-# 	$id = unquote($id);
-# 	$txt = unquote($txt);
-# 	return "<קישור \"$id\" = \"$txt\"/>";
-# }
 
 sub parseRemark {
 	my ($text,$tip) = @_;
@@ -221,6 +219,15 @@ sub unescapeText {
 	s/&nbsp;/ /g;
 	s/&amp;/&/g;
 #	print STDERR "|$_|\n";
+	return $_;
+}
+
+
+sub bracket_match {
+	my $_ = shift;
+	print STDERR "Bracket = $_ -> ";
+	tr/([{<>}])/)]}><{[(/;
+	print STDERR "$_\n";
 	return $_;
 }
 
