@@ -8,6 +8,8 @@ use Data::Dumper;
 binmode STDOUT, "utf8";
 binmode STDERR, "utf8";
 
+use constant { true => 1, false => 0 };
+
 #    TODO List
 # 
 #  * EOF with remaining text.
@@ -800,6 +802,7 @@ sub processHREF {
 	my ($text,$ext) = findHREF($href{text});
 	my $helper = $href{helper};
 	my $marker = '';
+	my $found = false;
 	
 	# my $ext = findExtRef($text);
 	# my $type = typeHREF($text);
@@ -809,10 +812,16 @@ sub processHREF {
 		$ext = '';
 	}
 	
-	if ($helper eq "") {
-	} elsif ($helper =~ /^#\s*(.*)/) {
+	if ($helper =~ /^(.*?) *# *(.*)/) {
 		$type = 2;
-		$ext = findExtRef($1);
+		$helper = $1;
+		($text, undef) = findHREF($2);
+		$ext = '';
+		$found = true;
+	}
+	
+	if ($helper eq "") {
+		# Do nothing;
 	} elsif ($helper =~ /^=\s*(.*)/) {
 		$type = 2;
 		$helper = $1;
@@ -820,11 +829,17 @@ sub processHREF {
 	} elsif ($helper eq "+") {
 		$type = 2;
 		replaceOnce('?HREF?','?EXT?#?HREF?');
+		$ext = '';
 	} elsif ($helper eq "-") {
 		$type = 2;
 		replaceOnce('?HREF?',$href{mark}.'#?HREF?');
+		$ext = '';
 	} elsif ($helper) {
-		($text,$ext) = findHREF($helper);
+		if ($found) {
+			(undef,$ext) = findHREF($helper);
+		} else {
+			($text,$ext) = findHREF($helper);
+		}
 		$type = ($ext) ? 2 : 1;
 	} else {
 	}
