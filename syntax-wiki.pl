@@ -57,7 +57,7 @@ s/^<סעיף (\S+)>(.*)\n/&parseChapter($1,$2,"סעיף")/egm;
 s/^@\s*(\d\S*)\s*\n/&parseChapter($1,"","סעיף")/egm;
 s/^@\s*(\d\S*)\s*(.*)\n/&parseChapter($1,$2,"סעיף")/egm;
 s/^@\s*(\S+)\s+(\S+)\s+(.*)\n/&parseChapter($2,$3,$1)/egm;
-s/^([:]+)\s*(\([^( ]+\)|)\s*(.*)\n/&parseLine(length($1),$2,$3)/egm;
+s/^([:]+) *(\([^( ]+\)|) *(.*)\n/&parseLine(length($1),$2,$3)/egm;
 
 # Parse links and remarks
 s/(?<=[^\[])\[\[\s*([^\]]*?)\s*[|]\s*(.*?)\s*\]\](?=[^\]])/&parseLink($1,$2)/egm;
@@ -124,11 +124,11 @@ sub parseChapter {
 	my (@fix, $fix, $extra);
 	
 	@fix = ();
-	push @fix, unquote($1) while ($desc =~ s/\[ *תי?קון:? *(.*?) *\]//);
-	push @fix, unquote($1) while ($desc =~ s/\( *תי?קון:? *(.*?) *\)//);
+	push @fix, unquote($1) while ($desc =~ s/\w\[ *תי?קון:? *(.*?) *\]//);
+	push @fix, unquote($1) while ($desc =~ s/\w\( *תי?קון:? *(.*?) *\)//);
 	# ($desc =~ s/(\[)\s*תי?קון:?\s*(.*?)\s*${bracket_match($1)}//);
 	$fix = join(', ',@fix);
-	$extra = unquote($1) if ($desc =~ s/\[([^]]+) *\]$//);
+	$extra = unquote($1) if ($desc =~ s/\w\[([^\]\]]+) *\]$//);
 	
 	$desc = unquote($desc);
 	$num =~ s/[.,]$//;
@@ -154,7 +154,8 @@ sub parseLine {
 	$str = "ת"x($len+($id?1:0));
 	$str = ($id ? "<$str $id> " : "<$str> ");
 	$str .= "<הגדרה> " if ($line =~ s/^[-–] *//);
-	$str .= "$line\n" if (length($line)>0);
+	$str .= "$line" if (length($line)>0);
+	$str .= "\n";
 	return $str;
 }
 
