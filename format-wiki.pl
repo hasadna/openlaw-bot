@@ -50,7 +50,7 @@ my %markup = (
 		context => 0,
 		done => "printFooter",
 	},
-	"כותרת" => {
+	"שם" => {
 		context => 1,
 		done => "printHeader",
 	},
@@ -1178,7 +1178,7 @@ sub printFooter {
 ## BIBLIOGRAPHY & INTRO ###############
 
 sub flushSeperator {
-	push @text, "{{ח:מפריד}}\n";
+	push @text, "{{ח:מפריד}}";
 }
 
 sub printBibiolography {
@@ -1192,7 +1192,7 @@ sub printBibiolography {
 }
 
 sub printIntro {
-	my $text = join("<br>\n", @text);
+	my $text = join("\n\n", @text);
 	$text = fixFormat($text);
 	@text = ();
 	print "{{ח:מבוא}}\n";
