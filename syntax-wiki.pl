@@ -128,7 +128,7 @@ sub parseChapter {
 	push @fix, unquote($1) while ($desc =~ s/\w\( *תי?קון:? *(.*?) *\)//);
 	# ($desc =~ s/(\[)\s*תי?קון:?\s*(.*?)\s*${bracket_match($1)}//);
 	$fix = join(', ',@fix);
-	$extra = unquote($1) if ($desc =~ s/\w\[([^\]\]]+) *\]$//);
+	$extra = unquote($1) if ($desc =~ s/\w\[ *([^\[\]]+) *\]$//);
 	
 	$desc = unquote($desc);
 	$num =~ s/[.,]$//;

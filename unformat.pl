@@ -28,11 +28,18 @@ $_ = decode("Guess", $_);
 
 # General cleanup
 s/\r//g;           # Unix style, no CR
-s/^[ \t]+//mg;     # Remove redundant whitespaces
-s/[ \t]+$//mg;     # Remove redundant whitespaces
+s/[\t\xA0]/ /g;    # Tab and hardspace are whitespaces
+s/^[ ]+//mg;       # Remove redundant whitespaces
+s/[ ]+$//mg;       # Remove redundant whitespaces
 s/$/\n/s;          # Add last linefeed
 s/\n{3,}/\n\n/sg;  # Convert three+ linefeeds
 s/\n\n$/\n/sg;     # Remove last linefeed
+
+s/[\x{200E}\x{200F}\x{202A}-\x{202E}]//g; # Throw away LTR/RTL characters
+s/[־–—‒―]/-/g;     # All type of dashes
+s/[״”“„]/"/g;      # All type of double quotes
+s/[`׳’‘‚]/'/g;     # All type of single quotes
+s/[ ]{2,}/ /g;     # Pack  long spaces
 
 # s/ - / -- /g;
 # s/ -\n/ --\n/g;
