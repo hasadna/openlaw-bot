@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 
+use v5.14;
 use strict;
 no strict 'refs';
 use English;
@@ -38,21 +39,20 @@ s/[״”“„]/"/g;      # All type of double quotes
 s/[`׳’‘‚]/'/g;     # All type of single quotes
 s/[ ]{2,}/ /g;     # Pack  long spaces
 
-s/ - / – /g;
-s/ -\n/ –\n/g;
+s/([ :])-([ \n])/$1–$2/g;
 s/(\S) ([,.:;])/$1$2/g;
 
 s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escapeText($1)/egs;
 
 # Parse various elements
-s/^<שם>\s*\n?(.*)\n/&parseTitle($1)/em;
+s/^(?|<שם>\s*\n?(.*)|=([^=].*)=)\n/&parseTitle($1)/em; # Once!
 s/^<חתימות>\s*\n?(((\*.*\n)+)|(.*\n))/&parseSignatures($1)/egm;
 s/^<פרסום>\s*\n?(.*)\n/&parsePubDate($1)/egm;
 # s/^<מקור>\s*\n?(.*)\n\n/<מקור>\n$1\n<\\מקור>\n\n/egm;
 s/^<(מבוא|הקדמה)>\s*\n?/<הקדמה>\n/gm;
-s/^-{3,}$/<מפריד>\n/gm;
-s/^=([^=].*)=/&parseTitle($1)/em;
-s/^(==+)([^=]+?)\1/&parseSection($2)/egm;
+s/^-{3,}$/<מפריד>/gm;
+
+s/^(=+)(.*?)\1$/&parseSection(length($1),$2)/egm;
 s/^<סעיף (\S+)>(.*)\n/&parseChapter($1,$2,"סעיף")/egm;
 s/^@\s*(\d\S*)\s*\n/&parseChapter($1,"","סעיף")/egm;
 s/^@\s*(\d\S*)\s*(.*)\n/&parseChapter($1,$2,"סעיף")/egm;
@@ -75,34 +75,45 @@ exit;
 sub parseTitle {
 	my $_ = shift;
 	my $fix;
-	if (/\(תיקון[:]?\s*([^)]+)\s*\)/) {
-		$fix = unquote($1);
-		s/\(תיקון[:]?\s*([^)]+)\s*\)//;
-	}
+	$fix = unquote($1) if (s|\(תיקון[:]? *([^)]+) *\)/||);
 	$_ = unquote($_);
-	my $str = "<כותרת>\n";
+	my $str = "<שם>\n";
 	$str .= "<תיקון $fix>\n" if ($fix);
 	$str .= "$_\n";
 	return $str;
 }
 
 sub parseSection {
-	my $_ = shift;
-	my ($type, $num, $fix);
+	my ($type, $_) = @_;
+	my ($name, $num, $fix);
+	
+	given ($type) {
+		$type = 'חלק' when (1);
+		$type = 'פרק' when (2);
+		$type = 'סימן' when (3);
+		$type = 'תתסימן' when (4);
+		default { $type = 'פרק' }
+	}
 	
 	$_ = unquote($_);
 	if (/^\((.*?)\)/) {
 		$num = $1;
 		s/^\((.*?)\)\s*//;
 	} else {
-		/(\S+)\s*[:]/ || /\S+\s+(\S+)/;
+		/(\S+)( *:| +[-])/ or /\S+\s+(\S+)/;
 		$num = $1;
 	}
 	$fix = unquote($1) if (s|\(תי?קון:?\s*(.*?)\s*\)||);
 	$fix = unquote($1) if (s|\[תי?קון:?\s*(.*?)\s*\]||);
 	$num =~ s/[.,'"]//;
-	($type) = /^(\S+)/;
-	my $str = "<$type $num>\n";
+	($name) = /^(\S+)/;
+	
+	my $str;
+	if ($name =~ /\b(חלק|פרק|סימן|תוספת|טופס)\b/) {
+		$str = "<$name $num>\n" 
+	} else {
+		$str = "<$type>\n";
+	}
 	$str .= "<תיקון $fix>\n" if ($fix);
 	$str .= "$_";
 	return $str;
@@ -113,11 +124,11 @@ sub parseChapter {
 	my (@fix, $fix, $extra);
 	
 	@fix = ();
-	push @fix, unquote($1) while ($desc =~ s/\[\s*תי?קון:?\s*(.*?)\s*\]//);
-	push @fix, unquote($1) while ($desc =~ s/\(\s*תי?קון:?\s*(.*?)\s*\)//);
+	push @fix, unquote($1) while ($desc =~ s/\[ *תי?קון:? *(.*?) *\]//);
+	push @fix, unquote($1) while ($desc =~ s/\( *תי?קון:? *(.*?) *\)//);
 	# ($desc =~ s/(\[)\s*תי?קון:?\s*(.*?)\s*${bracket_match($1)}//);
 	$fix = join(', ',@fix);
-	$extra = unquote($1) if ($desc =~ s/\[([^]]+)\s*\]$//);
+	$extra = unquote($1) if ($desc =~ s/\[([^]]+) *\]$//);
 	
 	$desc = unquote($desc);
 	$num =~ s/[.,]$//;
@@ -142,7 +153,7 @@ sub parseLine {
 	my $str;
 	$str = "ת"x($len+($id?1:0));
 	$str = ($id ? "<$str $id> " : "<$str> ");
-	$str .= "<הגדרה> " if ($line =~ s/^[-]\s*//);
+	$str .= "<הגדרה> " if ($line =~ s/^[-–] *//);
 	$str .= "$line\n" if (length($line)>0);
 	return $str;
 }
