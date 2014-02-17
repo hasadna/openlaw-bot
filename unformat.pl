@@ -9,7 +9,7 @@ use Encode::Guess qw/windows-1255 utf8/;
 
 if ($#ARGV>=0) {
         my $fin = $ARGV[0];
-        my $fout = $fin;
+        my $fout = ($#ARGV>=1 ? $ARGV[1] : $fin);
         $fout =~ s/(.*)\.[^.]*/$1.src/;
         open(my $FIN,$fin) || die "Cannot open file \"$fin\"!\n";
         open(STDOUT, ">$fout") || die "Cannot open file \"$fout\"!\n";
