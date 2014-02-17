@@ -33,14 +33,14 @@ s/$/\n/s;          # Add last linefeed
 s/\n{3,}/\n\n/sg;  # Convert three+ linefeeds
 s/\n\n$/\n/sg;     # Remove last linefeed
 
-s/[‎‏]//g;           # Throw away LTR/RTL characters
+s/[\x{200E}\x{200F}\x{202A}-\x{202E}]//g; # Throw away LTR/RTL characters
 s/[־–—‒―]/-/g;     # All type of dashes
 s/[״”“„]/"/g;      # All type of double quotes
 s/[`׳’‘‚]/'/g;     # All type of single quotes
 s/[ ]{2,}/ /g;     # Pack  long spaces
 
 s/([ :])-([ \n])/$1–$2/g;
-s/(\S) ([,.:;])/$1$2/g;
+s/([א-ת]) ([,.:;])/$1$2/g;
 
 s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escapeText($1)/egs;
 
@@ -52,18 +52,22 @@ s/^<פרסום>\s*\n?(.*)\n/&parsePubDate($1)/egm;
 s/^<(מבוא|הקדמה)>\s*\n?/<הקדמה>\n/gm;
 s/^-{3,}$/<מפריד>/gm;
 
-s/^(=+)(.*?)\1$/&parseSection(length($1),$2)/egm;
-s/^<סעיף (\S+)>(.*)\n/&parseChapter($1,$2,"סעיף")/egm;
-s/^@\s*(\d\S*)\s*\n/&parseChapter($1,"","סעיף")/egm;
-s/^@\s*(\d\S*)\s*(.*)\n/&parseChapter($1,$2,"סעיף")/egm;
-s/^@\s*(\S+)\s+(\S+)\s+(.*)\n/&parseChapter($2,$3,$1)/egm;
-s/^([:]+) *(\([^( ]+\)|) *(.*)\n/&parseLine(length($1),$2,$3)/egm;
-
 # Parse links and remarks
 s/(?<=[^\[])\[\[\s*([^\]]*?)\s*[|]\s*(.*?)\s*\]\](?=[^\]])/&parseLink($1,$2)/egm;
 s/(?<=[^\[])\[\[\s*(.*?)\s*\]\](?=[^\]])/&parseLink('',$1)/egm;
 
 s/(?<=[^\(])\(\(\s*(.*?)\s*(?:\s*[|]\s*(.*?)\s*)?\)\)(?=[^\)])/&parseRemark($1,$2)/egs;
+
+# Parse structured elements
+s/^(=+)(.*?)\1\n/&parseSection(length($1),$2)/egm;
+s/^<סעיף *(.*?)>(.*?)\n/&parseChapter($1,$2,"סעיף")/egm;
+s/^(@.*?) ([:]+ .*)$/$1\n$2/gm;
+s/^@ *(\d\S*) *\n/&parseChapter($1,"","סעיף")/egm;
+s/^@ *(\d\S*) *(.*?)\n/&parseChapter($1,$2,"סעיף")/egm;
+s/^@ *(\(.*?\)) *(.*?)\n/&parseChapter($1,$2,"סעיף*")/egm;
+s/^@ *(.*?)\n/&parseChapter("",$1,"סעיף*")/egm;
+s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3/gm;
+s/^([:]+) *(\([^( ]+\)|) *(.*)\n/&parseLine(length($1),$2,$3)/egm;
 
 s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&unescapeText($1)/egs;
 
@@ -74,10 +78,10 @@ exit;
 
 sub parseTitle {
 	my $_ = shift;
-	my $fix;
-	$fix = unquote($1) if (s|\(תיקון[:]? *([^)]+) *\)/||);
+	my ($fix, $str);
 	$_ = unquote($_);
-	my $str = "<שם>\n";
+	($_, $fix) = get_fixstr($_);
+	$str = "<שם>\n";
 	$str .= "<תיקון $fix>\n" if ($fix);
 	$str .= "$_\n";
 	return $str;
@@ -96,16 +100,16 @@ sub parseSection {
 	}
 	
 	$_ = unquote($_);
+	($_, $fix) = get_fixstr($_);
+	
 	if (/^\((.*?)\)/) {
 		$num = $1;
 		s/^\((.*?)\)\s*//;
 	} else {
-		/(\S+)( *:| +[-])/ or /\S+\s+(\S+)/;
+		/^(\S+)( *:| +[-])/ or /^\S+\s+(\S+)/;
 		$num = $1;
 	}
-	$fix = unquote($1) if (s|\(תי?קון:?\s*(.*?)\s*\)||);
-	$fix = unquote($1) if (s|\[תי?קון:?\s*(.*?)\s*\]||);
-	$num =~ s/[.,'"]//;
+	$num = get_numeral($num);
 	($name) = /^(\S+)/;
 	
 	my $str;
@@ -115,22 +119,17 @@ sub parseSection {
 		$str = "<$type>\n";
 	}
 	$str .= "<תיקון $fix>\n" if ($fix);
-	$str .= "$_";
+	$str .= "$_\n";
 	return $str;
 }
 
 sub parseChapter {
 	my ($num, $desc,$type) = @_;
-	my (@fix, $fix, $extra);
-	
-	@fix = ();
-	push @fix, unquote($1) while ($desc =~ s/\w\[ *תי?קון:? *(.*?) *\]//);
-	push @fix, unquote($1) while ($desc =~ s/\w\( *תי?קון:? *(.*?) *\)//);
-	# ($desc =~ s/(\[)\s*תי?קון:?\s*(.*?)\s*${bracket_match($1)}//);
-	$fix = join(', ',@fix);
-	$extra = unquote($1) if ($desc =~ s/\w\[ *([^\[\]]+) *\]$//);
+	my ($fix, $extra);
 	
 	$desc = unquote($desc);
+	($desc, $fix) = get_fixstr($desc);
+	$extra = unquote($1) if ($desc =~ s/(?<=[^\[])\[ *([^\[\]]+) *\]$//);
 	$num =~ s/[.,]$//;
 	
 	my $str = "<$type $num>\n";
@@ -195,11 +194,43 @@ sub parsePubDate {
 	return "<פרסום>\n  $_\n"
 }
 
+
+sub get_fixstr {
+	my $_ = shift;
+	my @fix = ();
+	push @fix, unquote($1) while (s/ *\[ *תי?קון:? *(.*?) *\]//);
+	push @fix, unquote($1) while (s/ *\( *תי?קון:? *(.*?) *\)//);
+	return ($_, join(', ',@fix));
+}
+
+sub get_numeral {
+	my $_ = shift;
+	my $num = "";
+	s/[.,'"]//g;
+	$_ = unparent($_);
+	given ($_) {
+		$num = $1 when /\b(\d+(([א-י]|טו|טז|[כלמנ][א-ט]?|)\d*|))\b/;
+		$num = $1 when /\b(([א-י]|טו|טז|[כלמנ][א-ט]?)(\d+[א-י]*|))\b/;
+		$num = "1" when /\b(ה?ראשו(ן|נה)|אח[דת])\b/;
+		$num = "2" when /\b(ה?שניי?ה?|ש[תנ]יי?ם)\b/;
+		$num = "3" when /\b(ה?שלישית?|שלושה?)\b/;
+		$num = "4" when /\b(ה?רביעית?|ארבעה?)\b/;
+		$num = "5" when /\b(ה?חמי?שית?|חמש|חמישה)\b/;
+		$num = "6" when /\b(ה?שי?שית?|שש|שי?שה)\b/;
+		$num = "7" when /\b(ה?שביעית?|שבעה?)\b/;
+		$num = "8" when /\b(ה?שמינית?|שמונה)\b/;
+		$num = "9" when /\b(ה?תשיעית?|תשעה?)\b/;
+		$num = "10" when /\b(ה?עשירית?|עשרה?)\b/;
+	}
+	return $num;
+}
+
+
 sub unquote {
 	my $_ = shift;
-	s/^\s*(.*?)\s*$/$1/;
+	s/^ *(.*?) *$/$1/;
 	s/^(["'])(.*?)\1$/$2/;
-	s/^\s*(.*?)\s*$/$1/;
+	s/^ *(.*?) *$/$1/;
 	return $_;
 }
 
@@ -208,7 +239,7 @@ sub unparent {
 	s/^\((.*?)\)$/$1/;
 	s/^\[(.*?)\]$/$1/;
 	s/^\{(.*?)\}$/$1/;
-	s/^\s*(.*?)\s*$/$1/;
+	s/^ *(.*?) *$/$1/;
 	return $_;
 }
 
@@ -234,7 +265,6 @@ sub unescapeText {
 	return $_;
 }
 
-
 sub bracket_match {
 	my $_ = shift;
 	print STDERR "Bracket = $_ -> ";
@@ -242,4 +272,3 @@ sub bracket_match {
 	print STDERR "$_\n";
 	return $_;
 }
-
