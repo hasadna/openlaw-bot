@@ -422,6 +422,7 @@ sub initCHAPTER {
 sub initCHAPTER2 {
 	initCHAPTER(@_);
 	$object{noankor} = 1;
+	$object{name} = "סעיף*";
 }
 sub initAPPENDIX {
 	$_ = shift;
@@ -460,14 +461,16 @@ sub gotOTHER {
 }
 
 sub gotANKOR {
-	$_ = makeENG(shift);
-	# print STDERR "## ANKOR |$_|\n";
-	if ($object{sptr}) {
-		push @{$object{ankors2}}, $_;
-		print STDERR "  got $#{$object{ankors2}}.\n";
-	} else {
-		push @{$object{ankors}}, $_;
-	}
+	$_ = shift;
+	print STDERR "## ANKOR |$_|\n";
+	$object{ankor_str} = $_;
+	
+# 	if ($object{sptr}) {
+# 		push @{$object{ankors2}}, $_;
+# 		print STDERR "  got $#{$object{ankors2}}.\n";
+# 	} else {
+# 		push @{$object{ankors}}, $_;
+# 	}
 }
 
 sub initSUB {
@@ -1243,6 +1246,8 @@ sub printSection {
 	# print "  <span class=\"NOTE3\">$fix</span>\n" if ($fix);
 	# print "</td></tr>\n";
 	
+	$number = $object{ankor_str} if (defined $object{ankor_str});
+	
 	print "{{ח:$object{class}|$number|$text";
 	print "|$fix" if (defined $fix);
 	print "}}\n\n";
@@ -1273,8 +1278,9 @@ sub printChapter {
 #	my $chap = "chap";
 #	$chap = "sup_$supplemental" if ($supplemental);
 	
-	print "{{ח:סעיף|$number|$desc";
-	print "|$fix" if (defined $fix);
+	print "{{ח:" . ($object{name} ? $object{name} : "סעיף");
+	print "|$number|$desc";
+	print "|תיקון: $object{fix}" if (defined $object{fix});
 	print "|אחר=$object{other}" if (defined $object{other});
 	print "}}\n";
 
@@ -1304,17 +1310,19 @@ sub printChapter {
 sub printAppendix {
 	my @lines = @{$object{lines}};
 	my $rows = scalar(@{$object{lines}})-1;
-	my $number = makeENG($object{number});
+	my $number = "תוספת " . makeENG($object{number});
 	my $fix;
-	$fix = "[תיקון: " . $object{fix} . "]" if (defined $object{fix});
-	$fix = "[" . $object{fix2} . "] " . $fix if (defined $object{fix2});
-
+	$fix = "תיקון: " . $object{fix} . "" if (defined $object{fix});
+	# $fix = "[" . $object{fix2} . "] " . $fix if (defined $object{fix2});
+	
 	my $line = shift @lines;
 	my $desc = fixFormat(shift @{$line->{text}});
 	my $other = fixFormat(join("\n  ", @{$line->{text}}));
-
-	print "{{ח:פרק|sup_$number|$desc";
-	print "$fix" if ($fix);
+	
+	$number = $object{ankor_str} if (defined $object{ankor_str});
+	
+	print "{{ח:פרק|$number|$desc";
+	print "|$fix" if ($fix);
 	print "}}\n";
 	
 	for $line (@lines) {
