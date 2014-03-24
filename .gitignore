@@ -6,6 +6,7 @@ test*
 
 # Credentials
 wiki_credentials.txt
+wiki_botconf.txt
 .mediawiki*
 
 # Various project files
