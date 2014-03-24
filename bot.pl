@@ -14,7 +14,6 @@ binmode STDOUT, ":utf8";
 my @pages = ();
 my ($verbose, $dryrun, $force,$print,$onlycheck);
 my $outfile;
-$dryrun = 1;
 GetOptions(
 	"force" => \$force, 
 	"check" => \$onlycheck,
@@ -25,30 +24,30 @@ GetOptions(
 	"help|?" => \&HelpMessage,
 ) or die("Error in command line arguments\n");
 
-@pages = map {decode_utf8(@ARGV)} @pages;
+@pages = map {decode_utf8($_)} @ARGV;
 
 my %credentials = load_credentials('wiki_botconf.txt');
 my $host = ( $credentials{host} || 'he.wikisource.org' );
 print "HOST $host\n";
-my $bot = MediaWiki::Bot->new(
-	{
-		host       => $host,
-		login_data => \%credentials,
-		debug      => 1,
-	}
-);
 print "USER $credentials{username}\n";
+my $bot = MediaWiki::Bot->new({
+	host       => $host,
+	login_data => \%credentials,
+	assert     => 'bot',
+	protocol   => 'https',
+	debug      => ($verbose?2:0),
+}) or die "Error login...\n";
 
 my $cat = decode_utf8('קטגוריה:בוט חוקים');
 @pages = $bot->get_pages_in_category($cat) unless (@pages);
 
-my $count = 1;
+$force = 0 if ($onlycheck);
 
 foreach my $page_dst (@pages) {
 	my $text;
 	$page_dst =~ s/ /_/g;
 	my $page_src = $page_dst . decode_utf8("/מקור");
-	print "PAGE \"$page_dst\": ";
+	print "PAGE \x{202B}\"$page_dst\"\x{202C}:\t";
 	
 	my @hist_s = $bot->get_history($page_src);
 	my @hist_t = $bot->get_history($page_dst);
@@ -64,19 +63,23 @@ foreach my $page_dst (@pages) {
 		$revid_t =~ s/^ *(?:\[(\d+)\]|(\d+)).*/$1/ || ( $revid_t = 0 );
 	}
 	
-	if ($revid_t >= $revid_s) {
-		if ($force) {
-			print "$revid_s = $revid_t, Running anyway (-force).\n";
-		} else {
-			print "$revid_s = $revid_t, Skipping.\n";
-			next;
-		}
+	my $update = ($revid_t<$revid_s);
+	
+	print "ID $revid_s " . ($update?'>':'=') . " $revid_t";
+	if (!$update && !$force) {
+		print ", Skipping.\n";
+		next;
+	} elsif ($onlycheck) {
+		print ", Skipping (-check).\n"; 
+		next;
+	} elsif (!$update && $force) {
+		print ", Updating anyway (-force).\n";
+	} elsif ($dryrun) {
+		print ", Dryrun.\n";
 	} else {
-		print "$revid_s > $revid_t\n";
+		print ", Updating.\n";
 	}
 
-	next if ($onlycheck);
-	
 #	foreach my $rec (@hist_s) {
 #		print "REVID = $rec->{revid} TIMESTAMP = $rec->{timestamp_date} $rec->{timestamp_time} \"$rec->{comment}\"\n";
 #	}
@@ -86,15 +89,16 @@ foreach my $page_dst (@pages) {
 	$text = RunParsers($text);
 	$comment = ( $comment ? "[$revid_s] $comment" : "[$revid_s]" );
 	
-	print STDOUT "$text\n" if ($print);
-	$bot->edit($page_dst,$text,"$comment") unless ($dryrun);
+	print STDOUT "$text\n" if ($print || $dryrun);
+	$bot->edit( {
+		page      => $page_dst,
+		text      => $text,
+		summary   => $comment,
+		bot       => 1,
+		minor     => 0,
+		assertion => 'bot',
+	}) unless ($dryrun);
 	
-#	my $id1 = $bot->get_id($page_dst);
-#	my $id2 = $bot->get_id($page_src);
-#	print "PAGE = $page_dst, Comment = \"$comment\"\n";
-	
-	# print "TEXT = \n$text\n";
-	last unless --$count;
 }
 
 exit 0;
