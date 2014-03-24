@@ -61,10 +61,10 @@ s/(?<=[^\(])\(\(\s*(.*?)\s*(?:\s*[|]\s*(.*?)\s*)?\)\)(?=[^\)])/&parseRemark($1,$
 # Parse structured elements
 s/^(=+)(.*?)\1\n/&parseSection(length($1),$2)/egm;
 s/^<סעיף *(.*?)>(.*?)\n/&parseChapter($1,$2,"סעיף")/egm;
-s/^(@.*?) ([:]+ .*)$/$1\n$2/gm;
+s/^(@.*?) +([:]+ .*)$/$1\n$2/gm;
 s/^@ *(\d\S*) *\n/&parseChapter($1,"","סעיף")/egm;
 s/^@ *(\d\S*) *(.*?)\n/&parseChapter($1,$2,"סעיף")/egm;
-s/^@ *(\(.*?\)) *(.*?)\n/&parseChapter($1,$2,"סעיף*")/egm;
+s/^@ *(\(.*?\)) *(.+?)\n/&parseChapter($1,$2,"סעיף*")/egm;
 s/^@ *(.*?)\n/&parseChapter("",$1,"סעיף*")/egm;
 s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3/gm;
 s/^([:]+) *(\([^( ]+\)|) *(.*)\n/&parseLine(length($1),$2,$3)/egm;
@@ -88,16 +88,10 @@ sub parseTitle {
 }
 
 sub parseSection {
-	my ($type, $_) = @_;
-	my ($name, $num, $fix);
+	my ($level, $_) = @_;
+	my ($type, $num, $fix);
 	
-	given ($type) {
-		$type = 'חלק' when (1);
-		$type = 'פרק' when (2);
-		$type = 'סימן' when (3);
-		$type = 'תתסימן' when (4);
-		default { $type = 'פרק' }
-	}
+	$level = 2 unless defined $level;
 	
 	$_ = unquote($_);
 	($_, $fix) = get_fixstr($_);
@@ -109,15 +103,16 @@ sub parseSection {
 		/^(\S+)( *:| +[-])/ or /^\S+\s+(\S+)/;
 		$num = $1;
 	}
-	$num = get_numeral($num);
-	($name) = /^(\S+)/;
+	# $num = get_numeral($num);
+	($type) = /^(\S+)/;
 	
 	my $str;
-	if ($name =~ /\b(חלק|פרק|סימן|תוספת|טופס)\b/) {
-		$str = "<$name $num>\n" 
-	} else {
-		$str = "<$type>\n";
-	}
+# 	if ($name =~ /\b(חלק|פרק|סימן|תוספת|טופס)\b/) {
+# 		$str = "<$type $num>\n" 
+# 	} else {
+# 		$str = "<$type>\n";
+# 	}
+	$str = "<קטע $level $type $num>\n";
 	$str .= "<תיקון $fix>\n" if ($fix);
 	$str .= "$_\n";
 	return $str;
@@ -129,13 +124,13 @@ sub parseChapter {
 	
 	$desc = unquote($desc);
 	($desc, $fix) = get_fixstr($desc);
-	$extra = unquote($1) if ($desc =~ s/(?<=[^\[])\[ *([^\[\]]+) *\]$//);
+	($desc, $extra) = get_extrastr($desc);
 	$num =~ s/[.,]$//;
 	
 	my $str = "<$type $num>\n";
 	$str .= "<תיאור \"$desc\">\n" if ($desc);
 	$str .= "<תיקון $fix>\n" if ($fix);
-	$str .= "<אחר $extra>\n" if ($extra);
+	$str .= "<אחר [$extra]>\n" if ($extra);
 	return $str;
 }
 
@@ -148,7 +143,7 @@ sub parseLine {
 		$id = '';
 	}
 	$id = unparent($id);
-	$line =~ s/^\s*(.*?)\s*$/$1/;
+	$line =~ s/^ *(.*?) *$/$1/;
 	my $str;
 	$str = "ת"x($len+($id?1:0));
 	$str = ($id ? "<$str $id> " : "<$str> ");
@@ -183,7 +178,7 @@ sub parseSignatures {
 	my $str = "<חתימות>\n";
 	s/;/\n/g;
 	foreach (split("\n")) {
-		/^\*?\s*([^,|]*?)(?:\s*[,|]\s*(.*?)\s*)?$/;
+		/^\*? *([^,|]*?)(?: *[,|] *(.*?) *)?$/;
 		$str .= ($2 ? "* $1 | $2\n" : "* $1\n");
 	}
 	return $str;
@@ -201,6 +196,13 @@ sub get_fixstr {
 	push @fix, unquote($1) while (s/ *\[ *תי?קון:? *(.*?) *\]//);
 	push @fix, unquote($1) while (s/ *\( *תי?קון:? *(.*?) *\)//);
 	return ($_, join(', ',@fix));
+}
+
+sub get_extrastr {
+	my $_ = shift;
+	my $extra = undef;
+	$extra = unquote($1) if (s/(?<=[^\[])\[ *([^\[\]]+) *\]$//);
+	return ($_, $extra);
 }
 
 sub get_numeral {
