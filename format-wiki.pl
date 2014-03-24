@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 
+use v5.14;
 use strict;
 no strict 'refs';
 use English;
@@ -76,7 +77,11 @@ my %markup = (
 		context => 2,
 		init => "flushSeperator",
 	},
-
+	"קטע" => {
+		context => 1,
+		init => "initSECT",
+		done => "printSection",
+	},
 	"חלק" => {
 		context => 1,
 		init => "initPART",
@@ -376,6 +381,20 @@ sub nop {
 }
 
 ## PART SECTION SUBSECTION ############
+
+sub initSECT {
+	my ($level, $type, $num) = split(' ',shift,3);
+	$num = get_numeral($num);
+	$object{class} = "קטע$level";
+	$object{name} = $type;
+	$object{number} = "$type $num";
+	$object{number} = "תוספת $supplemental $object{number}" if ($supplemental && !($type =~ /תוספת|טופס/));
+	
+	$part = $num if ($type =~ /חלק/);
+	$section = $num if ($type =~ /פרק/);
+	$subsection = $num if ($type =~ /סימן/);
+	$supplemental = $num if ($type =~ /תוספת|טופס/);
+}
 
 sub initPART {
 	$object{class} = "חלק";
@@ -823,6 +842,8 @@ sub processHREF {
 		$found = true;
 	}
 	
+	# print STDERR "## X |$href{text}| X |$ext|$text| X |$helper|\n";
+	
 	if ($helper eq "") {
 		# Do nothing;
 	} elsif ($helper =~ /^=\s*(.*)/) {
@@ -835,7 +856,11 @@ sub processHREF {
 		$ext = '';
 	} elsif ($helper eq "-") {
 		$type = 2;
-		replaceOnce('?HREF?',$href{mark}.'#?HREF?');
+		if ($text) {
+			replaceOnce('?HREF?',$href{mark}.'#?HREF?');
+		} else {
+			replaceOnce('?HREF?',$href{mark});
+		}
 		$ext = '';
 	} elsif ($helper) {
 		if ($found) {
@@ -874,7 +899,7 @@ sub open_TITLE {
 	s|&|&amp;|g;
 	s|"|&quot;|g;
 	$object{title} = $_;
-	$textline = $textline . "{{ח:פרסום|";
+	$textline = $textline . "{{ח:טיפ|";
 }
 sub close_TITLE {
 	my $title = $object{title};
@@ -885,10 +910,10 @@ sub close_SPAN {
 }
 
 sub open_B {
-	$textline = $textline . "<b>";
+	$textline = $textline . "'''";
 }
 sub close_B {
-	$textline = $textline . "<\/b>";
+	$textline = $textline . "'''";
 }
 
 sub open_WIKI {
@@ -929,56 +954,11 @@ sub fixFormat {
 }
 
 
-sub makeHEB {
-	$_ = shift;
-	if (!$_) { return $_; }
-	tr/a-z/A-Z/;
-	tr/ABCDEFGHIJT/אבגדהוזחטיכ/;
-	s/K/יא/g;
-	s/L/יב/g;
-	s/M/יג/g;
-	s/N/יד/g;
-	s/O/טו/g;
-	s/P/טז/g;
-	s/Q/יז/g;
-	s/R/יח/g;
-	s/S/יט/g;
-	s/U/כא/g;
-	s/V/כב/g;
-	s/W/כג/g;
-	s/X/כד/g;
-	s/Y/כה/g;
-	s/Z/כו/g;
-	return $_;
-}
-
-sub makeENG {
-	$_ = shift;
-	return $_;
-	if (!$_) { return $_; }
-	s/יא/K/g;
-	s/יב/L/g;
-	s/יג/M/g;
-	s/יד/N/g;
-	s/טו/O/g;
-	s/טז/P/g;
-	s/יז/Q/g;
-	s/יח/R/g;
-	s/יט/S/g;
-	s/כא/U/g;
-	s/כב/V/g;
-	s/כג/W/g;
-	s/כד/X/g;
-	s/כה/Y/g;
-	s/כו/Z/g;
-	tr/אבגדהוזחטיכ/ABCDEFGHIJT/;
-	return $_;
-}
-
 sub typeHREF {
 	shift;
 	return (/(\bו?[בהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b)|#/ ? 2 : 1);
 }
+
 
 sub findHREF {
 	my $_ = shift;
@@ -989,123 +969,89 @@ sub findHREF {
 	if (/^(.*?)\s*(\bו?[בהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b.*)$/) {
 		$_ = $1;
 		$ext = findExtRef($2);
-		# $ext = findExtRef($ext) unless ($3 =~ /^\s*([זה|זאת|זו])\s*/);
 	}
 	
 	if (/^(.*)#(.*)$/) {
 		$_ = $2;
 		$ext = findExtRef($1);
 	}
-
-#	if (/(.*?)\bו?[בהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b/p) {
-#		# print STDERR "GOT |${^PREMATCH}|${^MATCH}|${^POSTMATCH}|\n";
-#		my ($link) = findHREF(${^PREMATCH});
-#		my $ext = findExtRef(${^MATCH}.${^POSTMATCH});
-#		$_ = $ext;
-#		$_ .= "#$link" if ($link);
-#		return ($link,$ext);
-#	}
 	
 	s/[\(_]/ ( /g;
 	s/[\"\']//g;
-	s/ו-//g;
-	s/או//g;
-	s/^\s*(.*?)\s*$/$1/;
+	s/\bו-//g;
+	s/\bאו\b/ /g;
+	s/^ *(.*?) *$/$1/;
+	s/טבלת השוואה/טבלת_השוואה/;
 	
-	s/[א-ת]*ראשו(ן|נה)/1/g;
-	s/[א-ת]*שניה?/2/g;
-	s/[א-ת]*שלישית?/3/g;
-	s/[א-ת]*רביעית?/4/g;
-	s/[א-ת]*חמישית?/5/g;
-	s/[א-ת]*שישית?/6/g;
-	s/[א-ת]*שביעית?/7/g;
-	s/[א-ת]*שמינית?/8/g;
-	s/[א-ת]*תשיעית?/9/g;
-	s/[א-ת]*עשירית?/10/g;
+	my @parts = split /[ ,.\-\)]+/;
+	my $class = "chap";
+	my $num;
+	my %elm = ();
 	
-	if ($_) {
-	
-		#print STDERR "GOT |$_|\n";
-		my @parts = split /[ ,.\-\)]+/;
-		
-		my $href = "";
-		my $level = 1;
-		my $class = undef;
-		my @found = (undef, undef, undef);
-		
-		if (/part|חלק/) { $class = "חלק"; }
-		if (/sup|תוספת/) { $class = "תוספת"; }
-		if (/sec|פרק|סימ[נן]/) { $class = "פרק"; }
-		if (/chap|סעי[פף]|תקנ[הות]/) { $class = "סעיף"; }
-		
-		foreach $_ (@parts) {
-			if (/chap|סעי[פף]|תקנ[הות]/) { 
-				$class = "סעיף";
-				$level = 1;
-			}
-			elsif (/קט[נן]|פסקה|פסקאות|משנה|\(|פריט/) {
-				$level = 2;
-			}
-			elsif (/part|חלק/) { 
-				$class = "חלק";
-				$level = 1;
-			}
-			elsif (/sec|פרק/) { 
-				$class = "פרק";
-				$level = 2;
-			}
-			elsif (/סימ[נן]/) {
-				$class = "סימן";
-				$level = 3;
-			}
-			elsif (/sup|תוספת/) { 
-				$class = "תוספת";
-				$level = 1;
-			}
-			elsif (/זה|זו|זאת/) {
-				$class = "סעיף" if (!defined $class);
-				if ($class eq "סעיף" && $level==1) {
-					$found[0] = $object{number} unless ($found[0]);
-				}
-				elsif ($class eq "סעיף" && $level==2) {
-					# $found[1] = $object{sub} unless ($found[1]);
-				}
-				elsif ($class eq "פרק" && $level==1) {
-					$found[0] = $part unless ($found[0]);
-				}
-				elsif ($class eq "פרק" && $level==2) {
-					$found[1] = $section unless ($found[1]);
-				}
-				elsif ($class eq "פרק" && $level==3) {
-					$found[1] = $section unless ($found[1]);
-					$found[2] = $subsection unless ($found[2]);
-				}
-				elsif ($class eq "תוספת" && $level==1) {
+	foreach $_ (@parts) {
+		$num = undef;
+		given ($_) {
+			when (/^ו?[בהל]?(חלק|חלקים)/) { $class = "part"; }
+			when (/^ו?[בהל]?(פרק|פרקים)/) { $class = "section"; }
+			when (/^ו?[בהל]?(סימן|סימנים)/) { $class = "subsect"; }
+			when (/^ו?[בהל]?(תוספת)/) { $class = "sup"; $num = ""; }
+			when (/^ו?[בהל]?(טופס|טפסים)/) { $class = "template"; }
+			when (/טבלת_השוואה/) { $class = "table"; $num = ""; }
+			when (/^ו?[בהל]?(סעיף|סעיפים|תקנה|תקנות)/) { $class = "chap"; }
+			when (/^קט[נן]|פסקה|פסקאות|משנה|פריט|פרט/) { $class = "small"; }
+			when ("(") { $class = "small"; }
+			when (/^ה?(זה|זו|זאת)/) {
+				given ($class) {
+					when ("sup") { $num = $supplemental; }
+					when ("part") { $num = $part; }
+					when ("section") { $num = $section; }
+					when ("subsect") { 
+						$elm{subsect} = $subsection unless defined $elm{subsect};
+						$elm{section} = $section unless defined $elm{section};
+					}
+					when ("chap") { $num = $object{number}; }
 				}
 			}
-			else {
-				$found[$level-1] = $_ unless ($found[$level-1]);
+			default {
+				$num = get_numeral($_);
 			}
 		}
 		
-		$class = "סעיף" if (!$class);
-		if ($class eq "סעיף") {
-			$found[0] = $object{number} if (!$found[0]);
-			$found[1] = undef;
-			$found[2] = undef;
+		if (defined($num) && !$elm{$class}) {
+			$elm{$class} = $num;
 		}
-		
-		$_ = $class;
-		$_ .= " " . $found[0] if ($found[0]);
-		$_ .= " " . $found[1] if ($found[1]);
-		$_ .= " " . $found[2] if ($found[2]);
 	}
 	
-	s/  / /g;
+	my $href;
+	if (defined $elm{table}) {
+		$href = "טבלת השוואה";
+	} elsif (defined $elm{sup}) {
+		$href = "תוספת $elm{sup}";
+		$href .= " חלק $elm{part}" if (defined $elm{part});
+	} elsif (defined $elm{template}) {
+		$href = "טופס $elm{template}";
+	} elsif (defined $elm{part}) {
+		$href = "חלק $elm{part}";
+		$href .= " פרק $elm{section}" if defined $elm{section};
+		$href .= " סימן $elm{subsect}" if defined $elm{subsect};
+	} elsif (defined $elm{section}) {
+		if (defined $elm{subsect}) {
+			$href = " סימן $elm{section} $elm{subsect}";
+		} else {
+			$href = " פרק $elm{section}";
+		}
+	} elsif (defined $elm{chap}) {
+		$href = "סעיף $elm{chap}";
+	} else {
+		$href = "";
+	}
+	
+	$href =~ s/  / /g;
+	$href =~ s/^ *(.*?) *$/$1/;
 	# print STDERR "GOT |$_|$ext|\n";
-	return ($_,$ext);
-	# return $_;
+	return ($href,$ext);
 }	
+
 
 sub findExtRef {
 	my $_ = shift;
@@ -1116,7 +1062,7 @@ sub findExtRef {
 #	s/(^[^\,\.]*).*/$1/;
 	s/#.*$//;
 	s/\.[^\.]*$//;
-	s/\,[^\,]*$//;
+	s/\,.*\d+$//;
 	s/\[.*?\]//g;
 	s/^\s*(.*?)\s*$/$1/;
 	if (/^ו?[בהל]?(חוק|פקודה|פקודת|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b(.*)$/) {
@@ -1126,7 +1072,7 @@ sub findExtRef {
 	s/\s[-——]+\s/_XX_/g;
 	s/[-]+/ /g;
 	s/_XX_/ - /g;
-	s/[ _\:.\,]+/ /g;
+	s/[ _\:.]+/ /g;
 #	print STDERR "$prev -> $_\n";
 	return $_;
 }
@@ -1166,6 +1112,47 @@ sub replaceOnce {
 	return replaceAll($src,$dst,1);
 #	return replaceAll(shift,shift,1);
 }
+
+
+sub unquote {
+	my $_ = shift;
+	s/^ *(.*?) *$/$1/;
+	s/^(["'])(.*?)\1$/$2/;
+	s/^ *(.*?) *$/$1/;
+	return $_;
+}
+
+sub unparent {
+	my $_ = unquote(shift);
+	s/^\((.*?)\)$/$1/;
+	s/^\[(.*?)\]$/$1/;
+	s/^\{(.*?)\}$/$1/;
+	s/^ *(.*?) *$/$1/;
+	return $_;
+}
+
+sub get_numeral {
+	my $_ = shift;
+	my $num = undef;
+	s/[.,'"]//g;
+	$_ = unparent($_);
+	given ($_) {
+		$num = $1 when /\b(\d+(([א-י]|טו|טז|[כלמנ][א-ט]?|)\d*|))\b/;
+		$num = $1 when /\b(([א-י]|טו|טז|[כלמנ][א-ט]?)(\d+[א-י]*|))\b/;
+		$num = "1" when /\b(ה?ראשו(ן|נה)|אח[דת])\b/;
+		$num = "2" when /\b(ה?שניי?ה?|ש[תנ]יי?ם)\b/;
+		$num = "3" when /\b(ה?שלישית?|שלושה?)\b/;
+		$num = "4" when /\b(ה?רביעית?|ארבעה?)\b/;
+		$num = "5" when /\b(ה?חמי?שית?|חמש|חמישה)\b/;
+		$num = "6" when /\b(ה?שי?שית?|שש|שי?שה)\b/;
+		$num = "7" when /\b(ה?שביעית?|שבעה?)\b/;
+		$num = "8" when /\b(ה?שמינית?|שמונה)\b/;
+		$num = "9" when /\b(ה?תשיעית?|תשעה?)\b/;
+		$num = "10" when /\b(ה?עשירית?|עשרה?)\b/;
+	}
+	return $num;
+}
+
 
 ###################################################################################################
 
@@ -1239,7 +1226,8 @@ sub printSection {
 	$fix = "תיקון: " . $object{fix} if (defined $object{fix});
 	$fix = "[" . $object{fix2} . "] " . $fix if (defined $object{fix2});
 	my $text = fixFormat(shift @text);
-	my $number = makeENG($object{number});
+	# my $number = makeENG($object{number});
+	my $number = $object{number};
 	# print "<tr><td colspan=\"7\" class=\"$object{class}\">\n";
 	# print "  <a name=\"$object{name}_$number\"></a>\n" if ($number);
 	# print "  $text\n";
@@ -1247,7 +1235,7 @@ sub printSection {
 	# print "</td></tr>\n";
 	
 	$number = $object{ankor_str} if (defined $object{ankor_str});
-	
+
 	print "{{ח:$object{class}|$number|$text";
 	print "|$fix" if (defined $fix);
 	print "}}\n\n";
@@ -1270,15 +1258,13 @@ sub printText {
 
 sub printChapter {
 	my @lines = @{$object{lines}};
-#	my $rows = scalar(@{$object{lines}});
 	my $desc = fixFormat($object{desc});
-	my $number = makeENG($object{number});
+	my $number = $object{number};
 	my $fix; 
 	$fix = "תיקון: $object{fix}" if (defined $object{fix});
-#	my $chap = "chap";
-#	$chap = "sup_$supplemental" if ($supplemental);
 	
-	print "{{ח:" . ($object{name} ? $object{name} : "סעיף");
+	print "{{ח:סעיף";
+	print "*" if ($supplemental);
 	print "|$number|$desc";
 	print "|תיקון: $object{fix}" if (defined $object{fix});
 	print "|אחר=$object{other}" if (defined $object{other});
@@ -1310,7 +1296,8 @@ sub printChapter {
 sub printAppendix {
 	my @lines = @{$object{lines}};
 	my $rows = scalar(@{$object{lines}})-1;
-	my $number = "תוספת " . makeENG($object{number});
+	# my $number = "תוספת " . makeENG($object{number});
+	my $number = "תוספת " . $object{number};
 	my $fix;
 	$fix = "תיקון: " . $object{fix} . "" if (defined $object{fix});
 	# $fix = "[" . $object{fix2} . "] " . $fix if (defined $object{fix2});
@@ -1354,14 +1341,14 @@ sub printAppendix {
 
 sub printSignatures {
 	print "{{ח:חתימות";
-	print "|" . $global{date} if (defined $global{date});
+	print "|$global{date}" if (defined $global{date});
 	print "}}\n";
 	my $line;
 	foreach $line (@text) {
-		last unless ($line =~ /^\s*[*]/);
-		if ($line =~ /^\s*\*\s*(.*?)\s*\|\s*(.*?)\s*$/) {
+		last unless ($line =~ /^ *\*/);
+		if ($line =~ /^ *\* *(.*?) *\| *(.*?) *$/) {
 			print "* '''$1'''<br>$2\n";
-		} elsif ($line =~ /^\s*\*\s*(.*?)\s*$/) {
+		} elsif ($line =~ /^ *\* *(.*?) *$/) {
 			print "* '''$1'''\n";
 		}
 	}
@@ -1387,7 +1374,7 @@ sub flushCompareTable {
 	my $line;
 	my $col = 0;
 	for $line (@text) {
-		if ($line =~ /^\s*(.*?)\s*\|\s*(.*?)\s*$/) {
+		if ($line =~ /^ *(.*?) *\| *(.*?) *$/) {
 			$table[$col][0] = $1;
 			$table[$col][1] = $2;
 			$col++;
