@@ -64,7 +64,7 @@ s/^<סעיף *(.*?)>(.*?)\n/&parseChapter($1,$2,"סעיף")/egm;
 s/^(@.*?) +([:]+ .*)$/$1\n$2/gm;
 s/^@ *(\d\S*) *\n/&parseChapter($1,"","סעיף")/egm;
 s/^@ *(\d\S*) *(.*?)\n/&parseChapter($1,$2,"סעיף")/egm;
-s/^@ *(\(.*?\)) *(.+?)\n/&parseChapter($1,$2,"סעיף*")/egm;
+s/^@ *(\(.*?\)) *(.*?)\n/&parseChapter($1,$2,"סעיף*")/egm;
 s/^@ *(.*?)\n/&parseChapter("",$1,"סעיף*")/egm;
 s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3/gm;
 s/^([:]+) *(\([^( ]+\)|) *(.*)\n/&parseLine(length($1),$2,$3)/egm;
@@ -201,7 +201,7 @@ sub get_fixstr {
 sub get_extrastr {
 	my $_ = shift;
 	my $extra = undef;
-	$extra = unquote($1) if (s/(?<=[^\[])\[ *([^\[\]]+) *\]$//);
+	$extra = unquote($1) if (s/(?<=[^\[])\[ *([^\[\]]+) *\] *//) || (s/^\[ *([^\[\]]+) *\] *//);
 	return ($_, $extra);
 }
 
