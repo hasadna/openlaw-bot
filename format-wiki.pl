@@ -387,7 +387,10 @@ sub initSECT {
 	$num = get_numeral($num);
 	$object{class} = "קטע$level";
 	$object{name} = $type;
-	$object{number} = "$type $num";
+	if (defined $num) {
+		$object{number} = "$type $num";
+		$object{number} = "פרק $section $object{number}" if ($type eq 'סימן' && defined $section);
+	}
 	$object{number} = "תוספת $supplemental $object{number}" if ($supplemental && !($type =~ /תוספת|טופס/));
 	
 	$part = $num if ($type =~ /חלק/);
@@ -830,31 +833,27 @@ sub processHREF {
 	# my $type = typeHREF($text);
 	my $type = ($ext) ? 2 : 1;
 	
-	if ($type == 1) {
-		$ext = '';
-	}
+	$ext = '' if ($type == 1);
 	
 	if ($helper =~ /^(.*?) *# *(.*)/) {
 		$type = 2;
 		$helper = $1;
 		($text, undef) = findHREF($2);
-		$ext = '';
+		$ext = '' if ($1);
 		$found = true;
 	}
 	
 	# print STDERR "## X |$href{text}| X |$ext|$text| X |$helper|\n";
 	
-	if ($helper eq "") {
-		# Do nothing;
-	} elsif ($helper =~ /^=\s*(.*)/) {
+	if ($helper =~ /^=\s*(.*)/) {
 		$type = 2;
 		$helper = $1;
 		$href{marks}{$helper} = $ext;
-	} elsif ($helper eq "+") {
+	} elsif ($helper eq '+' || $ext eq '+') {
 		$type = 2;
 		replaceOnce('?HREF?','?EXT?#?HREF?');
 		$ext = '';
-	} elsif ($helper eq "-") {
+	} elsif ($helper eq '-' || $ext eq '-') {
 		$type = 2;
 		if ($text) {
 			replaceOnce('?HREF?',$href{mark}.'#?HREF?');
@@ -1035,11 +1034,11 @@ sub findHREF {
 		$href .= " פרק $elm{section}" if defined $elm{section};
 		$href .= " סימן $elm{subsect}" if defined $elm{subsect};
 	} elsif (defined $elm{section}) {
-		if (defined $elm{subsect}) {
-			$href = " סימן $elm{section} $elm{subsect}";
-		} else {
-			$href = " פרק $elm{section}";
-		}
+		$href = "פרק $elm{section}";
+		$href .= " סימן $elm{subsect}" if defined $elm{subsect};
+	} elsif (defined $elm{subsect}) {
+		$href = "סימן $elm{subsect}";
+		$href = "פרק $section $href" if defined $section && ($ext eq '');
 	} elsif (defined $elm{chap}) {
 		$href = "סעיף $elm{chap}";
 	} else {
@@ -1062,12 +1061,13 @@ sub findExtRef {
 #	s/(^[^\,\.]*).*/$1/;
 	s/#.*$//;
 	s/\.[^\.]*$//;
-	s/\,.*\d+$//;
+	s/\, *[^ ]*\d+$//;
 	s/\[.*?\]//g;
 	s/^\s*(.*?)\s*$/$1/;
 	if (/^ו?[בהל]?(חוק|פקודה|פקודת|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b(.*)$/) {
 		$_ = "$1$2";
 		return '' if ($2 eq 'זאת');
+		return '-' if ($2 =~ /\b(האמורה?|אותו|אותה)\b/);
 	}
 	s/\s[-——]+\s/_XX_/g;
 	s/[-]+/ /g;
