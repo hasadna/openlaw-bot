@@ -120,11 +120,12 @@ sub parseSection {
 
 sub parseChapter {
 	my ($num, $desc,$type) = @_;
-	my ($fix, $extra);
+	my ($fix, $extra, $ankor);
 	
 	$desc = unquote($desc);
 	($desc, $fix) = get_fixstr($desc);
 	($desc, $extra) = get_extrastr($desc);
+	($desc, $ankor) = get_ankor($desc);
 	$num =~ s/[.,]$//;
 	
 	my $str = "<$type $num>\n";
@@ -203,6 +204,14 @@ sub get_extrastr {
 	my $extra = undef;
 	$extra = unquote($1) if (s/(?<=[^\[])\[ *([^\[\]]+) *\] *//) || (s/^\[ *([^\[\]]+) *\] *//);
 	return ($_, $extra);
+}
+
+sub get_ankor {
+	my $_ = shift;
+	my @ankor = ();
+	push @ankor, unquote($1) while (s/ *\[ *עוגן:? *(.*?) *\]//);
+	push @ankor, unquote($1) while (s/ *\( *עוגן:? *(.*?) *\)//);
+	return ($_, join(', ',@ankor));
 }
 
 sub get_numeral {
