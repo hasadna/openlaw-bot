@@ -47,6 +47,17 @@ foreach my $page_dst (@pages) {
 	my $text;
 	$page_dst =~ s/ /_/g;
 	my $page_src = $page_dst . decode_utf8("/מקור");
+	my ($id_s, $id_t);
+	$id_t = $bot->get_id($page_dst);
+	$id_s = $bot->get_id($page_src);
+	if (!defined $id_s) {
+		$page_src = decode_utf8("מקור:") . $page_dst;
+		$id_s = $bot->get_id($page_src);
+	} 
+	if (!defined $id_s) {
+		print "Source page \"$page_src\" not found!\n";
+		next;
+	}
 	print "PAGE \x{202B}\"$page_dst\"\x{202C}:\t";
 	
 	my @hist_s = $bot->get_history($page_src);
@@ -66,11 +77,15 @@ foreach my $page_dst (@pages) {
 	my $update = ($revid_t<$revid_s);
 	
 	print "ID $revid_s " . ($update?'>':'=') . " $revid_t";
+	if ($onlycheck) {
+		print ", Target not exist.\n" if !defined $id_t;
+		print ", Modified.\n" if ($revid_t<$revid_s && defined $id_t);
+		print ", Target changed.\n" if ($revid_t>$revid_s);
+		print ", Same.\n" if ($revid_t==$revid_s);
+		next;
+	}
 	if (!$update && !$force) {
 		print ", Skipping.\n";
-		next;
-	} elsif ($onlycheck) {
-		print ", Skipping (-check).\n"; 
 		next;
 	} elsif (!$update && $force) {
 		print ", Updating anyway (-force).\n";
