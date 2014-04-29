@@ -96,23 +96,18 @@ sub parseSection {
 	$_ = unquote($_);
 	($_, $fix) = get_fixstr($_);
 	
-	if (/^\((.*?)\)/) {
+	if (s/^\((.*?)\) *//) {
 		$num = $1;
-		s/^\((.*?)\)\s*//;
+	} elsif (/^(.+?)( *:| +[-])/ or /^\S+ +(\S+)/) {
+		$num = get_numeral($1);
 	} else {
-		/^(\S+)( *:| +[-])/ or /^\S+\s+(\S+)/;
-		$num = $1;
+		$num = '';
 	}
-	# $num = get_numeral($num);
-	($type) = /^(\S+)/;
 	
-	my $str;
-# 	if ($name =~ /\b(חלק|פרק|סימן|תוספת|טופס)\b/) {
-# 		$str = "<$type $num>\n" 
-# 	} else {
-# 		$str = "<$type>\n";
-# 	}
-	$str = "<קטע $level $type $num>\n";
+	($type) = (/\b(חלק|פרק|סימן|תוספת|טופס)\b/);
+	$type = '' if !defined $type;
+	
+	my $str = "<קטע $level $type $num>\n";
 	$str .= "<תיקון $fix>\n" if ($fix);
 	$str .= "$_\n";
 	return $str;
@@ -158,6 +153,7 @@ sub parseLink {
 	my ($id,$txt) = @_;
 	my $str;
 	$id = unquote($id);
+	($id,$txt) = ($txt,$1) if ($txt =~ /^w:(.*)$/ && !$id); 
 	$str = ($id ? "<קישור $id>$txt</>" : "<קישור>$txt</>");
 	return $str;
 }
@@ -196,6 +192,7 @@ sub get_fixstr {
 	my @fix = ();
 	push @fix, unquote($1) while (s/ *\[ *תי?קון:? *(.*?) *\]//);
 	push @fix, unquote($1) while (s/ *\( *תי?קון:? *(.*?) *\)//);
+	s/^ *(.*?) *$/$1/;
 	return ($_, join(', ',@fix));
 }
 
@@ -203,6 +200,7 @@ sub get_extrastr {
 	my $_ = shift;
 	my $extra = undef;
 	$extra = unquote($1) if (s/(?<=[^\[])\[ *([^\[\]]+) *\] *//) || (s/^\[ *([^\[\]]+) *\] *//);
+	s/^ *(.*?) *$/$1/;
 	return ($_, $extra);
 }
 
@@ -216,23 +214,28 @@ sub get_ankor {
 
 sub get_numeral {
 	my $_ = shift;
-	my $num = "";
+	my $num = '';
+	my $token = '';
 	s/[.,'"]//g;
 	$_ = unparent($_);
 	given ($_) {
-		$num = $1 when /\b(\d+(([א-י]|טו|טז|[כלמנ][א-ט]?|)\d*|))\b/;
-		$num = $1 when /\b(([א-י]|טו|טז|[כלמנ][א-ט]?)(\d+[א-י]*|))\b/;
-		$num = "1" when /\b(ה?ראשו(ן|נה)|אח[דת])\b/;
-		$num = "2" when /\b(ה?שניי?ה?|ש[תנ]יי?ם)\b/;
-		$num = "3" when /\b(ה?שלישית?|שלושה?)\b/;
-		$num = "4" when /\b(ה?רביעית?|ארבעה?)\b/;
-		$num = "5" when /\b(ה?חמי?שית?|חמש|חמישה)\b/;
-		$num = "6" when /\b(ה?שי?שית?|שש|שי?שה)\b/;
-		$num = "7" when /\b(ה?שביעית?|שבעה?)\b/;
-		$num = "8" when /\b(ה?שמינית?|שמונה)\b/;
-		$num = "9" when /\b(ה?תשיעית?|תשעה?)\b/;
-		$num = "10" when /\b(ה?עשירית?|עשרה?)\b/;
+		($num,$token) = ("0",$1) when /\b(ה?מקדמית?)\b/;
+		($num,$token) = ("1",$1) when /\b(ה?ראשו(ן|נה)|אח[דת])\b/;
+		($num,$token) = ("2",$1) when /\b(ה?שניי?ה?|ש[תנ]יי?ם)\b/;
+		($num,$token) = ("3",$1) when /\b(ה?שלישית?|שלושה?)\b/;
+		($num,$token) = ("4",$1) when /\b(ה?רביעית?|ארבעה?)\b/;
+		($num,$token) = ("5",$1) when /\b(ה?חמי?שית?|חמש|חמישה)\b/;
+		($num,$token) = ("6",$1) when /\b(ה?שי?שית?|שש|שי?שה)\b/;
+		($num,$token) = ("7",$1) when /\b(ה?שביעית?|שבעה?)\b/;
+		($num,$token) = ("8",$1) when /\b(ה?שמינית?|שמונה)\b/;
+		($num,$token) = ("9",$1) when /\b(ה?תשיעית?|תשעה?)\b/;
+		($num,$token) = ("10",$1) when /\b(ה?עשירית?|עשרה?)\b/;
+		($num,$token) = ($1,$1) when /\b(\d+(([א-י]|טו|טז|[כלמנ][א-ט]?|)\d*|))\b/;
+		($num,$token) = ($1,$1) when /\b(([א-י]|טו|טז|[כלמנ][א-ט]?)(\d+[א-י]*|))\b/;
 	}
+	$num .= "-$1" if (/\b$token\b[- ]([א-י])\b/);
+	$num .= $1 if (/\b$token\b[- ](\d+)\b/);
+	$num =~ s/(\d)[-]([א-ת])/$1$2/;
 	return $num;
 }
 

@@ -864,6 +864,7 @@ sub processHREF {
 	} elsif ($helper) {
 		if ($found) {
 			(undef,$ext) = findHREF($helper);
+			$ext = $helper unless ($ext);
 		} else {
 			($text,$ext) = findHREF($helper);
 		}
@@ -964,6 +965,10 @@ sub findHREF {
 	if (!$_) { return $_; }
 	
 	my $ext = '';
+	
+	if (/^w:/) {
+		return ('',$_);
+	}
 	
 	if (/^(.*?)\s*(\bו?[בהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b.*)$/) {
 		$_ = $1;
@@ -1066,7 +1071,7 @@ sub findExtRef {
 	s/^\s*(.*?)\s*$/$1/;
 	if (/^ו?[בהל]?(חוק|פקודה|פקודת|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b(.*)$/) {
 		$_ = "$1$2";
-		return '' if ($2 eq 'זאת');
+		return '' if ($2 =~ /\b(זאת|זו|זה|אלו)\b/);
 		return '-' if ($2 =~ /\b(האמורה?|אותו|אותה)\b/);
 	}
 	s/\s[-——]+\s/_XX_/g;
@@ -1133,23 +1138,29 @@ sub unparent {
 
 sub get_numeral {
 	my $_ = shift;
-	my $num = undef;
+	return undef unless $_;
+	my $num = '';
+	my $token = '';
 	s/[.,'"]//g;
 	$_ = unparent($_);
 	given ($_) {
-		$num = $1 when /\b(\d+(([א-י]|טו|טז|[כלמנ][א-ט]?|)\d*|))\b/;
-		$num = $1 when /\b(([א-י]|טו|טז|[כלמנ][א-ט]?)(\d+[א-י]*|))\b/;
-		$num = "1" when /\b(ה?ראשו(ן|נה)|אח[דת])\b/;
-		$num = "2" when /\b(ה?שניי?ה?|ש[תנ]יי?ם)\b/;
-		$num = "3" when /\b(ה?שלישית?|שלושה?)\b/;
-		$num = "4" when /\b(ה?רביעית?|ארבעה?)\b/;
-		$num = "5" when /\b(ה?חמי?שית?|חמש|חמישה)\b/;
-		$num = "6" when /\b(ה?שי?שית?|שש|שי?שה)\b/;
-		$num = "7" when /\b(ה?שביעית?|שבעה?)\b/;
-		$num = "8" when /\b(ה?שמינית?|שמונה)\b/;
-		$num = "9" when /\b(ה?תשיעית?|תשעה?)\b/;
-		$num = "10" when /\b(ה?עשירית?|עשרה?)\b/;
+		($num,$token) = ("0",$1) when /\b(ה?מקדמית?)\b/;
+		($num,$token) = ("1",$1) when /\b(ה?ראשו(ן|נה)|אח[דת])\b/;
+		($num,$token) = ("2",$1) when /\b(ה?שניי?ה?|ש[תנ]יי?ם)\b/;
+		($num,$token) = ("3",$1) when /\b(ה?שלישית?|שלושה?)\b/;
+		($num,$token) = ("4",$1) when /\b(ה?רביעית?|ארבעה?)\b/;
+		($num,$token) = ("5",$1) when /\b(ה?חמי?שית?|חמש|חמישה)\b/;
+		($num,$token) = ("6",$1) when /\b(ה?שי?שית?|שש|שי?שה)\b/;
+		($num,$token) = ("7",$1) when /\b(ה?שביעית?|שבעה?)\b/;
+		($num,$token) = ("8",$1) when /\b(ה?שמינית?|שמונה)\b/;
+		($num,$token) = ("9",$1) when /\b(ה?תשיעית?|תשעה?)\b/;
+		($num,$token) = ("10",$1) when /\b(ה?עשירית?|עשרה?)\b/;
+		($num,$token) = ($1,$1) when /\b(\d+(([א-י]|טו|טז|[כלמנ][א-ט]?|)\d*|))\b/;
+		($num,$token) = ($1,$1) when /\b(([א-י]|טו|טז|[כלמנ][א-ט]?)(\d+[א-י]*|))\b/;
 	}
+	$num .= "-$1" if (/\b$token\b[- ]([א-י])\b/);
+	$num .= $1 if (/\b$token\b[- ](\d+)\b/);
+	$num =~ s/(\d)[-]([א-ת])/$1$2/;
 	return $num;
 }
 
@@ -1235,6 +1246,7 @@ sub printSection {
 	# print "</td></tr>\n";
 	
 	$number = $object{ankor_str} if (defined $object{ankor_str});
+	$number = '' if !defined $number;
 
 	print "{{ח:$object{class}|$number|$text";
 	print "|$fix" if (defined $fix);
