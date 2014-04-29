@@ -22,25 +22,35 @@ my $bot = MediaWiki::Bot->new({
 
 my $cat = decode_utf8('קטגוריה:בוט חוקים');
 my @pages = $bot->get_pages_in_category($cat); 
+my ($noticepage, $text);
 
 foreach my $page (@pages) {
 	next if ($page =~ /^משתמש:/);
-	my $noticepage = "Mediawiki:Editnotice-0-$page";
-
-	my $text = $bot->get_text($noticepage);
+	
+	$noticepage = "Mediawiki:Editnotice-0-$page";
+	$text = $bot->get_text($noticepage);
 	if ($text) {
 		print "PAGE '$noticepage' contains '$text'.\n";
-		next;
+	} else {
+		print "PAGE '$noticepage' is empty.\n";
+		$bot->edit({
+			page    => $noticepage,
+			text    => decode_utf8("{{הודעת עריכה חוקים}}"),
+			summary => "editnotice",
+		});
 	}
-	print "PAGE '$noticepage' is empty.\n";
-	$text = decode_utf8("{{הודעת עריכה חוקים}}");
-
-    $bot->edit({
-        page    => $noticepage,
-        text    => $text,
-        summary => "editnotice",
-    });
-	# last;
+	$noticepage = "Mediawiki:Editnotice-116-$page";
+	$text = $bot->get_text($noticepage);
+	if ($text) {
+		print "PAGE '$noticepage' contains '$text'.\n";
+	} else {
+		print "PAGE '$noticepage' is empty.\n";
+		$bot->edit({
+			page    => $noticepage,
+			text    => decode_utf8("{{הודעת עריכה חוקים}}"),
+			summary => "editnotice",
+		});
+	}
 }
 
 exit 0;
