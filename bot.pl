@@ -14,6 +14,7 @@ binmode STDOUT, ":utf8";
 my @pages = ();
 my ($verbose, $dryrun, $force,$print,$onlycheck);
 my $outfile;
+
 GetOptions(
 	"force" => \$force, 
 	"check" => \$onlycheck,
@@ -68,6 +69,10 @@ foreach my $page_dst (@pages) {
 	my $comment = $hist_s[0]->{comment};
 	my $rec     = undef;
 	
+	if ($comment =~ /העבירה? את הדף/) {
+		$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *//;
+	}
+	
 	foreach my $rec (@hist_t) {
 		last if ($revid_t);
 		$revid_t = $rec->{comment};
@@ -94,12 +99,7 @@ foreach my $page_dst (@pages) {
 	} else {
 		print ", Updating.\n";
 	}
-
-#	foreach my $rec (@hist_s) {
-#		print "REVID = $rec->{revid} TIMESTAMP = $rec->{timestamp_date} $rec->{timestamp_time} \"$rec->{comment}\"\n";
-#	}
-	# print "SOURCE = \n$text";
-
+	
 	$text = $bot->get_text($page_src, $revid_s);
 	$text = RunParsers($text);
 	$comment = ( $comment ? "[$revid_s] $comment" : "[$revid_s]" );
@@ -114,6 +114,31 @@ foreach my $page_dst (@pages) {
 		assertion => 'bot',
 	}) unless ($dryrun);
 	
+	# Check editnotice and update if neccessary
+	my $noticepage = "Mediawiki:Editnotice-0-$page_dst";
+	my $id = $bot->get_id($noticepage);
+	if (!defined $id) {
+		if ($dryrun) {
+			print "Editnotice for '$page_dst' does not exist.\n";
+		} else {
+			print "Creating editnotice '$page_dst'.\n";
+			$bot->edit({
+				page    => $noticepage,
+				text    => decode_utf8("{{הודעת עריכה חוקים}}"),
+				summary => "editnotice",
+			});
+		}
+	}
+
+	$noticepage = "Mediawiki:Editnotice-116-$page_dst";
+	$id = $bot->get_id($noticepage);
+	if (!defined $id && !$dryrun) {
+		$bot->edit({
+			page    => $noticepage,
+			text    => decode_utf8("{{הודעת עריכה חוקים}}"),
+			summary => "editnotice",
+		});
+	}
 }
 
 exit 0;
