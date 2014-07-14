@@ -13,7 +13,8 @@ binmode STDOUT, ":utf8";
 
 # INCLUDE = {{הודעת עריכה חוקים}}
 
-my %credentials = load_credentials('wiki_credentials.txt');
+# my %credentials = load_credentials('wiki_credentials.txt');
+my %credentials = load_credentials('wiki_botconf.txt');
 my $bot = MediaWiki::Bot->new({
 	host       => 'he.wikisource.org',
 	login_data => \%credentials,
