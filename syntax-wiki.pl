@@ -34,9 +34,11 @@ s/\n{3,}/\n\n/sg;  # Convert three+ linefeeds
 s/\n\n$/\n/sg;     # Remove last linefeed
 
 s/[\x{200E}\x{200F}\x{202A}-\x{202E}]//g; # Throw away LTR/RTL characters
-s/[־–—‒―]/-/g;     # All type of dashes
-s/[״”“„]/"/g;      # All type of double quotes
-s/[`׳’‘‚]/'/g;     # All type of single quotes
+s/[\x{2000}-\x{200A}\x{205F}]/ /g; # Typographic spaces
+s/[\x{200B}-\x{200D}]//g;  # Zero-width spaces
+s/[־–—‒―]/-/g;     # Different types of dashes
+s/[״”“„‟″‶]/"/g;   # Different types of double quotes
+s/[`׳’‘‚‛′‵]/'/g;  # Different types of single quotes
 s/[ ]{2,}/ /g;     # Pack  long spaces
 
 s/([ :])-([ \n])/$1–$2/g;
@@ -64,6 +66,7 @@ s/^<סעיף *(.*?)>(.*?)\n/&parseChapter($1,$2,"סעיף")/egm;
 s/^(@.*?) +([:]+ .*)$/$1\n$2/gm;
 s/^@ *(\d\S*) *\n/&parseChapter($1,"","סעיף")/egm;
 s/^@ *(\d\S*) *(.*?)\n/&parseChapter($1,$2,"סעיף")/egm;
+s/^@ *(\(תיקון.*?)\n/&parseChapter("",$1,"סעיף*")/egm;
 s/^@ *(\(.*?\)) *(.*?)\n/&parseChapter($1,$2,"סעיף*")/egm;
 s/^@ *(.*?)\n/&parseChapter("",$1,"סעיף*")/egm;
 s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3/gm;
@@ -104,7 +107,7 @@ sub parseSection {
 		$num = '';
 	}
 	
-	($type) = (/\b(חלק|פרק|סימן|תוספת|טופס)\b/);
+	($type) = (/\bה?(חלק|פרק|סימן|תוספת|טופס)\b/);
 	$type = '' if !defined $type;
 	
 	my $str = "<קטע $level $type $num>\n";
@@ -230,8 +233,8 @@ sub get_numeral {
 		($num,$token) = ("8",$1) when /\b(ה?שמינית?|שמונה)\b/;
 		($num,$token) = ("9",$1) when /\b(ה?תשיעית?|תשעה?)\b/;
 		($num,$token) = ("10",$1) when /\b(ה?עשירית?|עשרה?)\b/;
-		($num,$token) = ($1,$1) when /\b(\d+(([א-י]|טו|טז|[כלמנ][א-ט]?|)\d*|))\b/;
-		($num,$token) = ($1,$1) when /\b(([א-י]|טו|טז|[כלמנ][א-ט]?)(\d+[א-י]*|))\b/;
+		($num,$token) = ($1,$1) when /\b(\d+(([א-י]|טו|טז|[יכלמנ][א-ט]?|)\d*|))\b/;
+		($num,$token) = ($1,$1) when /\b(([א-י]|טו|טז|[יכלמנ][א-ט]?)(\d+[א-י]*|))\b/;
 	}
 	$num .= "-$1" if (/\b$token\b[- ]([א-י])\b/);
 	$num .= $1 if (/\b$token\b[- ](\d+)\b/);
