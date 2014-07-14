@@ -258,6 +258,9 @@ my %markup = (
 	"/" => {
 		context => -2,
 	},
+	"ספרור" => {
+		init => "set_sectype",
+	},
 
 );
 
@@ -305,7 +308,7 @@ while (my $line = <$FIN>) {
 		$href{text} = $href{text} . $PREMATCH if ($href{type}>0);
 		$line = $POSTMATCH;
 		$param =~ s/^"(.*)"$/$1/;
-		# print STDERR "%% Got $command |$param|\n";
+		# print STDERR "%% Got |$command|$param|\n";
 		
 		if (!defined $markup{$command}) {
 			print STDERR "ERROR: Unknown command (" . $command .").\n";
@@ -382,6 +385,12 @@ sub nop {
 
 ## PART SECTION SUBSECTION ############
 
+sub set_sectype {
+	my $_ = shift;
+	$sectype = (/פרק/ and /חלק/);
+ 	# print STDERR "SECTYPE = $sectype ($_)\n";
+}
+
 sub initSECT {
 	my ($level, $type, $num) = split(' ',shift,3);
 	$num = get_numeral($num);
@@ -390,8 +399,14 @@ sub initSECT {
 	if (defined $num) {
 		$object{number} = "$type $num";
 		$object{number} = "פרק $section $object{number}" if ($type eq 'סימן' && defined $section);
+		$object{number} = "חלק $part $object{number}" if ($sectype && !($type =~ /חלק/));
 	}
 	$object{number} = "תוספת $supplemental $object{number}" if ($supplemental && !($type =~ /תוספת|טופס/));
+	
+	if ($type =~ /(תוספת|טופס)/ && !defined $num) {
+		$object{number} = $1;
+		$num = 1;
+	}
 	
 	$part = $num if ($type =~ /חלק/);
 	$section = $num if ($type =~ /פרק/);
@@ -429,7 +444,7 @@ sub initSUBSECTION {
 
 sub initCHAPTER {
 	$_ = shift;
-	s/-/ - /;
+	# s/-/ - /;
 	$object{number} = $_;
 	$object{lines} = [];
 	$object{sub} = undef;
@@ -624,161 +639,6 @@ sub initPARA {
 
 ## A ##################################
 
-#	$href{type} is:  0=none, 1=gotit, 2=guess, 3=ext*, 4=ext**, 5=ext+, 6=ext-
-
-sub open_A_LOCAL {
-	my $text = shift;
-	if ($href{type}>0) {
-		# ERROR...
-		printError('סגירת קישור פתוח');
-		close_A();
-	}
-	$href{text} = "";
-	if ($text) {
-		$href{type} = 1;
-		$text = findHREF($text);
-	} else {
-		$href{type} = 2;
-		$text = "?HREF?";
-	}
-	$textline = $textline . "{{ח:פנימי|$text|";
-}
-
-sub close_A_LOCAL {
-	if ($href{type}==0) {
-		# ERROR...
-		printError('סוגר קישור ללא פותח');
-		return;
-	}
-	# $textline = $textline . "<\/a>";
-	$textline = $textline . "}}";
-	if ($href{type}==2) {
-		my $text = $href{text};
-		$text = findHREF($text);
-		if (!replaceAll('?HREF?', $text, 1)) {
-			printError('לא נמצא קישור');
-			print STDERR "ERROR: HREF not found...\n";
-		}
-	}
-	$href{type} = 0;
-}
-
-sub open_A_EXTERNAL {
-	my $text = join("#", @_);
-	$text =~ tr/\?//;
-	my $hassep = $text =~ /#/;
-	my ($ext, $part) = $text =~ /([^#]*)#?(.*)/;
-
-	if ($href{type}>0) {
-		# ERROR...
-		printError('סגירת קישור פתוח');
-		close_A();
-	}
-
-	$href{class} = 0;
-	$href{text} = "";
-	$href{mark} = "?EXT?" if (!$href{mark});
-
-	if ($ext eq "*") {
-		$href{class} = 2;
-		$href{type} = 3;
-		$text = "?EXT?";
-		$hassep = 0;
-	} elsif ($ext =~ /^\*(.*)/) {
-		$ext = $1;
-		$href{class} = 0;
-		$href{type} = 4;
-		$href{curr} = $ext;
-		$text = "?EXT-" . $ext . "?";
-		$hassep = 0;
-	} elsif ($ext =~ /^[+-]$/) {
-		$hassep = ($ext eq "+");
-		$href{class} = 0;
-		$href{type} = 1;
-		$href{mark} = "?EXT?" if (!$href{mark});
-		$text = $ext = "?EXT?";
-	} elsif ($ext =~ /^([+-])(.*)/) {
-		$hassep = ($1 eq "+");
-		$ext = $2;
-		$href{type} = 1;
-		$href{marks}{$ext} = "?EXT-$ext?" if (!$href{marks}{$ext});
-		$text = $ext = $href{marks}{$ext};
-		if ($1 eq "-") {
-			replaceAll('?EXT?',$ext);
-		}
-	} elsif ($ext) {
-		$href{type} = 1;
-		$text = $ext = findExtRef($ext);
-	} else {
-		$ext = "?EXT?";
-		$hassep = 1;
-	}
-	
-	if ($hassep) { 
-		if ($part) {
-			$href{type} = 1;
-			# print STDERR "HERE!\n";
-			$text = $ext . "#" . findHREF($part);
-		} else {
-			$href{type} = 2;
-			$text = $ext . "#?HREF?";
-		}
-	}
-	# print STDERR "##  |$ext|" . ($hassep ? " #" : "") . " |$part|  |$text|\n";
-	$textline = $textline . "{{ח:חיצוני|$text|";
-}
-
-sub close_A_EXTERNAL {
-	# print STDERR "##  TYPE = $href{type}\n";
-	# print STDERR "##  TEXT = $href{text}\n";
-	if ($href{type}==2) {
-		my $text = $href{text};
-		if ($text =~ /^[בוהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)/) {
-			$text = findExtRef($text);
-			if (!replaceAll('?HREF?', $text, 1)) {
-				print STDERR "ERROR: HREF not found...\n";
-				printError('לא נמצא קישור');
-			}
-			$href{type} = 3;
-		} else {
-			$text = findHREF($text);
-			if (!replaceAll('?HREF?', $text, 1)) {
-				print STDERR "ERROR: HREF not found...\n";
-				printError('לא נמצא קישור');
-			}
-		}
-	}
-	
-	if ($href{type}==3) {
-		my $text = $href{text};
-		$href{mark} = $text = findExtRef($text);
-		replaceAll('?EXT?',$text);
-	}
-
-	if ($href{type}==4) {
-		my $text = $href{text};
-		my $ext = $href{curr};
-		$href{marks}{$ext} = $text = findExtRef($text);
-		replaceAll("?EXT-".$ext."?", $text);
-	}
-
-	if ($href{type}==5) {
-		my $text = $href{text};
-		$text = findHREF($text);
-		if (!replaceAll("?HREF?", $text, 1)) {
-			print STDERR "ERROR: HREF not found...\n";
-			printError('לא נמצא קישור');
-		}
-	}
-	
-	$textline = $textline . "}}";
-	$href{type} = 0;
-}
-
-sub close_A {
-	$textline = $textline . "}}";
-}
-
 sub inline_HREF {
 	my $local = $textline;
 	my $text = shift;
@@ -835,11 +695,15 @@ sub processHREF {
 	
 	$ext = '' if ($type == 1);
 	
-	if ($helper =~ /^(.*?) *# *(.*)/) {
+	if ($helper =~ /^https?:\/\//) {
+		$ext = $helper;
+		$text = '';
+		$found = true;
+	} elsif ($helper =~ /^(.*?)#(.*)/) {
 		$type = 2;
 		$helper = $1;
-		($text, undef) = findHREF($2);
 		$ext = '' if ($1);
+		($text, undef) = findHREF($2) if ($2);
 		$found = true;
 	}
 	
@@ -956,7 +820,7 @@ sub fixFormat {
 
 sub typeHREF {
 	shift;
-	return (/(\bו?[בהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b)|#/ ? 2 : 1);
+	return (/(\bו?[בהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|כללי|דבר[ -]המלך)\b)[- ]*([א-ת]+\b)?$|#/ ? 2 : 1);
 }
 
 
@@ -966,18 +830,20 @@ sub findHREF {
 	
 	my $ext = '';
 	
-	if (/^w:/) {
+	if (/^(w:|http:|https:)/) {
 		return ('',$_);
 	}
 	
-	if (/^(.*?)\s*(\bו?[בהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b.*)$/) {
-		$_ = $1;
-		$ext = findExtRef($2);
-	}
-	
-	if (/^(.*)#(.*)$/) {
+	if (/^(.*?)#(.*)$/) {
 		$_ = $2;
 		$ext = findExtRef($1);
+	}
+	
+	s/(\b[לב]?(אותו|אותה)\b) *(\bו?[בהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b[- ]*([א-ת]+\b.*)?)$/$4 $2/;
+	
+	if (/^(.*?)\s*(\bו?[בהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|כללי|דבר[ -]המלך)\b[- ]*([א-ת]+\b.*)?)$/) {
+		$_ = $1;
+		$ext = findExtRef($2);
 	}
 	
 	s/[\(_]/ ( /g;
@@ -1001,8 +867,8 @@ sub findHREF {
 			when (/^ו?[בהל]?(תוספת)/) { $class = "sup"; $num = ""; }
 			when (/^ו?[בהל]?(טופס|טפסים)/) { $class = "template"; }
 			when (/טבלת_השוואה/) { $class = "table"; $num = ""; }
-			when (/^ו?[בהל]?(סעיף|סעיפים|תקנה|תקנות)/) { $class = "chap"; }
-			when (/^קט[נן]|פסקה|פסקאות|משנה|פריט|פרט/) { $class = "small"; }
+			when (/^ו?ש?[בהל]?(סעיף|סעיפים|תקנה|תקנות)/) { $class = "chap"; }
+			when (/^ו?ש?[בהל]?(קט[נן]|פסקה|פסקאות|משנה|פריט|פרט)/) { $class = "small"; }
 			when ("(") { $class = "small"; }
 			when (/^ה?(זה|זו|זאת)/) {
 				given ($class) {
@@ -1041,9 +907,11 @@ sub findHREF {
 	} elsif (defined $elm{section}) {
 		$href = "פרק $elm{section}";
 		$href .= " סימן $elm{subsect}" if defined $elm{subsect};
+		$href = "חלק $part $href" if $sectype && defined $part && ($ext eq '');
 	} elsif (defined $elm{subsect}) {
 		$href = "סימן $elm{subsect}";
 		$href = "פרק $section $href" if defined $section && ($ext eq '');
+		$href = "חלק $part $href" if $sectype && defined $part && ($ext eq '');
 	} elsif (defined $elm{chap}) {
 		$href = "סעיף $elm{chap}";
 	} else {
@@ -1061,8 +929,8 @@ sub findExtRef {
 	my $_ = shift;
 	return $_ if (/^https?:\/\//);
 	tr/"'`//;
-	s/\(נוסח (חדש|משולב)\)//g;
-	s/\[נוסח (חדש|משולב)\]//g;
+	s/ *\(נוסח (חדש|משולב)\)//g;
+	s/ *\[נוסח (חדש|משולב)\]//g;
 #	s/(^[^\,\.]*).*/$1/;
 	s/#.*$//;
 	s/\.[^\.]*$//;
@@ -1071,8 +939,8 @@ sub findExtRef {
 	s/^\s*(.*?)\s*$/$1/;
 	if (/^ו?[בהל]?(חוק|פקודה|פקודת|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b(.*)$/) {
 		$_ = "$1$2";
-		return '' if ($2 =~ /\b(זאת|זו|זה|אלו)\b/);
-		return '-' if ($2 =~ /\b(האמורה?|אותו|אותה)\b/);
+		return '' if ($2 =~ /\bה?(זאת|זו|זה|אלו)\b/);
+		return '-' if ($2 =~ /\b[לב]?(האמורה?|אותו|אותה)\b/);
 	}
 	s/\s[-——]+\s/_XX_/g;
 	s/[-]+/ /g;
@@ -1155,8 +1023,8 @@ sub get_numeral {
 		($num,$token) = ("8",$1) when /\b(ה?שמינית?|שמונה)\b/;
 		($num,$token) = ("9",$1) when /\b(ה?תשיעית?|תשעה?)\b/;
 		($num,$token) = ("10",$1) when /\b(ה?עשירית?|עשרה?)\b/;
-		($num,$token) = ($1,$1) when /\b(\d+(([א-י]|טו|טז|[כלמנ][א-ט]?|)\d*|))\b/;
-		($num,$token) = ($1,$1) when /\b(([א-י]|טו|טז|[כלמנ][א-ט]?)(\d+[א-י]*|))\b/;
+		($num,$token) = ($1,$1) when /\b(\d+(([א-י]|טו|טז|[יכלמנ][א-ט]?|)\d*|))\b/;
+		($num,$token) = ($1,$1) when /\b(([א-י]|טו|טז|[יכלמנ][א-ט]?)(\d+[א-י]*|))\b/;
 	}
 	$num .= "-$1" if (/\b$token\b[- ]([א-י])\b/);
 	$num .= $1 if (/\b$token\b[- ](\d+)\b/);
@@ -1247,7 +1115,7 @@ sub printSection {
 	
 	$number = $object{ankor_str} if (defined $object{ankor_str});
 	$number = '' if !defined $number;
-
+	
 	print "{{ח:$object{class}|$number|$text";
 	print "|$fix" if (defined $fix);
 	print "}}\n\n";
