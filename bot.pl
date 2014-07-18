@@ -12,13 +12,14 @@ use utf8;
 binmode STDOUT, ":utf8";
 
 my @pages = ();
-my ($verbose, $dryrun, $force,$print,$onlycheck);
+my ($verbose, $dryrun, $force, $editnotice, $print, $onlycheck);
 my $outfile;
 
 GetOptions(
 	"force" => \$force, 
 	"check" => \$onlycheck,
 	"dryrun" => \$dryrun,
+	"editnotice" => \$editnotice,
 	"verbose" => \$verbose,
 #	"OUTPUT=s" => sub { $print = 1; open(STDOUT, ">_[1]"); },
 	"output" => \$print,
@@ -113,6 +114,8 @@ foreach my $page_dst (@pages) {
 		minor     => 0,
 		assertion => 'bot',
 	}) unless ($dryrun);
+	
+	next unless $editnotice;
 	
 	# Check editnotice and update if neccessary
 	my $noticepage = "Mediawiki:Editnotice-0-$page_dst";
