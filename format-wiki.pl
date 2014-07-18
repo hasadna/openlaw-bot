@@ -399,14 +399,18 @@ sub initSECT {
 	if (defined $num) {
 		$object{number} = "$type $num";
 		$object{number} = "פרק $section $object{number}" if ($type eq 'סימן' && defined $section);
-		$object{number} = "חלק $part $object{number}" if ($sectype && !($type =~ /חלק/));
+		$object{number} = "חלק $part $object{number}" if ($sectype && $type !~ /חלק/);
+	} else {
+		$object{number} = '';
 	}
-	$object{number} = "תוספת $supplemental $object{number}" if ($supplemental && !($type =~ /תוספת|טופס/));
+	$object{number} = "תוספת $supplemental $object{number}" if ($supplemental && $type !~ /תוספת|טופס/ && defined $num);
 	
 	if ($type =~ /(תוספת|טופס)/ && !defined $num) {
 		$object{number} = $1;
 		$num = 1;
 	}
+	
+#	print STDERR "InitSection: |$level|$type|$object{number}|\n";
 	
 	$part = $num if ($type =~ /חלק/);
 	$section = $num if ($type =~ /פרק/);
@@ -820,7 +824,7 @@ sub fixFormat {
 
 sub typeHREF {
 	shift;
-	return (/(\bו?[בהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|כללי|דבר[ -]המלך)\b)[- ]*([א-ת]+\b)?$|#/ ? 2 : 1);
+	return (/(\bו?[בהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|הוראות|כללי|דבר[ -]המלך)\b)[- ]*([א-ת]+\b)?$|#/ ? 2 : 1);
 }
 
 
@@ -839,9 +843,9 @@ sub findHREF {
 		$ext = findExtRef($1);
 	}
 	
-	s/(\b[לב]?(אותו|אותה)\b) *(\bו?[בהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b[- ]*([א-ת]+\b.*)?)$/$4 $2/;
+	s/(\b[לב]?(אותו|אותה)\b) *(\bו?[בהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|הוראות|דבר[ -]המלך)\b[- ]*([א-ת]+\b.*)?)$/$4 $2/;
 	
-	if (/^(.*?)\s*(\bו?[בהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|כללי|דבר[ -]המלך)\b[- ]*([א-ת]+\b.*)?)$/) {
+	if (/^(.*?)\s*(\bו?[בהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|הוראות|כללי|דבר[ -]המלך)\b[- ]*([א-ת]+\b.*)?)$/) {
 		$_ = $1;
 		$ext = findExtRef($2);
 	}
@@ -861,14 +865,15 @@ sub findHREF {
 	foreach $_ (@parts) {
 		$num = undef;
 		given ($_) {
-			when (/^ו?[בהל]?(חלק|חלקים)/) { $class = "part"; }
-			when (/^ו?[בהל]?(פרק|פרקים)/) { $class = "section"; }
-			when (/^ו?[בהל]?(סימן|סימנים)/) { $class = "subsect"; }
-			when (/^ו?[בהל]?(תוספת)/) { $class = "sup"; $num = ""; }
-			when (/^ו?[בהל]?(טופס|טפסים)/) { $class = "template"; }
+			when (/^ו?ש?[בהל]?(חלק|חלקים)/) { $class = "part"; }
+			when (/^ו?ש?[בהל]?(פרק|פרקים)/) { $class = "section"; }
+			when (/^ו?ש?[בהל]?(סימן|סימנים)/) { $class = "subsect"; }
+			when (/^ו?ש?[בהל]?(תוספת)/) { $class = "sup"; $num = ""; }
+			when (/^ו?ש?[בהל]?(טופס|טפסים)/) { $class = "template"; }
 			when (/טבלת_השוואה/) { $class = "table"; $num = ""; }
 			when (/^ו?ש?[בהל]?(סעיף|סעיפים|תקנה|תקנות)/) { $class = "chap"; }
-			when (/^ו?ש?[בהל]?(קט[נן]|פסקה|פסקאות|משנה|פריט|פרט)/) { $class = "small"; }
+			when (/^ו?ש?[בהל]?(פריט|פרט)/) { $class = "supchap"; }
+			when (/^ו?ש?[בהל]?(קט[נן]|פסקה|פסקאות|משנה)/) { $class = "small"; }
 			when ("(") { $class = "small"; }
 			when (/^ה?(זה|זו|זאת)/) {
 				given ($class) {
@@ -896,24 +901,37 @@ sub findHREF {
 	if (defined $elm{table}) {
 		$href = "טבלת השוואה";
 	} elsif (defined $elm{sup}) {
-		$href = "תוספת $elm{sup}";
-		$href .= " חלק $elm{part}" if (defined $elm{part});
+		if (defined $elm{chap}) {
+			$href = "תוספת $elm{sup} סעיף $elm{chap}";
+		} elsif (defined $elm{supchap}) {
+			$href = "תוספת $elm{sup} סעיף $elm{supchap}";
+		} else {
+			$href = "תוספת $elm{sup}";
+			$href .= " חלק $elm{part}" if defined $elm{part};
+			$href .= " פרק $elm{section}" if defined $elm{section};
+			$href .= " סימן $elm{subsect}" if defined $elm{subsect};
+		}
 	} elsif (defined $elm{template}) {
 		$href = "טופס $elm{template}";
 	} elsif (defined $elm{part}) {
 		$href = "חלק $elm{part}";
-		$href .= " פרק $elm{section}" if defined $elm{section};
-		$href .= " סימן $elm{subsect}" if defined $elm{subsect};
+		$href .= " פרק $elm{section}" if (defined $elm{section});
+		$href .= " סימן $elm{subsect}" if (defined $elm{subsect});
 	} elsif (defined $elm{section}) {
 		$href = "פרק $elm{section}";
-		$href .= " סימן $elm{subsect}" if defined $elm{subsect};
-		$href = "חלק $part $href" if $sectype && defined $part && ($ext eq '');
+		$href .= " סימן $elm{subsect}" if (defined $elm{subsect});
+		$href = "חלק $part $href" if ($sectype && defined $part && $ext eq '');
+		$href = "תוספת $supplemental $href" if ($supplemental && $ext eq '');
 	} elsif (defined $elm{subsect}) {
 		$href = "סימן $elm{subsect}";
-		$href = "פרק $section $href" if defined $section && ($ext eq '');
-		$href = "חלק $part $href" if $sectype && defined $part && ($ext eq '');
+		$href = "פרק $section $href" if (defined $section && $ext eq '');
+		$href = "חלק $part $href" if ($sectype && defined $part && $ext eq '');
+		$href = "תוספת $supplemental $href" if ($supplemental && $ext eq '');
 	} elsif (defined $elm{chap}) {
 		$href = "סעיף $elm{chap}";
+		# $href = "תוספת $supplemental $href" if ($supplemental && $ext eq '');
+	} elsif (defined $elm{supchap} && $supplemental ne '' && $ext eq '') {
+		$href = "תוספת $supplemental סעיף $elm{supchap}";
 	} else {
 		$href = "";
 	}
@@ -940,6 +958,7 @@ sub findExtRef {
 	if (/^ו?[בהל]?(חוק|פקודה|פקודת|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b(.*)$/) {
 		$_ = "$1$2";
 		return '' if ($2 =~ /\bה?(זאת|זו|זה|אלו)\b/);
+		return '' if ($2 eq "" && !defined $href{marks}{"$1"});
 		return '-' if ($2 =~ /\b[לב]?(האמורה?|אותו|אותה)\b/);
 	}
 	s/\s[-——]+\s/_XX_/g;
@@ -1013,16 +1032,26 @@ sub get_numeral {
 	$_ = unparent($_);
 	given ($_) {
 		($num,$token) = ("0",$1) when /\b(ה?מקדמית?)\b/;
+		($num,$token) = ("11",$1) when /\b(ה?אחד[- ]עשר|ה?אחת[- ]עשרה)\b/;
+		($num,$token) = ("12",$1) when /\b(ה?שניי?ם[- ]עשר|ה?שתיי?ם[- ]עשרה)\b/;
+		($num,$token) = ("13",$1) when /\b(ה?שלושה[- ]עשר|ה?שלוש[- ]עשרה)\b/;
+		($num,$token) = ("14",$1) when /\b(ה?ארבעה[- ]עשר|ה?ארבע[- ]עשרה)\b/;
+		($num,$token) = ("15",$1) when /\b(ה?חמי?שה[- ]עשר|ה?חמש[- ]עשרה)\b/;
+		($num,$token) = ("16",$1) when /\b(ה?שי?שה[- ]עשר|ה?שש[- ]עשרה)\b/;
+		($num,$token) = ("17",$1) when /\b(ה?שבעה[- ]עשר|ה?שבע[- ]עשרה)\b/;
+		($num,$token) = ("18",$1) when /\b(ה?שמונה[- ]עשרה?)\b/;
+		($num,$token) = ("19",$1) when /\b(ה?תשעה[- ]עשר|ה?תשע[- ]עשרה)\b/;
 		($num,$token) = ("1",$1) when /\b(ה?ראשו(ן|נה)|אח[דת])\b/;
 		($num,$token) = ("2",$1) when /\b(ה?שניי?ה?|ש[תנ]יי?ם)\b/;
 		($num,$token) = ("3",$1) when /\b(ה?שלישית?|שלושה?)\b/;
 		($num,$token) = ("4",$1) when /\b(ה?רביעית?|ארבעה?)\b/;
-		($num,$token) = ("5",$1) when /\b(ה?חמי?שית?|חמש|חמישה)\b/;
+		($num,$token) = ("5",$1) when /\b(ה?חמי?שית?|חמש|חמי?שה)\b/;
 		($num,$token) = ("6",$1) when /\b(ה?שי?שית?|שש|שי?שה)\b/;
 		($num,$token) = ("7",$1) when /\b(ה?שביעית?|שבעה?)\b/;
 		($num,$token) = ("8",$1) when /\b(ה?שמינית?|שמונה)\b/;
 		($num,$token) = ("9",$1) when /\b(ה?תשיעית?|תשעה?)\b/;
 		($num,$token) = ("10",$1) when /\b(ה?עשירית?|עשרה?)\b/;
+		($num,$token) = ("20",$1) when /\b(ה?עשרים)\b/;
 		($num,$token) = ($1,$1) when /\b(\d+(([א-י]|טו|טז|[יכלמנ][א-ט]?|)\d*|))\b/;
 		($num,$token) = ($1,$1) when /\b(([א-י]|טו|טז|[יכלמנ][א-ט]?)(\d+[א-י]*|))\b/;
 	}
@@ -1148,6 +1177,7 @@ sub printChapter {
 	print "|$number|$desc";
 	print "|תיקון: $object{fix}" if (defined $object{fix});
 	print "|אחר=$object{other}" if (defined $object{other});
+	print "|עוגן=תוספת $supplemental סעיף $number" if ($supplemental && $number);
 	print "}}\n";
 
 	my $first = 1;
@@ -1226,11 +1256,15 @@ sub printSignatures {
 	my $line;
 	foreach $line (@text) {
 		last unless ($line =~ /^ *\*/);
-		if ($line =~ /^ *\* *(.*?) *\| *(.*?) *$/) {
-			print "* '''$1'''<br>$2\n";
-		} elsif ($line =~ /^ *\* *(.*?) *$/) {
-			print "* '''$1'''\n";
-		}
+		$line =~ s/^ *\* *(.*?) *$/$1/;
+		$line =~ s/ *\| */<br>/g;
+		$line =~ s/^(.*?)(?=\<br\>|$)/\'\'\'$1\'\'\'/;
+		print "* $line\n";
+# 		if ($line =~ /^ *\* *(.*?) *\| *(.*?) *$/) {
+# 			print "* '''$1'''<br>$2\n";
+# 		} elsif ($line =~ /^ *\* *(.*?) *$/) {
+# 			print "* '''$1'''\n";
+# 		}
 	}
 	print "{{ח:סוגר}}\n";
 	@text = ();
