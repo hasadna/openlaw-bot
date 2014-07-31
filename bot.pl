@@ -40,30 +40,37 @@ my $bot = MediaWiki::Bot->new({
 	debug      => ($verbose?2:0),
 }) or die "Error login...\n";
 
-my $cat = decode_utf8('קטגוריה:בוט חוקים');
-@pages = $bot->get_pages_in_category($cat) unless (@pages);
+unless (@pages) {
+	my $cat = decode_utf8('קטגוריה:בוט חוקים');
+	@pages = $bot->get_pages_in_category($cat);
+	print "CATEGORY contains " . scalar(@pages) . " pages.\n";
+}
 
 $force = 0 if ($onlycheck);
 
 foreach my $page_dst (@pages) {
 	my $text;
 	$page_dst =~ s/ /_/g;
-	my $page_src = $page_dst . decode_utf8("/מקור");
-	my ($id_s, $id_t);
-	$id_t = $bot->get_id($page_dst);
-	$id_s = $bot->get_id($page_src);
-	if (!defined $id_s) {
-		$page_src = decode_utf8("מקור:") . $page_dst;
-		$id_s = $bot->get_id($page_src);
-	} 
-	if (!defined $id_s) {
-		print "Source page \"$page_src\" not found!\n";
-		next;
-	}
-	print "PAGE \x{202B}\"$page_dst\"\x{202C}:\t";
+	my $page_src = decode_utf8("מקור:") . $page_dst;
 	
 	my @hist_s = $bot->get_history($page_src);
 	my @hist_t = $bot->get_history($page_dst);
+	
+	my $src_ok = (@hist_s>0);
+	my $dst_ok = (@hist_t>0);
+	
+	if (!$src_ok) {
+		# Check if source at "חוק/מקור"
+		$page_src = $page_dst . decode_utf8("/מקור");
+		@hist_s = $bot->get_history($page_src);
+		$src_ok = (@hist_s>0);
+		if (!$src_ok) {
+			print "Source page \"מקור:$page_dst\" or \"$page_dst/מקור\" not found!\n";
+			next;
+		}
+	}
+	
+	print "PAGE \x{202B}\"$page_dst\"\x{202C}:\t";
 	
 	my $revid_s = $hist_s[0]->{revid};
 	my $revid_t = 0;
@@ -84,8 +91,8 @@ foreach my $page_dst (@pages) {
 	
 	print "ID $revid_s " . ($update?'>':'=') . " $revid_t";
 	if ($onlycheck) {
-		print ", Target not exist.\n" if !defined $id_t;
-		print ", Modified.\n" if ($revid_t<$revid_s && defined $id_t);
+		print ", Target not exist.\n" if (!$dst_ok);
+		print ", Modified.\n" if ($revid_t<$revid_s && $dst_ok);
 		print ", Target changed.\n" if ($revid_t>$revid_s);
 		print ", Same.\n" if ($revid_t==$revid_s);
 		next;
