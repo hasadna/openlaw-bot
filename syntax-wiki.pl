@@ -124,6 +124,7 @@ sub parseChapter {
 	($desc, $fix) = get_fixstr($desc);
 	($desc, $extra) = get_extrastr($desc);
 	($desc, $ankor) = get_ankor($desc);
+	$desc =~ s/"/&quote;/g;
 	$num =~ s/[.,]$//;
 	
 	my $str = "<$type $num>\n";
