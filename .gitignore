@@ -1,8 +1,16 @@
 # Test and backup files
 test*
+junk*
 *~
 *.bak
 *.rar
+*.log
+__*
+[א-ת]*
+Files/*
+Misc/*
+Regulations/*
+older/*
 
 # Credentials
 wiki_credentials.txt
@@ -12,4 +20,3 @@ wiki_botconf.txt
 # Various project files
 .settings
 .project
-
