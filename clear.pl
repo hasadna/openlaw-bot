@@ -24,12 +24,17 @@ if ($#ARGV>=0) {
 	$_ = <STDIN>;
 }
 
+my $LRE = "\x{202A}";
+my $RLE = "\x{202B}";
+my $PDF = "\x{202C}";
 
 # Try to fix RLE/PDF (usually dumb bidi in PDF files)
+# s/ ?([\x{202A}\x{202B}](.|(?1))\x{202C}) (?=[\x{202A}\x{202B}])/$1/g;
    # Place lines with [RLE][PDF] inside [LRE][PDF] context
    # and recursively pop embedded bidi formating
 s/^(.*?\x{202B}.*?\x{202C}.*)$/\x{202A}$1\x{202C}/gm;
 s/([\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}]*|(?0))*\x{202C})/&pop_embedded($1)/ge;
+
 
 # General cleanup
 tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away BIDI characters
@@ -75,6 +80,10 @@ s/(\S[([\-]) /$1/gm;
 s/(?<=[א-ת]\b) - (?=[0-9])/-/g;
 s/([\(\[]) /$1/g;
 s/ ([\)\]])/$1/g;
+s/ " -/" -/g;
+s/(^| )" /"/gm;
+s/ ("[.,:;])/$1/g;
+s/ ('[ .,:;])/$1/g;
 
 print $_;
 exit;
@@ -82,22 +91,50 @@ exit;
 
 
 sub pop_embedded {
-	my $_ = shift; my $type = shift;
+	my $_ = shift; my $type = shift || '';
 	
 	if (/^([\x{202A}\x{202B}])(.*)\x{202C}$/) {
-		$type = $1; $_ = $2;
-		my @arr = (m/([\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}]*|(?0))*\x{202C}|[^\x{202A}-\x{202C}]+)/g);
-		# print "pop_embedded: " . join('|',@arr) . "\n" if ($#arr>0);
+		$type .= $1; $_ = $2;
+		my @arr = (m/([^\x{202A}-\x{202C}]+|[\x{202A}\x{202B}](?0)*\x{202C})/g);
+		# dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
 		@arr = map { pop_embedded($_,$type) } @arr;
-		# print "pop_embedded: " . join('|',@arr) . "\n" if ($#arr>0);
+		# dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
 		@arr = reverse(@arr) if ($type eq "\x{202A}");  # [LRE]$_[PDF]
 		return join('',@arr);
-	} else {
-		tr/([{<>}])/)]}><{[(/ if (defined($type));
-		my $punc = '[ .,:;?!"\'-()\[\]{}<>]';
-		s/^($punc*)(.*?)($punc*)$/reverse($3)."$2".reverse($1)/e if ($type eq "\x{202A}");
-		return $_;
+	} 
+	if ($type !~ /\x{202B}/) {        # within RLE block
+		tr/([{<>}])/)]}><{[(/;
+	} 
+	if (substr($type,-1) eq "\x{202A}") { # LRE block
+		my $punc = '[ \t.,:;?!#$%^&*"\'\-\(\)\[\]{|}<>]';
+		s/^($punc*)(.*?)($punc*)$/reverse($3).$2.reverse($1)/e;
 	}
+	return $_;
 }
 
+sub dump_stderr {
+	my $_ = shift;
+	
+	tr/\x00-\x1F\x7F/␀-␟␡/;
+	s/([␍␊]+)/\n/g;
+	s/␉/␉\t/g;
 
+	s/\x{200E}/[LRM]/g;
+	s/\x{200F}/[RLM]/g;
+	s/\x{202A}/[LRE]/g;
+	s/\x{202B}/[RLE]/g;
+	s/\x{202C}/[PDF]/g;
+	s/\x{202D}/[LRO]/g;
+	s/\x{202E}/[RLO]/g;
+	s/\x{2066}/[LRI]/g;
+	s/\x{2067}/[RLI]/g;
+	s/\x{2068}/[FSI]/g;
+	s/\x{2069}/[PDI]/g;
+	s/\x{061C}/[ALM]/g;
+
+	s/\x{200B}/[ZWSP]/g;
+	s/\x{200C}/[ZWNJ]/g;
+	s/\x{200D}/[ZWJ]/g;
+	s/\x{2060}/[WJ]/g;
+	print STDERR $_;
+}
