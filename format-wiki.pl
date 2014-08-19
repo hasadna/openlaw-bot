@@ -123,6 +123,10 @@ my %markup = (
 		init => "initAPPENDIX",
 		done => "printAppendix"
 	},
+	"סיום" => {
+		context => 1,
+		done => "printClosure"
+	},
 	"עוגן" => {
 		init => "gotANKOR",
 	},
@@ -473,7 +477,8 @@ sub initAPPENDIX {
 
 sub gotDESC {
 	$_ = shift;
-	s/<קישור\s*(.*?)>(.*?)<\/\>/&inline_HREF($2,$1)/egm;
+	s/&quote;/"/g;
+	s/<קישור *(.*?)>(.*?)<\/>/&inline_HREF($2,$1)/egm;
 	$object{"desc"} = $_;
 }
 sub gotFIX {
@@ -719,6 +724,7 @@ sub processHREF {
 		$href{marks}{$helper} = $ext;
 	} elsif ($helper eq '+' || $ext eq '+') {
 		$type = 2;
+		($text, undef) = findHREF("+#$href{text}");
 		replaceOnce('?HREF?','?EXT?#?HREF?');
 		$ext = '';
 	} elsif ($helper eq '-' || $ext eq '-') {
@@ -728,6 +734,7 @@ sub processHREF {
 		} else {
 			replaceOnce('?HREF?',$href{mark});
 		}
+		($text, undef) = findHREF("+#$href{text}");
 		$ext = '';
 	} elsif ($helper) {
 		if ($found) {
@@ -824,7 +831,7 @@ sub fixFormat {
 
 sub typeHREF {
 	shift;
-	return (/(\bו?[בהל]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|הוראות|כללי|דבר[ -]המלך)\b)[- ]*([א-ת]+\b)?$|#/ ? 2 : 1);
+	return (/(\bו?[בהלמ]?(חוק|פקוד[הת]|תקנה|תקנות|צו|החלטה|תקנון|הוראות|הודעה|כללי|דברי?[ -]המלך)\b)[- ]*([א-ת]+\b)?$|#/ ? 2 : 1);
 }
 
 
@@ -843,9 +850,9 @@ sub findHREF {
 		$ext = findExtRef($1);
 	}
 	
-	s/(\b[לב]?(אותו|אותה)\b) *(\bו?[בהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|הוראות|דבר[ -]המלך)\b[- ]*([א-ת]+\b.*)?)$/$4 $2/;
+	s/(\b[לב]?(אותו|אותה)\b) *(\bו?[במהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|הוראות|הודעה|כללי|דברי?[ -]המלך)\b[- ]*([א-ת]+\b.*)?)$/$4 $2/;
 	
-	if (/^(.*?)\s*(\bו?[בהל]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|הוראות|כללי|דבר[ -]המלך)\b[- ]*([א-ת]+\b.*)?)$/) {
+	if (/^(.*?)\s*(\bו?[בהלמ]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|הוראות|הודעה|כללי|דברי?[ -]המלך)\b[- ]*([א-ת]+\b.*)?)$/) {
 		$_ = $1;
 		$ext = findExtRef($2);
 	}
@@ -858,7 +865,7 @@ sub findHREF {
 	s/טבלת השוואה/טבלת_השוואה/;
 	
 	my @parts = split /[ ,.\-\)]+/;
-	my $class = "chap";
+	my $class = '';
 	my $num;
 	my %elm = ();
 	
@@ -889,6 +896,7 @@ sub findHREF {
 			}
 			default {
 				$num = get_numeral($_);
+				$class = "chap" if ($num ne '' && $class eq '');
 			}
 		}
 		
@@ -955,16 +963,18 @@ sub findExtRef {
 	s/\, *[^ ]*\d+$//;
 	s/\[.*?\]//g;
 	s/^\s*(.*?)\s*$/$1/;
-	if (/^ו?[בהל]?(חוק|פקודה|פקודת|תקנה|תקנות|צו|החלטה|תקנון|דבר[ -]המלך)\b(.*)$/) {
+	if (/^ו?[בהלמ]?(חוק|פקודה|פקודת|תקנה|תקנות|צו|החלטה|תקנון|דברי?[ -]המלך)\b(.*)$/) {
 		$_ = "$1$2";
-		return '' if ($2 =~ /\bה?(זאת|זו|זה|אלו)\b/);
+		return '' if ($2 =~ /\bה?(זאת|זו|זה|אלה|אלו)\b/);
 		return '' if ($2 eq "" && !defined $href{marks}{"$1"});
 		return '-' if ($2 =~ /\b[לב]?(האמורה?|אותו|אותה)\b/);
 	}
 	s/\s[-——]+\s/_XX_/g;
-	s/[-]+/ /g;
+	s/_/ /g;
+	s/ {2,}/ /g;
+	# s/[-]+/ /g;
 	s/_XX_/ - /g;
-	s/[ _\:.]+/ /g;
+	# s/[ _\:.]+/ /g;
 #	print STDERR "$prev -> $_\n";
 	return $_;
 }
@@ -1136,19 +1146,17 @@ sub printSection {
 	my $text = fixFormat(shift @text);
 	# my $number = makeENG($object{number});
 	my $number = $object{number};
-	# print "<tr><td colspan=\"7\" class=\"$object{class}\">\n";
-	# print "  <a name=\"$object{name}_$number\"></a>\n" if ($number);
-	# print "  $text\n";
-	# print "  <span class=\"NOTE3\">$fix</span>\n" if ($fix);
-	# print "</td></tr>\n";
 	
 	$number = $object{ankor_str} if (defined $object{ankor_str});
 	$number = '' if !defined $number;
 	
+	print "{{ח:מפריד}}\n\n" if ($object{name} =~ /תוספת/);
+	
 	print "{{ח:$object{class}|$number|$text";
 	print "|$fix" if (defined $fix);
 	print "}}\n\n";
-#	printText() if (scalar(@text));
+	
+	printText() if (@text);
 }
 
 sub printText {
@@ -1158,6 +1166,7 @@ sub printText {
 	return if (scalar(@text));
 	# print "<tr><td></td>\n";
 	# print "<td colspan=\"7\" class=\"PARAGRAPH\">\n";
+	print "{{ח:סעיף*}}\n";
 	$text = fixFormat($text);
 	print $text . "\n";
 	# print "</td></tr>\n\n";
@@ -1177,7 +1186,7 @@ sub printChapter {
 	print "|$number|$desc";
 	print "|תיקון: $object{fix}" if (defined $object{fix});
 	print "|אחר=$object{other}" if (defined $object{other});
-	print "|עוגן=תוספת $supplemental סעיף $number" if ($supplemental && $number);
+	print "|עוגן=תוספת $supplemental סעיף " . get_numeral($number) if ($supplemental && $number);
 	print "}}\n";
 
 	my $first = 1;
@@ -1277,6 +1286,31 @@ sub printPubDate {
 	return if (scalar(@text));
 	$global{date} = $text;
 	# print "{{ח:ת}}<small>$text</small>{{ח:סוגר}}\n";
+}
+
+sub printClosure {
+	my @lines = @{$object{lines}};
+	print "{{ח:מבוא}}\n";
+	print "{{ח:מפריד}}\n";
+	
+	for my $line (@lines) {
+		print "{{ח:ת}} " if ($line->{indent}==0);
+		print "{{ח:תת|$line->{sub}}} " if (defined $line->{sub});
+		print "{{ח:תתת|$line->{ssub}}} " if (defined $line->{ssub});
+		print "{{ח:תתתת|$line->{sssub}}} " if (defined $line->{sssub});
+		print "{{ח:תתתתת|$line->{ssssub}}} " if (defined $line->{ssssub});
+		my $text = join("\n", @{$line->{text}});
+		$text = fixFormat($text);
+		if ($line->{class}) {
+			print "{{$line->{class}|$text}}\n"; 
+		} else {
+			print "$text\n";
+		}
+	}
+	
+	print "\n";
+	@text = ();
+	print "{{ח:סוגר}}\n";
 }
 
 sub initCompareTable {
