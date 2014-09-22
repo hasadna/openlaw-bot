@@ -30,10 +30,11 @@ foreach my $page (@pages) {
 	
 	$noticepage = "Mediawiki:Editnotice-0-$page";
 	$text = $bot->get_text($noticepage);
+	print "PAGE '$page': ";
 	if ($text) {
-		print "PAGE '$noticepage' contains '$text'.\n";
+		print "OK, ";
 	} else {
-		print "PAGE '$noticepage' is empty.\n";
+		print "adding, ";
 		$bot->edit({
 			page    => $noticepage,
 			text    => decode_utf8("{{הודעת עריכה חוקים}}"),
@@ -43,9 +44,9 @@ foreach my $page (@pages) {
 	$noticepage = "Mediawiki:Editnotice-116-$page";
 	$text = $bot->get_text($noticepage);
 	if ($text) {
-		print "PAGE '$noticepage' contains '$text'.\n";
+		print "OK.\n";
 	} else {
-		print "PAGE '$noticepage' is empty.\n";
+		print "adding.\n";
 		$bot->edit({
 			page    => $noticepage,
 			text    => decode_utf8("{{הודעת עריכה חוקים}}"),
