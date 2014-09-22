@@ -12,8 +12,11 @@ use utf8;
 binmode STDOUT, ":utf8";
 
 my @pages = ();
-my ($verbose, $dryrun, $force, $editnotice, $print, $onlycheck);
+my ($verbose, $dryrun, $force, $editnotice, $print, $onlycheck, $interactive);
+my $locforce = 0;
 my $outfile;
+
+$editnotice = 1;
 
 GetOptions(
 	"force" => \$force, 
@@ -24,6 +27,7 @@ GetOptions(
 #	"OUTPUT=s" => sub { $print = 1; open(STDOUT, ">_[1]"); },
 	"output" => \$print,
 	"help|?" => \&HelpMessage,
+	"" => \$interactive
 ) or die("Error in command line arguments\n");
 
 @pages = map {decode_utf8($_)} @ARGV;
@@ -40,6 +44,11 @@ my $bot = MediaWiki::Bot->new({
 	debug      => ($verbose?2:0),
 }) or die "Error login...\n";
 
+if ($interactive) {
+	print "Entering interacitve mode (enter empty string to quit).\n";
+	push @pages, '-';
+}
+
 unless (@pages) {
 	my $cat = decode_utf8('קטגוריה:בוט חוקים');
 	@pages = $bot->get_pages_in_category($cat);
@@ -50,6 +59,21 @@ $force = 0 if ($onlycheck);
 
 foreach my $page_dst (@pages) {
 	my $text;
+	
+	if ($page_dst eq '-') {
+		# Interactive mode: Query new page
+		print "> ";
+		$_ = decode_utf8(<STDIN>);
+		chomp;
+		$locforce = 1 if (s/^-f //);
+		s/[\x{200E}\x{200F}\x{202A}-\x{202E}]//g;
+		s/^\s*(?:מקור:)?(.*?)\s*$/$1/s;
+		next if (!$_);
+		$page_dst = $_;
+		push(@pages, '-');
+	}
+	
+	$page_dst =~ s/^ *(.*?) *$/$1/;
 	$page_dst =~ s/ /_/g;
 	my $page_src = decode_utf8("מקור:") . $page_dst;
 	
@@ -78,7 +102,7 @@ foreach my $page_dst (@pages) {
 	my $rec     = undef;
 	
 	if ($comment =~ /העבירה? את הדף/) {
-		$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *//;
+		$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *// || s/ \[.*/.../;
 	}
 	
 	foreach my $rec (@hist_t) {
@@ -97,16 +121,18 @@ foreach my $page_dst (@pages) {
 		print ", Same.\n" if ($revid_t==$revid_s);
 		next;
 	}
-	if (!$update && !$force) {
+	if (!$update && !$force && !$locforce) {
 		print ", Skipping.\n";
 		next;
-	} elsif (!$update && $force) {
+	} elsif (!$update && ($force || $locforce)) {
 		print ", Updating anyway (-force).\n";
 	} elsif ($dryrun) {
 		print ", Dryrun.\n";
 	} else {
 		print ", Updating.\n";
 	}
+	
+	$locforce = 0;
 	
 	$text = $bot->get_text($page_src, $revid_s);
 	$text = RunParsers($text);
@@ -156,7 +182,7 @@ exit 0;
 
 sub RunParsers {
 	my ( $str1, $str2, $str3 );
-	my @cmd1 = ('./syntax-wiki.pl');
+	my @cmd1 = ('./syntax-law.pl');
 	my @cmd2 = ('./format-wiki.pl');
 	$str1 = shift;
 
