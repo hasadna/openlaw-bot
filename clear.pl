@@ -40,7 +40,7 @@ s/([\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}]*|(?0))*\x{202C})/&pop_embedded($1)/
 tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away BIDI characters
 tr/\x{2000}-\x{200A}\x{205F}/ /; # Typographic spaces
 tr/\x{200B}-\x{200D}//d;  # Zero-width spaces
-tr/־–—‒―/-/;
+tr/־–—‒―\xAD/-/;
 tr/״”“„‟″‶/"/;
 tr/`׳’‘‚‛′‵/'/;
 
@@ -84,6 +84,7 @@ s/ " -/" -/g;
 s/(^| )" /"/gm;
 s/ ("[.,:;])/$1/g;
 s/ ('[ .,:;])/$1/g;
+s/^([:]+)(?=\S)/$1 /gm;
 
 print $_;
 exit;
@@ -102,11 +103,12 @@ sub pop_embedded {
 		@arr = reverse(@arr) if ($type eq "\x{202A}");  # [LRE]$_[PDF]
 		return join('',@arr);
 	} 
-	if ($type !~ /\x{202B}/) {        # within RLE block
+	if ($type =~ /\x{202B}/) {        # within RLE block
+	# if (substr($type,-1) eq "\x{202B}") {
 		tr/([{<>}])/)]}><{[(/;
 	} 
 	if (substr($type,-1) eq "\x{202A}") { # LRE block
-		my $punc = '[ \t.,:;?!#$%^&*"\'\-\(\)\[\]{|}<>]';
+		my $punc = '[ \t.,:;?!#$%^&*"\'\-\(\)\[\]{|}<>א-ת]';
 		s/^($punc*)(.*?)($punc*)$/reverse($3).$2.reverse($1)/e;
 	}
 	return $_;
