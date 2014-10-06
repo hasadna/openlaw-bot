@@ -101,10 +101,6 @@ foreach my $page_dst (@pages) {
 	my $comment = $hist_s[0]->{comment};
 	my $rec     = undef;
 	
-	if ($comment =~ /העבירה? את הדף/) {
-		$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *// || s/ \[.*/.../;
-	}
-	
 	foreach my $rec (@hist_t) {
 		last if ($revid_t);
 		$revid_t = $rec->{comment};
@@ -130,6 +126,10 @@ foreach my $page_dst (@pages) {
 		print ", Dryrun.\n";
 	} else {
 		print ", Updating.\n";
+	}
+	
+	if ($comment =~ /העבירה? את הדף/) {
+		$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *// || $comment =~ s/ \[.*/.../;
 	}
 	
 	$locforce = 0;
@@ -176,6 +176,8 @@ foreach my $page_dst (@pages) {
 		});
 	}
 }
+
+$bot->logout();
 
 exit 0;
 1;
