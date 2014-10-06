@@ -312,18 +312,23 @@ while (my $line = <$FIN>) {
 	$textline = "";
 	chomp($line);
 	#print STDERR "#### $line \n";
-	while ($line =~ s/<([א-ת|_|*|0-9]+|\/)\s*(("[^"]*")?[^>]*)>//) {
+	while ($line =~ s/<([א-ת|_|*|0-9]+|\/)\s*((?:".*?"|[^>]*))>//) {
 		# Got a <COMMAND>
 		($command, $param) = ($1, $2);
-		$textline = $textline . $PREMATCH;
-		$href{text} = $href{text} . $PREMATCH if ($href{type}>0);
+		if ($command eq '/' && $param ne '') {
+			$command .= $param;
+			$param = '';
+		}
+		$textline .= $PREMATCH;
+		$href{text} .= $PREMATCH if ($href{type}>0);
 		$line = $POSTMATCH;
 		$param =~ s/^"(.*)"$/$1/;
 		# print STDERR "%% Got |$command|$param|\n";
 		
 		if (!defined $markup{$command}) {
-			print STDERR "ERROR: Unknown command (" . $command .").\n";
-			printError('פקודה לא מוכרת (' . $command . ')');
+			$textline .= $MATCH;
+			# print STDERR "ERROR: Unknown command (" . $command .").\n";
+			# printError('פקודה לא מוכרת (' . $command . ')');
 			next;
 		}
 		
@@ -697,7 +702,8 @@ sub processHREF {
 		return $1;
 	} else {
 		replaceOnce('?HREF?',$_);
-		return typeHREF($_);
+		# return typeHREF($_);
+		return 1;
 	}
 }
 
@@ -856,6 +862,7 @@ sub flushSeperator {
 sub printBibiolography {
 	my $bib = join("\n", @text);
 	$bib = fixFormat($bib);
+	$bib =~ s/\.\n/.\n\n/g;
 	@text = ();
 	print "{{ח:פתיח-התחלה}}\n";
 	print "$bib\n";
@@ -903,6 +910,7 @@ sub printSection {
 	
 	print "{{ח:$object{class}|$number|$text";
 	print "|$fix" if (defined $fix);
+	print "|אחר=$object{other}" if (defined $object{other});
 	print "}}\n\n";
 	
 	printText() if (@text);
@@ -943,6 +951,7 @@ sub printChapter {
 	my $line;
 	for $line (@lines) {
 		if ($line->{indent}==0 && !$first) { 
+		# if ($line->{indent}==0 && scalar(@lines)>1) { 
 			print "{{ח:ת}} ";
 		}
 		$first = 0;
@@ -953,6 +962,7 @@ sub printChapter {
 		print "{{ח:תתתתתת|$line->{sssssub}}} " if (defined $line->{sssssub});
 		my $text = join("\n", @{$line->{text}});
 		$text = fixFormat($text);
+		$text = "\n$text" if ($text =~ /^\{\|/);
 		if ($line->{class}) {
 			print "{{$line->{class}|$text}}\n"; 
 		} else {
