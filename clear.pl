@@ -40,16 +40,18 @@ s/([\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}]*|(?0))*\x{202C})/&pop_embedded($1)/
 tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away BIDI characters
 tr/\x{2000}-\x{200A}\x{205F}/ /; # Typographic spaces
 tr/\x{200B}-\x{200D}//d;  # Zero-width spaces
-tr/־–—‒―\xAD/-/;
+tr/־–—‒―\xAD\x96\x97/-/;
 tr/״”“„‟″‶/"/;
 tr/`׳’‘‚‛′‵/'/;
 
+
 # Clean HTML markups
+s/\s*\n\s*/ /g if /<\/p>/i;
 s/<br\/?>/\n/gi;
-s/<\/p>/\n/gi;
-s/<\/?(?:".*?"|'.*?'|[^'">]*+)*>/ /g;
+s/<\/p>/\n\n/gi;
+s/<\/?(?:".*?"|'.*?'|[^'">]*+)*>//g;
 s/&#(\d+);/chr($1)/ge;
-s/&quote;/"/gi;
+s/&quot;/"/gi;
 s/&lt;/</gi;
 s/&gt;/>/gi;
 s/&ndash;/-/gi;
@@ -61,7 +63,7 @@ s/'''//g;
 s/^ *=+ *(.*?) *=+ *$/$1/gm;
 # s/^[:;]+-? *//gm;
 
-s/\r//g;           # Unix style, no CR
+tr/\r\f//d;        # Romove CR, FF
 s/[\t\xA0]/ /g;    # Tab and hardspace are whitespaces
 s/^[ ]+//mg;       # Remove redundant whitespaces
 s/[ ]+$//mg;       # Remove redundant whitespaces
@@ -77,7 +79,7 @@ s/(\S) ([,.:;])/$1$2/g;  # Remove redundant whitespaces
 s/("[א-ת])(\d{4})[-]/$1-$2/g;
 s/^[.](\d.*?) +/$1. /gm;
 s/(\S[([\-]) /$1/gm;
-s/(?<=[א-ת]\b) - (?=[0-9])/-/g;
+s/(?<=[א-ת]\b)( -| -)(?=[0-9])/-/g;
 s/([\(\[]) /$1/g;
 s/ ([\)\]])/$1/g;
 s/ " -/" -/g;
@@ -85,6 +87,8 @@ s/(^| )" /"/gm;
 s/ ("[.,:;])/$1/g;
 s/ ('[ .,:;])/$1/g;
 s/^([:]+)(?=\S)/$1 /gm;
+
+s/^לתחילת העמוד$//gm;
 
 print $_;
 exit;
@@ -105,7 +109,7 @@ sub pop_embedded {
 	} 
 	if ($type =~ /\x{202B}/) {        # within RLE block
 	# if (substr($type,-1) eq "\x{202B}") {
-		tr/([{<>}])/)]}><{[(/;
+		# tr/([{<>}])/)]}><{[(/;
 	} 
 	if (substr($type,-1) eq "\x{202A}") { # LRE block
 		my $punc = '[ \t.,:;?!#$%^&*"\'\-\(\)\[\]{|}<>א-ת]';
