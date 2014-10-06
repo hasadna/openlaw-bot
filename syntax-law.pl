@@ -11,7 +11,7 @@ use Data::Dumper;
 use constant { true => 1, false => 0 };
 
 our $extref_sig = '\bו?[בהלמש]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|הוראו?ת|הודעה|כללים?|חוק[הת]|אמנה|דברי?[ -]ה?מלך)\b';
-our $type_sig = 'חלק|פרק|סימן|תוספת|טופס|לוח';
+our $type_sig = 'חלק|פרק|סימן|לוח(ות)? השוואה|תוספת|טופס|לוח';
 
 
 if ($#ARGV>=0) {
@@ -32,7 +32,6 @@ binmode STDOUT, "utf8";
 binmode STDERR, "utf8";
 
 # General cleanup
-$_ = unescape_text($_);
 s/<!--.*?-->//sg;  # Remove comments
 s/\r//g;           # Unix style, no CR
 s/[\t\xA0]/ /g;    # Tab and hardspace are whitespaces
@@ -42,13 +41,18 @@ s/$/\n/s;          # Add last linefeed
 s/\n{3,}/\n\n/sg;  # Convert three+ linefeeds
 s/\n\n$/\n/sg;     # Remove last linefeed
 
-tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away all BIDI characters
+if (/[\x{202A}-\x{202E}]/) {
+	tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away all BIDI characters
+}
 tr/\x{2000}-\x{200A}\x{205F}/ /; # Convert typographic spaces
 tr/\x{200B}-\x{200D}//d;         # Remove zero-width spaces
 tr/־–—‒―\xAD/-/;   # Convert typographic dashes
 tr/״”“„‟″‶/"/;     # Convert typographic double quotes
 tr/`׳’‘‚‛′‵/'/;    # Convert typographic single quotes
 s/[ ]{2,}/ /g;     # Pack  long spaces
+
+# Unescape HTML characters
+$_ = unescape_text($_);
 
 s/([ :])-([ \n])/$1–$2/g;
 s/([א-ת]) ([,.:;])/$1$2/g;
@@ -69,7 +73,7 @@ s/\[\[(?:קובץ:|file:)(.*?)\]\]/<תמונה $1>/gm;
 s/(?<=[^\[])\[\[ *([^\]]*?) *\| *(.*?) *\]\](?=[^\]])/&parse_link($1,$2)/egm;
 s/(?<=[^\[])\[\[ *(.*?) *\]\](?=[^\]])/&parse_link('',$1)/egm;
 
-s/(?<=[^\(])\(\( *(.*?) *(?:\| *(.*?) *)?\)\)(?=[^\)])/&parseRemark($1,$2)/egs;
+s/(?<=[^\(])\(\( *(.*?) *(?:\| *(.*?) *)?\)\)(?=[^\)])/&parse_remark($1,$2)/egs;
 
 # Parse structured elements
 s/^(=+)(.*?)\1\n/&parse_section(length($1),$2)/egm;
@@ -82,13 +86,17 @@ s/^@ *([^ \n.]+\.?) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
 s/^@ *(\(.*?\)) *(.*?)\n/&parse_chapter($1,$2,"סעיף*")/egm;
 s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
 s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3/gm;
-s/^([:]+) *(\([^( ]+\)|) *(.*)\n/&parseLine(length($1),$2,$3)/egm;
+s/^([:]+) *(\([^( ]+\)|) *(.*)\n/&parse_line(length($1),$2,$3)/egm;
 
 # Parse file linearly, constructing all ankors and links
 $_ = linear_parser($_);
+s/__TOC__/&insert_TOC()/e;
+s/__NOTOC__ *//g;
 
 s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&unescape_text($1)/egs;
 # s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
+
+s/(^\{\|(.*\n)+^\|\} *$)/&parse_wikitable($1)/egm;
 
 print $_;
 exit;
@@ -108,12 +116,13 @@ sub parse_title {
 
 sub parse_section {
 	my ($level, $_) = @_;
-	my ($type, $num, $fix);
+	my ($type, $num, $fix, $extra);
 	
 	$level = 2 unless defined $level;
 	
 	$_ = unquote($_);
 	($_, $fix) = get_fixstr($_);
+	($_, $extra) = get_extrastr($_);
 	
 	if (/^\((.*?)\)$/) {
 		$num = '';
@@ -129,6 +138,7 @@ sub parse_section {
 	
 	($type) = (/\bה?($type_sig)\b/);
 	$type = '' if !defined $type;
+	$type = 'לוחהשוואה' if ($type =~ /השוואה/);
 	
 	my $str = "<קטע";
 	$str .= " $level" if ($level);
@@ -136,6 +146,7 @@ sub parse_section {
 	$str .= " $num" if ($type && $num ne '');
 	$str .= ">";
 	$str .= "<תיקון $fix>" if ($fix);
+	$str .= "<אחר [$extra]>" if ($extra);
 	$str .= " $_\n";
 	return $str;
 }
@@ -154,12 +165,12 @@ sub parse_chapter {
 	my $str = "<$type" . ($num ? " $num" : "") . ">";
 	$str .= "<תיאור \"$desc\">" if ($desc);
 	$str .= "<תיקון $fix>" if ($fix);
-	$str .= "<אחר [$extra]>" if ($extra);
+	$str .= "<אחר \"[$extra]\">" if ($extra);
 	$str .= "\n";
 	return $str;
 }
 
-sub parseLine {
+sub parse_line {
 	my ($len,$id,$line) = @_;
 	# print STDERR "|$id|$line|\n";
 	if ($id =~ /\(\(/) {
@@ -187,7 +198,7 @@ sub parse_link {
 	return $str;
 }
 
-sub parseRemark {
+sub parse_remark {
 	my ($text,$tip) = @_;
 #	print STDERR "|$text|$tip|" . length($tip) . "\n";
 	if ($tip) {
@@ -220,6 +231,158 @@ sub parse_pubdate {
 
 #---------------------------------------------------------------------
 
+sub parse_wikitable {
+	# Based on [mediawiki/core.git]/includes/parser/Parser.php doTableStuff() function
+	my @lines = split(/\n/,shift);
+	my $out = '';
+	my ($last_tag, $previous);
+	my (@td_history, @last_tag_history, @tr_history, @tr_attributes, @has_opened_tr);
+	my ($indent_level, $attributes);
+	for (@lines) {
+		s/^ *(.*?) *$/$1/;
+		if ($_ eq '') {
+			$out .= "\n";
+			next;
+		}
+		
+		if (/^\{\|(.*)$/) {
+			$attributes = ($1);
+			$_ = "<table$1>\n";
+			push @td_history, false;
+			push @last_tag_history, '';
+			push @tr_history, false;
+			push @tr_attributes, '';
+			push @has_opened_tr, false;
+		} elsif ( scalar(@td_history) == 0 ) {
+			# Don't do any of the following
+			$out .= "$_\n";
+			next;
+		} elsif (/^\|\}(.*)$/ ) {
+			# We are ending a table
+			$_ = "</table>\n$1";
+			$last_tag = pop @last_tag_history;
+			$_ = "<tr><td></td></tr>\n$_" if (!(pop @has_opened_tr));
+			$_ = "</tr>\n$_" if (pop @tr_history);
+			$_ = "</$last_tag>$_" if (pop @td_history);
+			pop @tr_attributes;
+			# $_ .= "</dd></dl>" x $indent_level;
+		} elsif ( /^\|-(.*)/ ) {
+			# Now we have a table row
+			
+			# Whats after the tag is now only attributes
+			$attributes = $1;
+			pop @tr_attributes;
+			push @tr_attributes, $attributes;
+			
+			$_ = '';
+			$last_tag = pop @last_tag_history;
+			pop @has_opened_tr;
+			push @has_opened_tr, true;
+			
+			$_ = "</tr>\n" if (pop @tr_history);
+			$_ = "</$last_tag>$_" if (pop @td_history);
+			
+			push @tr_history, false;
+			push @td_history, false;
+			push @last_tag_history, '';
+		} elsif (/^\!\! *(.*)$/) {
+			my @cells = split( / *\|\| */, $1 );
+			s/(.*)/<col>$1<\/col>/ for (@cells);
+			$_ = join('', @cells);
+			$_ = "<colgroup>$_</colgroup>";
+		} elsif (/^(?|\|(\+)|(\|)|(\!)) *(.*)$/) {
+			# This might be cell elements, td, th or captions
+			my $type = $1; $_ = $2;
+			
+			s/!!/||/g if ( $type eq '!' );
+			my @cells = split( / *\|\| */, $_ );
+			$_ = '';
+			# print STDERR "Cell is |" . join('|',@cells) . "|\n";
+			
+			# Loop through each table cell
+			foreach my $cell (@cells) {
+				
+				$previous = '';
+				if ($type ne '+') {
+					my $tr_after = pop @tr_attributes;
+					if ( !(pop @tr_history) ) {
+						# $previous = "<tr " . (pop @tr_attributes) . ">\n";
+						$previous = "<tr$tr_after>";
+					}
+					push @tr_history, true;
+					push @tr_attributes, '';
+					pop @has_opened_tr;
+					push @has_opened_tr, true;
+				}
+				
+				$last_tag = pop @last_tag_history;
+				$previous = "</$last_tag>$previous" if (pop @td_history);
+				
+				if ( $type eq '|' ) {
+					$last_tag = 'td';
+				} elsif ( $type eq '!' ) {
+					$last_tag = 'th';
+				} elsif ( $type eq '+' ) {
+					$last_tag = 'caption';
+				} else {
+					$last_tag = '';
+				}
+				
+				push @last_tag_history, $last_tag;
+				
+				# A cell could contain both parameters and data
+				my @cell_data = split( / *\| */, $cell, 2 );
+				
+				if (!defined $cell_data[0]) {
+					$cell = "$previous<$last_tag>"; 
+					# print STDERR "Empty cell data at |" . join('|',@cells) . "|\n";
+				} elsif ( $cell_data[0] =~ /\[\[/ ) {
+					$cell = "$previous<$last_tag>$cell";
+				} elsif ( @cell_data < 2 ) {
+					$cell = "$previous<$last_tag>$cell_data[0]";
+				} else {
+					$attributes = $cell_data[0];
+					$cell = $cell_data[1];
+					$cell = "$previous<$last_tag $attributes>$cell";
+				}
+				
+				$_ .= $cell;
+				push @td_history, true;
+			}
+		}
+		# $out .= $_ . "\n";
+		$out .= $_;
+	}
+
+	# Closing open td, tr && table
+	while ( @td_history ) {
+		$out .= "</td>" if (pop @td_history);
+		$out .= "</tr>\n" if (pop @tr_history);
+		$out .= "<tr><td></td></tr>\n" if (!(pop @has_opened_tr));
+		$out .= "</table>\n";
+	}
+
+	# Remove trailing line-ending (b/c)
+	$out =~ s/\n$//s;
+	
+	# special case: don't return empty table
+	if ( $out eq "<table>\n<tr><td></td></tr>\n</table>" ) {
+		$out = '';
+	}
+
+# 	
+# 	s/^\{\| ?(.*)$/<table $1>/g;
+# 	s/^\|\} *$/<\/table>/g;
+# 	s/^\|\+ ?(.*)$/<caption>$1<\/caption>/g;
+# 	s/^!! ?(.*)$/<colgroup>$1<\/colgroup>/g;
+# 	s/ *\|\|/\n|/g;
+# 	s/ *\!\!/\n!/g;
+	
+	return $out;
+}
+
+#---------------------------------------------------------------------
+
 sub get_fixstr {
 	my $_ = shift;
 	my @fix = ();
@@ -235,6 +398,7 @@ sub get_extrastr {
 	my $extra = undef;
 	$extra = unquote($1) if (s/(?<=[^\[])\[ *([^\[\]]+) *\] *//) || (s/^\[ *([^\[\]]+) *\] *//);
 	s/^ *(.*?) *$/$1/;
+	$extra =~ s/(?=\()/\<wbr\>/g if defined $extra;
 	return ($_, $extra);
 }
 
@@ -322,12 +486,21 @@ sub escape_text {
 
 sub unescape_text {
 	my $_ = shift;
+	my %table = ( 'quote' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", 
+		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'shy' => '&nil;',
+		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε',
+	);
 	s/&#(\d+);/chr($1)/ge;
-	s/&quote;/"/g;
-	s/&lt;/</g;
-	s/&gt;/>/g;
-	s/&ndash;/–/g;
-	s/&nbsp;/ /g;
+	s/(&([a-z]+);)/($table{$2} || $1)/ge;
+# 	s/&quote;/"/g;
+# 	s/&lt;/</g;
+# 	s/&gt;/>/g;
+# 	s/&ndash;/–/g;
+# 	s/&nbsp;/ /g;
+# 	s/&lrm;/\x{200E}/g;
+# 	s/&rlm;/\x{200F}/g;
+# 	s/&shy;//g;
+	s/&nil;//g;
 	s/&amp;/&/g;
 #	print STDERR "|$_|\n";
 	return $_;
@@ -389,6 +562,7 @@ sub parse_element {
 				when (/חלק/) { $glob{part} = $num; $glob{sect} = $glob{subs} = undef; }
 				when (/פרק/) { $glob{sect} = $num; $glob{subs} = undef; }
 				when (/סימן/) { $glob{subs} = $num; }
+				when (/לוחהשוואה/) { $glob{supl} = $glob{part} = $glob{sect} = $glob{subs} = undef; }
 				when (/תוספת/) { $glob{supl} = ($num || ""); $glob{part} = $glob{sect} = $glob{subs} = undef; }
 				when (/טופס/) { $glob{form} = ($num || ""); $glob{part} = $glob{sect} = $glob{subs} = undef; }
 				when (/לוח/) { $glob{tabl} = ($num || ""); $glob{part} = $glob{sect} = $glob{subs} = undef; }
@@ -397,6 +571,7 @@ sub parse_element {
 				$name = "פרק $glob{sect} $name" if ($type eq 'סימן' && defined $glob{sect});
 				$name = "חלק $glob{part} $name" if ($type =~ 'סימן|פרק' && $glob{sect_type}==3 && defined $glob{part});
 				$name = "תוספת $glob{supl} $name" if ($type ne 'תוספת' && defined $glob{supl});
+				$name = "לוח השוואה" if ($type eq 'לוחהשוואה');
 				$name =~ s/  / /g;
 				$sections{$idx} = $name;
 				# print STDERR "GOT section |$type|$num| as |$name| (position is " . current_position() . ")\n" if ($type);
@@ -405,8 +580,10 @@ sub parse_element {
 		when (/סעיף/) {
 			my $num = get_numeral($params);
 			$glob{chap} = $num;
-			if (defined $glob{supl} && $num) {
-				my $ankor = "תוספת $glob{supl} פרט $num";
+			if ((defined $glob{supl} || defined $glob{tabl}) && $num) {
+				my $ankor = "פרט $num";
+				$ankor = "לוח $glob{tabl} $ankor" if defined $glob{tabl};
+				$ankor = "תוספת $glob{supl} $ankor" if defined $glob{supl};
 				$ankor =~ s/  / /g;
 				$line[$idx] =~ s/סעיף/סעיף*/;
 				$line[$idx] .= "<עוגן $ankor>";
@@ -441,6 +618,53 @@ sub parse_element {
 		}
 	}
 	
+}
+
+
+sub insert_TOC {
+	# str = "== תוכן ==\n";
+	my $str = "<קטע 2> תוכן עניינים\n<סעיף*>\n";
+	$str .= "<div style=\"columns: 2 auto; -moz-columns: 2 auto; text-align: right; padding-bottom: 1em;\">\n";
+	for (sort {$a <=> $b} keys %sections) {
+		my ($name, $indent, $text, $next, $style);
+		$text = $next = '';
+		$name = $sections{$_};
+		$indent = $line[$_++];
+		$indent = $indent =~ /<קטע (\d)/ ? $1 : 2;
+		$text .= $line[$_++] while ($text !~ /\n/ and defined $line[$_]);
+		$next .= $line[$_++] while ($next !~ /\n/ and defined $line[$_]);
+		if ($next =~ /<הערה>.?<קישור/) {
+			$next = '';
+			$next .= $line[$_++] while ($next !~ /\n/ and defined $line[$_]);
+		}
+		next if ($text =~ /__NOTOC__/);
+		next if ($indent>3);
+		$text =~ s/<(תיקון|אחר).*?> *//g;
+		$text =~ s/<קישור.*?>(.*?)<\/>/$1/g;
+		$text =~ s/<b>(.*?)<\/b?>/$1/g;
+		($text) = ($text =~ /^ *(.*) *$/m);
+		if ($next =~ /^<קטע (\d)> *(.*?) *$/m && $1>=$indent) {
+			$next =~ s/<(תיקון|אחר).*?> *//g;
+			$next =~ s/<קישור.*?>(.*?)<\/>/$1/g;
+			$next =~ s/<b>(.*?)<\/b?>/$1/g;
+			$next = $2;
+			if ($text =~ /^(.*?) *(<הערה>.*<\/>$)/) {
+				$text = "$1: $next $2";
+			} else {
+				$text .= ": $next";
+			}
+		}
+		given ($indent) {
+			when ($_==1) { $style = "font-weight: bold; font-size: 120%; padding-top: 3px;"; }
+			when ($_==2) { $style = "margin-right: 25px; padding-top: 3px;"; }
+			when ($_==3) { $style = "font-size: 90%; margin-right: 50px;"; }
+		}
+		$style .= " padding-right: 25px; text-indent: -25px;";
+		# print STDERR "Visiting section |$_|$indent|$name|$text|\n";
+		$str .= "<div style=\"$style\"><קישור 1 $name>$text</></div>\n";
+	}
+	$str .= "</div>\n";
+	return $str;
 }
 
 
@@ -608,7 +832,7 @@ sub findHREF {
 			when (/^ו?ש?[בהל]?(תוספת)/) { $class = "supl"; $num = ""; }
 			when (/^ו?ש?[בהל]?(טופס|טפסים)/) { $class = "form"; }
 			when (/^ו?ש?[בהל]?(לוח|לוחות)/) { $class = "tabl"; }
-			when (/טבלת_השוואה/) { $class = "table"; $num = ""; }
+			when (/טבלתהשוואה/) { $class = "table"; $num = ""; }
 			when (/^ו?ש?[בהל]?(סעיף|סעיפים|תקנה|תקנות)/) { $class = "chap"; }
 			when (/^ו?ש?[בהל]?(פריט|פרט)/) { $class = "supchap"; }
 			when (/^ו?ש?[בהל]?(קט[נן]|פי?סקה|פסקאות|משנה|טור)/) { $class = "small"; }
@@ -686,8 +910,10 @@ sub findHREF {
 		# $href = "תוספת $glob{supl} $href" if (defined $elm{supl} && $glob{supl} && $ext eq '');
 	} elsif (defined $elm{chap}) {
 		$href = "סעיף $elm{chap}";
-	} elsif (defined $elm{supchap} && $glob{supl} ne '' && $ext eq '') {
-		$href = "תוספת $glob{supl} פרט $elm{supchap}";
+	} elsif (defined $elm{supchap} && $ext eq '') {
+		$href = "פרט $elm{supchap}";
+		$href = "לוח $glob{tabl} $href" if (defined $glob{tabl});
+		$href = "תוספת $glob{supl} $href" if (defined $glob{supl});
 	} else {
 		$href = "";
 	}
