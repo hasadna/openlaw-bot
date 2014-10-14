@@ -698,9 +698,15 @@ sub processHREF {
 	
 	my $_ = $href{helper};
 	if (/^(\d) (.*)$/) {
-		replaceOnce('?HREF?',$2);
-		return $1;
+		my $type = $1; $_ = $2;
+		# Mediawiki limitations
+		s/\|/{{!}}/g;
+		s/=/{{==}}/g;
+		replaceOnce('?HREF?',$_);
+		return $type;
 	} else {
+		s/\|/{{!}}/g;
+		s/=/{{==}}/g;
 		replaceOnce('?HREF?',$_);
 		# return typeHREF($_);
 		return 1;
