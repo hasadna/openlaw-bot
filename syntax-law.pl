@@ -85,6 +85,7 @@ s/^@ *(\d[^ .]*\.) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
 s/^@ *([^ \n.]+\.) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
 s/^@ *(\(.*?\)) *(.*?)\n/&parse_chapter($1,$2,"סעיף*")/egm;
 s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
+s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3\n$1:: $4/gm;
 s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3/gm;
 s/^([:]+) *(\([^( ]+\)|\[[^[ ]+\]|) *(.*)\n/&parse_line(length($1),$2,$3)/egm;
 
@@ -93,7 +94,7 @@ $_ = linear_parser($_);
 s/__TOC__/&insert_TOC()/e;
 s/__NOTOC__ *//g;
 
-s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&unescape_text($1)/egs;
+s/(?<=\<ויקי\>)\s*(.*?)\s*(\<\/(ויקי)?\>)/&unescape_text($1) . "<\/>"/egs;
 # s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
 
 s/(^\{\|(.*\n)+^\|\} *$)/&parse_wikitable($1)/egm;
@@ -414,6 +415,15 @@ sub get_numeral {
 		$token = '';
 		given ($_) {
 			($num,$token) = ("0",$1) when /^(ה?מקדמית?)\b/;
+			($num,$token) = ("11",$1) when /^(ה?אחד[- ]עשר|ה?אחת[- ]עשרה)\b/;
+			($num,$token) = ("12",$1) when /^(ה?שניי?ם[- ]עשר|ה?שתיי?ם[- ]עשרה)\b/;
+			($num,$token) = ("13",$1) when /^(ה?שלושה[- ]עשר|ה?שלוש[- ]עשרה)\b/;
+			($num,$token) = ("14",$1) when /^(ה?ארבעה[- ]עשר|ה?ארבע[- ]עשרה)\b/;
+			($num,$token) = ("15",$1) when /^(ה?חמי?שה[- ]עשר|ה?חמש[- ]עשרה)\b/;
+			($num,$token) = ("16",$1) when /^(ה?שי?שה[- ]עשר|ה?שש[- ]עשרה)\b/;
+			($num,$token) = ("17",$1) when /^(ה?שבעה[- ]עשר|ה?שבע[- ]עשרה)\b/;
+			($num,$token) = ("18",$1) when /^(ה?שמונה[- ]עשרה?)\b/;
+			($num,$token) = ("19",$1) when /^(ה?תשעה[- ]עשר|ה?תשע[- ]עשרה)\b/;
 			($num,$token) = ("1",$1) when /^(ה?ראשו(ן|נה)|אחד|אחת])\b/;
 			($num,$token) = ("2",$1) when /^(ה?שניי?ה?|ש[תנ]יי?ם)\b/;
 			($num,$token) = ("3",$1) when /^(ה?שלישית?|שלושה?)\b/;
@@ -424,19 +434,10 @@ sub get_numeral {
 			($num,$token) = ("8",$1) when /^(ה?שמינית?|שמונה)\b/;
 			($num,$token) = ("9",$1) when /^(ה?תשיעית?|תשעה?)\b/;
 			($num,$token) = ("10",$1) when /^(ה?עשירית?|עשרה?)\b/;
-			($num,$token) = ("11",$1) when /^(ה?אחד[- ]עשר|ה?אחת[- ]עשרה)\b/;
-			($num,$token) = ("12",$1) when /^(ה?שניי?ם[- ]עשר|ה?שתיי?ם[- ]עשרה)\b/;
-			($num,$token) = ("13",$1) when /^(ה?שלושה[- ]עשר|ה?שלוש[- ]עשרה)\b/;
-			($num,$token) = ("14",$1) when /^(ה?ארבעה[- ]עשר|ה?ארבע[- ]עשרה)\b/;
-			($num,$token) = ("15",$1) when /^(ה?חמי?שה[- ]עשר|ה?חמש[- ]עשרה)\b/;
-			($num,$token) = ("16",$1) when /^(ה?שי?שה[- ]עשר|ה?שש[- ]עשרה)\b/;
-			($num,$token) = ("17",$1) when /^(ה?שבעה[- ]עשר|ה?שבע[- ]עשרה)\b/;
-			($num,$token) = ("18",$1) when /^(ה?שמונה[- ]עשרה?)\b/;
-			($num,$token) = ("19",$1) when /^(ה?תשעה[- ]עשר|ה?תשע[- ]עשרה)\b/;
 			($num,$token) = ("20",$1) when /^(ה?עשרים)\b/;
-			($num,$token) = ("$1-2",$1) when /^(\d+[- ]?bis)\b/i;
-			($num,$token) = ("$1-3",$1) when /^(\d+[- ]?ter)\b/i;
-			($num,$token) = ("$1-4",$1) when /^(\d+[- ]?quater)\b/i;
+			($num,$token) = ("$1-2","$1$2") when /^(\d+)([- ]?bis)\b/i;
+			($num,$token) = ("$1-3","$1$2") when /^(\d+)([- ]?ter)\b/i;
+			($num,$token) = ("$1-4","$1$2") when /^(\d+)([- ]?quater)\b/i;
 			($num,$token) = ($1,$1) when /^(\d+(([א-י]|טו|טז|[יכלמנסעפצ][א-ט]?|)\d*|))\b/;
 			($num,$token) = ($1,$1) when /^(([א-י]|טו|טז|[יכלמנ][א-ט]?)(\d+[א-י]*|))\b/;
 		}
@@ -450,7 +451,8 @@ sub get_numeral {
 		}
 	}
 	
-	$num .= "-$1" if (/^[- ]([א-י])\b/);
+	$num .= "-$1" if (s/^[- ]([א-י])\b//);
+	$num .= "-$1$2" if (s/^[- ]([א-י])[- ]?(\d)\b//);
 	$num .= "-$1" if ($num =~ /^\d/ and $token !~ /^\d/ and /^[- ]?(\d[א-י]?)\b/);
 	$num =~ s/(?<=\d)-(?=[א-ת])//;
 	return $num;
@@ -655,13 +657,12 @@ sub insert_TOC {
 			}
 		}
 		given ($indent) {
-			when ($_==1) { $style = "font-weight: bold; font-size: 120%; padding-top: 3px;"; }
-			when ($_==2) { $style = "margin-right: 25px; padding-top: 3px;"; }
-			when ($_==3) { $style = "font-size: 90%; margin-right: 50px;"; }
+			when ($_==1) { $style = "law-toc-1"; }
+			when ($_==2) { $style = "law-toc-2"; }
+			when ($_==3) { $style = "law-toc-3"; }
 		}
-		$style .= " padding-right: 25px; text-indent: -25px;";
 		# print STDERR "Visiting section |$_|$indent|$name|$text|\n";
-		$str .= "<div style=\"$style\"><קישור 1 $name>$text</></div>\n";
+		$str .= "<div class=\"$style\"><קישור 1 $name>$text</></div>\n";
 	}
 	$str .= "</div>\n";
 	return $str;
@@ -736,10 +737,17 @@ sub processHREF {
 	
 	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
-	if ($helper =~ /^=\s*(.*)/) {
+	if ($helper =~ /^= *(.*)/) {
 		$type = 3;
 		$helper = $1;
+		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
 		(undef,$ext) = findHREF($text);
+		$glob{href}{marks}{$helper} = $ext;
+	} elsif ($helper =~ /^(.*?) *= *(.*)/) {
+		$type = 3;
+		$ext = $1; $helper = $2;
+		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
+		(undef,$ext) = findHREF($ext);
 		$glob{href}{marks}{$helper} = $ext;
 	} elsif ($helper eq '+' || $ext eq '+') {
 		$type = 2;
@@ -764,7 +772,8 @@ sub processHREF {
 	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
 	if ($ext) {
-		$ext = $glob{href}{marks}{$ext} if ($glob{href}{marks}{$ext});
+		$helper = $ext =~ s/[-: ]+/ /gr;
+		$ext = $glob{href}{marks}{$helper} if ($glob{href}{marks}{$helper});
 		$text = ($int ? "$ext#$int" : $ext);
 		
 		if ($type==3) {
@@ -943,7 +952,7 @@ sub findExtRef {
 		$_ = "$1$2";
 		return '' if ($2 =~ /^ *ה?(זאת|זו|זה|אלה|אלו)\b/);
 		return '' if ($2 eq "" && !defined $glob{href}{marks}{"$1"});
-		return '-' if ($2 =~ /^ *[בלמ]?(האמור|האמורה|האמורות|אותו|אותה|שבו|שבה|ההוא|ההיא)\b/);
+		return '-' if ($2 =~ /^ *[בלמ]?(האמורה?|האמורות|אות[הו]|שב[הו]|הה[וי]א)\b/);
 	}
 	s/\s[-——]+\s/_XX_/g;
 	s/_/ /g;
