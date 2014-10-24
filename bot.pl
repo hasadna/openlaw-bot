@@ -211,12 +211,13 @@ sub load_credentials {
 sub HelpMessage {
 	print <<EOP;
 USAGE: bot.pl [-h] [-d] [-f] [-l LOG] [-o] [-O OUTPUT] [-s] [-v]
-              [TITLE [TITLE ...]]
+              [TITLE [TITLE ...]] | [-]
 
 Process law-source files to wiki-source.
 
 Optional arguments:
   TITLE                 Wiki titles to fetch by the bot
+  -                     Enter interacitve mode
 
 Optional flags:
   -h, -?, --help         Show this help message and exit
