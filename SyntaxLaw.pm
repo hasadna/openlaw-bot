@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+# vim: shiftwidth=4 tabstop=4 noexpandtab
 
 use v5.14;
 no warnings 'experimental';
