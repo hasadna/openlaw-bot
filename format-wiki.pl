@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
 use v5.14;
+no warnings 'experimental';
 use strict;
 no strict 'refs';
 use English;

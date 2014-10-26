@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
 use v5.14;
+no warnings 'experimental';
 use strict;
 no strict 'refs';
 use English;
@@ -46,10 +47,11 @@ if (/[\x{202A}-\x{202E}]/) {
 }
 tr/\x{2000}-\x{200A}\x{205F}/ /; # Convert typographic spaces
 tr/\x{200B}-\x{200D}//d;         # Remove zero-width spaces
-tr/־–—‒―\xAD/-/;   # Convert typographic dashes
-tr/״”“„‟″‶/"/;     # Convert typographic double quotes
-tr/`׳’‘‚‛′‵/'/;    # Convert typographic single quotes
-s/[ ]{2,}/ /g;     # Pack  long spaces
+tr/־–—‒―/-/;        # Convert typographic dashes
+tr/\xAD\x96\x97/-/; # Convert more typographic dashes
+tr/״”“„‟″‶/"/;      # Convert typographic double quotes
+tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
+s/[ ]{2,}/ /g;      # Pack  long spaces
 
 # Unescape HTML characters
 $_ = unescape_text($_);
