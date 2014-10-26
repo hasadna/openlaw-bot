@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 
+no warnings 'experimental';
 use strict;
 no strict 'refs';
 use English;
@@ -40,9 +41,10 @@ s/([\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}]*|(?0))*\x{202C})/&pop_embedded($1)/
 tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away BIDI characters
 tr/\x{2000}-\x{200A}\x{205F}/ /; # Typographic spaces
 tr/\x{200B}-\x{200D}//d;  # Zero-width spaces
-tr/־–—‒―\xAD\x96\x97/-/;
-tr/״”“„‟″‶/"/;
-tr/`׳’‘‚‛′‵/'/;
+tr/־–—‒―/-/;        # Convert typographic dashes
+tr/\xAD\x96\x97/-/; # Convert more typographic dashes
+tr/״”“„‟″‶/"/;      # Convert typographic double quotes
+tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
 
 
 # Clean HTML markups
@@ -50,13 +52,7 @@ s/\s*\n\s*/ /g if /<\/p>/i;
 s/<br\/?>/\n/gi;
 s/<\/p>/\n\n/gi;
 s/<\/?(?:".*?"|'.*?'|[^'">]*+)*>//g;
-s/&#(\d+);/chr($1)/ge;
-s/&quot;/"/gi;
-s/&lt;/</gi;
-s/&gt;/>/gi;
-s/&ndash;/-/gi;
-s/&nbsp;/ /gi;
-s/&amp;/&/gi;
+$_ = unescape_text($_);
 
 # Clean WIKI markups
 s/'''//g;
@@ -93,6 +89,20 @@ s/^לתחילת העמוד$//gm;
 print $_;
 exit;
 1;
+
+
+sub unescape_text {
+	my $_ = shift;
+	my %table = ( 'quote' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", 
+		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'shy' => '&null;',
+		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε',
+	);
+	s/&#(\d+);/chr($1)/ge;
+	s/(&([a-z]+);)/($table{$2} || $1)/ge;
+	s/&null;//g;
+	s/&amp;/&/g;
+	return $_;
+}
 
 
 sub pop_embedded {
