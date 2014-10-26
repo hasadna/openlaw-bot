@@ -38,6 +38,7 @@ print "HOST $host\n";
 print "USER $credentials{username}\n";
 my $bot = MediaWiki::Bot->new({
 	host       => $host,
+	agent      => sprintf('PerlWikiBot/%s',MediaWiki::Bot->VERSION),
 	login_data => \%credentials,
 	assert     => 'bot',
 	protocol   => 'https',
