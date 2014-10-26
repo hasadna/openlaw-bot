@@ -111,19 +111,23 @@ sub pop_embedded {
 	if (/^([\x{202A}\x{202B}])(.*)\x{202C}$/) {
 		$type .= $1; $_ = $2;
 		my @arr = (m/([^\x{202A}-\x{202C}]+|[\x{202A}\x{202B}](?0)*\x{202C})/g);
-		# dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
+		dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
 		@arr = map { pop_embedded($_,$type) } @arr;
-		# dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
+		dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
 		@arr = reverse(@arr) if ($type eq "\x{202A}");  # [LRE]$_[PDF]
 		return join('',@arr);
 	} 
 	if ($type =~ /\x{202B}/) {        # within RLE block
 	# if (substr($type,-1) eq "\x{202B}") {
-		# tr/([{<>}])/)]}><{[(/;
+		tr/([{<>}])/)]}><{[(/;
 	} 
 	if (substr($type,-1) eq "\x{202A}") { # LRE block
-		my $punc = '[ \t.,:;?!#$%^&*"\'\-\(\)\[\]{|}<>א-ת]';
-		s/^($punc*)(.*?)($punc*)$/reverse($3).$2.reverse($1)/e;
+		my $soft = '(?:[ \t.\,:;?!#$%^&*"\'\\-\(\)\[\]{|}<>א-ת]|\d+)';
+		my ($pre,$mid,$post) = (m/^($soft*+)(.*?)($soft*)$/);
+		$pre = join('',reverse(split /($soft)/, $pre));
+		$post = join('',reverse(split /($soft)/, $post));
+		$_ = $pre . $mid . $post;
+		# s/^($soft*)(.*?)($soft*)$/reverse($3).$2.reverse($1)/e;
 	}
 	return $_;
 }
