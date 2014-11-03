@@ -471,6 +471,7 @@ sub gotDESC {
 	$_ = shift;
 	s/&quote;/"/g;
 	s/<קישור *(.*?)>(.*?)<\/>/&inline_HREF($2,$1)/egm;
+	s/<הערה>(.*?)<\/>/{{ח:הערה|$1}}/gm;
 	$object{"desc"} = $_;
 }
 sub gotFIX {
