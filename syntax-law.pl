@@ -724,8 +724,9 @@ sub processHREF {
 	if ($helper =~ /^קובץ:|file:|תמונה:|image:/) {
 		return "";
 	} elsif ($helper =~ /^https?:\/\//) {
+		$type = 4;
 		$ext = $helper;
-		$int = '';
+		$int = $helper = '';
 		$found = true;
 	} elsif ($helper =~ /^(.*?)#(.*)/) {
 		$type = 3;
@@ -843,16 +844,16 @@ sub findHREF {
 		$num = undef;
 		given ($_) {
 			when (/טבלתהשוואה/) { $class = "table"; $num = ""; }
-			when (/^ו?ש?[בהל]?(חלק|חלקים)/) { $class = "part"; }
-			when (/^ו?ש?[בהל]?(פרק|פרקים)/) { $class = "sect"; }
-			when (/^ו?ש?[בהל]?(סימן|סימנים)/) { $class = "subs"; }
-			when (/^ו?ש?[בהל]?(תוספת|נספח)/) { $class = "supl"; $num = ""; }
-			when (/^ו?ש?[בהל]?(טופס|טפסים)/) { $class = "form"; }
-			when (/^ו?ש?[בהל]?(לוח|לוחות)/) { $class = "tabl"; }
-			when (/^ו?ש?[בהל]?(טבל[הא]|טבלאות)/) { $class = "tabl2"; }
-			when (/^ו?ש?[בהל]?(סעיף|סעיפים|תקנה|תקנות)/) { $class = "chap"; }
-			when (/^ו?ש?[בהל]?(פריט|פרט)/) { $class = "supchap"; }
-			when (/^ו?ש?[בהל]?(קט[נן]|פי?סקה|פסקאות|משנה|טור)/) { $class = "small"; }
+			when (/^ו?כ?ש?[בהלמ]?(חלק|חלקים)/) { $class = "part"; }
+			when (/^ו?כ?ש?[בהלמ]?(פרק|פרקים)/) { $class = "sect"; }
+			when (/^ו?כ?ש?[בהלמ]?(סימן|סימנים)/) { $class = "subs"; }
+			when (/^ו?כ?ש?[בהלמ]?(תוספת|נספח)/) { $class = "supl"; $num = ""; }
+			when (/^ו?כ?ש?[בהלמ]?(טופס|טפסים)/) { $class = "form"; }
+			when (/^ו?כ?ש?[בהלמ]?(לוח|לוחות)/) { $class = "tabl"; }
+			when (/^ו?כ?ש?[בהלמ]?(טבל[הא]|טבלאות)/) { $class = "tabl2"; }
+			when (/^ו?כ?ש?[בהלמ]?(סעיף|סעיפים|תקנה|תקנות)/) { $class = "chap"; }
+			when (/^ו?כ?ש?[בהלמ]?(פריט|פרט)/) { $class = "supchap"; }
+			when (/^ו?כ?ש?[בהלמ]?(קט[נן]|פי?סקה|פסקאות|משנה|טור)/) { $class = "small"; }
 			when ("(") { $class = "small" unless ($class eq "supchap"); }
 			when (/^ה?(זה|זו|זאת)/) {
 				given ($class) {
