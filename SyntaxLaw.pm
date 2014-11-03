@@ -1,4 +1,15 @@
 #!/usr/bin/perl -w
+# vim: shiftwidth=4 tabstop=4 noexpandtab
+
+package SyntaxLaw;
+
+BEGIN {
+	use Exporter;
+	our @ISA = qw(Exporter);
+
+	our $VERSION = "0.0";
+	our @EXPORT = qw(convert);
+}
 
 use v5.14;
 no warnings 'experimental';
@@ -15,96 +26,103 @@ our $extref_sig = '\bו?[בהלמש]?(חוק|פקוד[הת]|תקנות|צו|הח
 our $type_sig = 'חלק|פרק|סימן|לוח(ות)? השוואה|נספח|תוספת|טופס|לוח|טבל[הא]';
 
 
-if ($#ARGV>=0) {
-	my $fin = $ARGV[0];
-	my $fout = $fin;
-	$fout =~ s/(.*)\.[^.]*/$1.txt2/;
-	open(my $FIN,"<:utf8",$fin) || die "Cannot open file \"$fin\"!\n";
-	open(STDOUT, ">$fout") || die "Cannot open file \"$fout\"!\n";
-	local $/;
-	$_ = <$FIN>;
-} else {
-	binmode STDIN, "utf8";
-	local $/;
-	$_ = <STDIN>;
+sub main() {
+	if ($#ARGV>=0) {
+		my $fin = $ARGV[0];
+		my $fout = $fin;
+		$fout =~ s/(.*)\.[^.]*/$1.txt2/;
+		open(my $FIN,"<:utf8",$fin) || die "Cannot open file \"$fin\"!\n";
+		open(STDOUT, ">$fout") || die "Cannot open file \"$fout\"!\n";
+		local $/;
+		$_ = <$FIN>;
+	} else {
+		binmode STDIN, "utf8";
+		local $/;
+		$_ = <STDIN>;
+	}
+	print convert($_);
+	exit;
 }
 
-binmode STDOUT, "utf8";
-binmode STDERR, "utf8";
+sub convert {
+	my $_ = shift;
+	binmode STDOUT, "utf8";
+	binmode STDERR, "utf8";
 
-# General cleanup
-s/<!--.*?-->//sg;  # Remove comments
-s/\r//g;           # Unix style, no CR
-s/[\t\xA0]/ /g;    # Tab and hardspace are whitespaces
-s/^[ ]+//mg;       # Remove redundant whitespaces
-s/[ ]+$//mg;       # Remove redundant whitespaces
-s/$/\n/s;          # Add last linefeed
-s/\n{3,}/\n\n/sg;  # Convert three+ linefeeds
-s/\n\n$/\n/sg;     # Remove last linefeed
+	# General cleanup
+	s/<!--.*?-->//sg;  # Remove comments
+	s/\r//g;           # Unix style, no CR
+	s/[\t\xA0]/ /g;    # Tab and hardspace are whitespaces
+	s/^[ ]+//mg;       # Remove redundant whitespaces
+	s/[ ]+$//mg;       # Remove redundant whitespaces
+	s/$/\n/s;          # Add last linefeed
+	s/\n{3,}/\n\n/sg;  # Convert three+ linefeeds
+	s/\n\n$/\n/sg;     # Remove last linefeed
 
-if (/[\x{202A}-\x{202E}]/) {
-	tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away all BIDI characters
+	if (/[\x{202A}-\x{202E}]/) {
+		tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away all BIDI characters
+	}
+	tr/\x{2000}-\x{200A}\x{205F}/ /; # Convert typographic spaces
+	tr/\x{200B}-\x{200D}//d;         # Remove zero-width spaces
+	tr/־–—‒―/-/;        # Convert typographic dashes
+	tr/\xAD\x96\x97/-/; # Convert more typographic dashes
+	tr/״”“„‟″‶/"/;      # Convert typographic double quotes
+	tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
+	s/[ ]{2,}/ /g;      # Pack  long spaces
+
+	# Unescape HTML characters
+	$_ = unescape_text($_);
+
+	s/([ :])-([ \n])/$1–$2/g;
+	s/([א-ת]) ([,.:;])/$1$2/g;
+
+	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escape_text($1)/egs;
+
+	# Parse various elements
+	s/^(?|<שם> *\n?(.*)|=([^=].*)=)\n/&parse_title($1)/em; # Once!
+	s/^<חתימות> *\n?(((\*.*\n)+)|(.*\n))/&parse_signatures($1)/egm;
+	s/^<פרסום> *\n?(.*)\n/&parse_pubdate($1)/egm;
+	# s/^<מקור> *\n?(.*)\n\n/<מקור>\n$1\n<\\מקור>\n\n/egm;
+	s/^<(מבוא|הקדמה)> *\n?/<הקדמה>\n/gm;
+	s/^-{3,}$/<מפריד>/gm;
+
+	# Parse links and remarks
+	s/\[\[(?:קובץ:|תמונה:|[fF]ile:)(.*?)\]\]/<תמונה $1>/gm;
+
+	s/(?<=[^\[])\[\[ *([^\]]*?) *\| *(.*?) *\]\](?=[^\]])/&parse_link($1,$2)/egm;
+	s/(?<=[^\[])\[\[ *(.*?) *\]\](?=[^\]])/&parse_link('',$1)/egm;
+
+	s/(?<=[^\(])\(\( *(.*?) *(?:\| *(.*?) *)?\)\)(?=[^\)])/&parse_remark($1,$2)/egs;
+
+	# Parse structured elements
+	s/^(=+)(.*?)\1\n/&parse_section(length($1),$2)/egm;
+	s/^<סעיף *(.*?)>(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
+	s/^(@.*?) +(:+ .*)$/$1\n$2/gm;
+	s/^@ *(\(תיקון.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
+	s/^@ *(\d\S*) *\n/&parse_chapter($1,"","סעיף")/egm;
+	s/^@ *(\d[^ .]*\.) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
+	s/^@ *([^ \n.]+\.) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
+	s/^@ *(\(.*?\)) *(.*?)\n/&parse_chapter($1,$2,"סעיף*")/egm;
+	s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
+	s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3\n$1:: $4/gm;
+	s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3/gm;
+	s/^([:]+) *(\([^( ]+\)|\[[^[ ]+\]|) *(.*)\n/&parse_line(length($1),$2,$3)/egm;
+
+	# Parse file linearly, constructing all ankors and links
+	$_ = linear_parser($_);
+	s/__TOC__/&insert_TOC()/e;
+	s/__NOTOC__ *//g;
+
+	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<\/(ויקי)?\>)/&unescape_text($1) . "<\/>"/egs;
+	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
+
+	s/(^\{\|(.*\n)+^\|\} *$)/&parse_wikitable($1)/egm;
+
+	return $_;
 }
-tr/\x{2000}-\x{200A}\x{205F}/ /; # Convert typographic spaces
-tr/\x{200B}-\x{200D}//d;         # Remove zero-width spaces
-tr/־–—‒―/-/;        # Convert typographic dashes
-tr/\xAD\x96\x97/-/; # Convert more typographic dashes
-tr/״”“„‟″‶/"/;      # Convert typographic double quotes
-tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
-s/[ ]{2,}/ /g;      # Pack  long spaces
 
-# Unescape HTML characters
-$_ = unescape_text($_);
-
-s/([ :])-([ \n])/$1–$2/g;
-s/([א-ת]) ([,.:;])/$1$2/g;
-
-s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escape_text($1)/egs;
-
-# Parse various elements
-s/^(?|<שם> *\n?(.*)|=([^=].*)=)\n/&parse_title($1)/em; # Once!
-s/^<חתימות> *\n?(((\*.*\n)+)|(.*\n))/&parse_signatures($1)/egm;
-s/^<פרסום> *\n?(.*)\n/&parse_pubdate($1)/egm;
-# s/^<מקור> *\n?(.*)\n\n/<מקור>\n$1\n<\\מקור>\n\n/egm;
-s/^<(מבוא|הקדמה)> *\n?/<הקדמה>\n/gm;
-s/^-{3,}$/<מפריד>/gm;
-
-# Parse links and remarks
-s/\[\[(?:קובץ:|תמונה:|[fF]ile:)(.*?)\]\]/<תמונה $1>/gm;
-
-s/(?<=[^\[])\[\[ *([^\]]*?) *\| *(.*?) *\]\](?=[^\]])/&parse_link($1,$2)/egm;
-s/(?<=[^\[])\[\[ *(.*?) *\]\](?=[^\]])/&parse_link('',$1)/egm;
-
-s/(?<=[^\(])\(\( *(.*?) *(?:\| *(.*?) *)?\)\)(?=[^\)])/&parse_remark($1,$2)/egs;
-
-# Parse structured elements
-s/^(=+)(.*?)\1\n/&parse_section(length($1),$2)/egm;
-s/^<סעיף *(.*?)>(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
-s/^(@.*?) +(:+ .*)$/$1\n$2/gm;
-s/^@ *(\(תיקון.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
-s/^@ *(\d\S*) *\n/&parse_chapter($1,"","סעיף")/egm;
-s/^@ *(\d[^ .]*\.) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
-s/^@ *([^ \n.]+\.) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
-s/^@ *(\(.*?\)) *(.*?)\n/&parse_chapter($1,$2,"סעיף*")/egm;
-s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
-s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3\n$1:: $4/gm;
-s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3/gm;
-s/^([:]+) *(\([^( ]+\)|\[[^[ ]+\]|) *(.*)\n/&parse_line(length($1),$2,$3)/egm;
-
-# Parse file linearly, constructing all ankors and links
-$_ = linear_parser($_);
-s/__TOC__/&insert_TOC()/e;
-s/__NOTOC__ *//g;
-
-s/(?<=\<ויקי\>)\s*(.*?)\s*(\<\/(ויקי)?\>)/&unescape_text($1) . "<\/>"/egs;
-# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
-
-s/(^\{\|(.*\n)+^\|\} *$)/&parse_wikitable($1)/egm;
-
-print $_;
-exit;
-1;
-
+# Allow usage as a module and as a executable script
+__PACKAGE__->main() unless (caller);
 
 sub parse_title {
 	my $_ = shift;
@@ -966,3 +984,5 @@ sub findExtRef {
 #	print STDERR "$prev -> $_\n";
 	return $_;
 }
+
+1;
