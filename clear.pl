@@ -6,6 +6,18 @@ no strict 'refs';
 use English;
 use utf8;
 
+use Data::Dumper;
+use Getopt::Long;
+
+our ($variant, $debug);
+$variant = $debug = 0; 
+
+GetOptions(
+	"type=i" => \$variant, 
+	"debug" => \$debug,
+#	"help|?" => \&HelpMessage,
+) or die("Error in command line arguments\n");
+
 if ($#ARGV>=0) {
 	my $fin = $ARGV[0];
 	my $fout = $fin;
@@ -35,7 +47,6 @@ my $PDF = "\x{202C}";
    # and recursively pop embedded bidi formating
 s/^(.*?\x{202B}.*?\x{202C}.*)$/\x{202A}$1\x{202C}/gm;
 s/([\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}]*|(?0))*\x{202C})/&pop_embedded($1)/ge;
-
 
 # General cleanup
 tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away BIDI characters
@@ -93,7 +104,7 @@ exit;
 
 sub unescape_text {
 	my $_ = shift;
-	my %table = ( 'quote' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", 
+	my %table = ( 'quot' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", 
 		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'shy' => '&null;',
 		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε',
 	);
@@ -111,6 +122,9 @@ sub pop_embedded {
 	if (/^([\x{202A}\x{202B}])(.*)\x{202C}$/) {
 		$type .= $1; $_ = $2;
 		my @arr = (m/([^\x{202A}-\x{202C}]+|[\x{202A}\x{202B}](?0)*\x{202C})/g);
+		if ($type eq "\x{202A}" && scalar(@arr)>1) {
+			s/^([^\x{202A}-\x{202C}]+)$/\x{202A}$1\x{202C}/ for @arr;
+		}
 		dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
 		@arr = map { pop_embedded($_,$type) } @arr;
 		dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
@@ -119,10 +133,10 @@ sub pop_embedded {
 	} 
 	if ($type =~ /\x{202B}/) {        # within RLE block
 	# if (substr($type,-1) eq "\x{202B}") {
-		tr/([{<>}])/)]}><{[(/;
+		tr/([{<>}])/)]}><{[(/ if ($variant==0);
 	} 
 	if (substr($type,-1) eq "\x{202A}") { # LRE block
-		my $soft = '(?:[ \t.\,:;?!#$%^&*"\'\\-\(\)\[\]{|}<>א-ת]|\d+)';
+		my $soft = '(?:[ \t.\,:;?!#$%^&*"\'\\-\(\)\[\]{|}<>א-ת]|\d|\d[\d.,\\/\\\\-]*?\d)';
 		my ($pre,$mid,$post) = (m/^($soft*+)(.*?)($soft*)$/);
 		$pre = join('',reverse(split /($soft)/, $pre));
 		$post = join('',reverse(split /($soft)/, $post));
@@ -133,6 +147,7 @@ sub pop_embedded {
 }
 
 sub dump_stderr {
+	return if (!$debug);
 	my $_ = shift;
 	
 	tr/\x00-\x1F\x7F/␀-␟␡/;
