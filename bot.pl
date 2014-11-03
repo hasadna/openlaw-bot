@@ -185,7 +185,7 @@ exit 0;
 
 sub RunParsers {
 	my ( $str1, $str2, $str3 );
-	my @cmd1 = ('./syntax-law.pl');
+	my @cmd1 = ('./SyntaxLaw.pm');
 	my @cmd2 = ('./format-wiki.pl');
 	$str1 = shift;
 
