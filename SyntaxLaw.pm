@@ -3,13 +3,10 @@
 
 package SyntaxLaw;
 
-BEGIN {
 	use Exporter;
 	our @ISA = qw(Exporter);
-
 	our $VERSION = "0.0";
 	our @EXPORT = qw(convert);
-}
 
 use v5.14;
 no warnings 'experimental';
