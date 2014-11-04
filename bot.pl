@@ -2,12 +2,15 @@
 
 use strict;
 no strict 'refs';
+no warnings 'experimental';
 use English;
 use Encode;
 use MediaWiki::Bot;
 use IPC::Run 'run';
 use Getopt::Long;
 use utf8;
+
+use SyntaxLaw;
 
 binmode STDOUT, ":utf8";
 
@@ -188,8 +191,9 @@ sub RunParsers {
 	my @cmd1 = ('./SyntaxLaw.pm');
 	my @cmd2 = ('./format-wiki.pl');
 	$str1 = shift;
-
-	run \@cmd1, \$str1, \$str2, *STDERR;
+	
+	# run \@cmd1, \$str1, \$str2, *STDERR;
+	$str2 = SyntaxLaw::convert($str1);
 	run \@cmd2, \$str2, \$str3, *STDERR;
 	$str3 = decode_utf8($str3);
 	$str3 .= decode_utf8("\n[[קטגוריה:בוט חוקים]]\n");
