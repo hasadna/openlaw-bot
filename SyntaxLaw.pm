@@ -3,10 +3,10 @@
 
 package SyntaxLaw;
 
-	use Exporter;
-	our @ISA = qw(Exporter);
-	our $VERSION = "0.0";
-	our @EXPORT = qw(convert);
+use Exporter;
+our @ISA = qw(Exporter);
+our $VERSION = "0.0";
+our @EXPORT = qw(convert);
 
 use v5.14;
 no warnings 'experimental';
@@ -21,13 +21,14 @@ use constant { true => 1, false => 0 };
 
 our $extref_sig = '\bו?[בהלמש]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|הוראו?ת|הודעה|כללים?|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)\b';
 our $type_sig = 'חלק|פרק|סימן|לוח(ות)? השוואה|נספח|תוספת|טופס|לוח|טבל[הא]';
+our $pre_sig = 'ו?כ?ש?[בהלמ]?';
 
 
 sub main() {
 	if ($#ARGV>=0) {
 		my $fin = $ARGV[0];
 		my $fout = $fin;
-		$fout =~ s/(.*)\.[^.]*/$1.txt2/;
+		$fout =~ s/\.[^.]*$/.txt2/;
 		open(my $FIN,"<:utf8",$fin) || die "Cannot open file \"$fin\"!\n";
 		open(STDOUT, ">$fout") || die "Cannot open file \"$fout\"!\n";
 		local $/;
@@ -37,15 +38,16 @@ sub main() {
 		local $/;
 		$_ = <STDIN>;
 	}
+	binmode STDOUT, "utf8";
+	binmode STDERR, "utf8";
+	
 	print convert($_);
 	exit;
 }
 
 sub convert {
 	my $_ = shift;
-	binmode STDOUT, "utf8";
-	binmode STDERR, "utf8";
-
+	
 	# General cleanup
 	s/<!--.*?-->//sg;  # Remove comments
 	s/\r//g;           # Unix style, no CR
@@ -55,9 +57,10 @@ sub convert {
 	s/$/\n/s;          # Add last linefeed
 	s/\n{3,}/\n\n/sg;  # Convert three+ linefeeds
 	s/\n\n$/\n/sg;     # Remove last linefeed
-
+	
 	if (/[\x{202A}-\x{202E}]/) {
-		tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away all BIDI characters
+		# Throw away BIDI characters if LRE/RLE/PDF exists
+		tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 	}
 	tr/\x{2000}-\x{200A}\x{205F}/ /; # Convert typographic spaces
 	tr/\x{200B}-\x{200D}//d;         # Remove zero-width spaces
@@ -66,15 +69,15 @@ sub convert {
 	tr/״”“„‟″‶/"/;      # Convert typographic double quotes
 	tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
 	s/[ ]{2,}/ /g;      # Pack  long spaces
-
+	
 	# Unescape HTML characters
 	$_ = unescape_text($_);
-
+	
 	s/([ :])-([ \n])/$1–$2/g;
 	s/([א-ת]) ([,.:;])/$1$2/g;
-
+	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escape_text($1)/egs;
-
+	
 	# Parse various elements
 	s/^(?|<שם> *\n?(.*)|=([^=].*)=)\n/&parse_title($1)/em; # Once!
 	s/^<חתימות> *\n?(((\*.*\n)+)|(.*\n))/&parse_signatures($1)/egm;
@@ -82,15 +85,15 @@ sub convert {
 	# s/^<מקור> *\n?(.*)\n\n/<מקור>\n$1\n<\\מקור>\n\n/egm;
 	s/^<(מבוא|הקדמה)> *\n?/<הקדמה>\n/gm;
 	s/^-{3,}$/<מפריד>/gm;
-
+	
 	# Parse links and remarks
 	s/\[\[(?:קובץ:|תמונה:|[fF]ile:)(.*?)\]\]/<תמונה $1>/gm;
-
+	
 	s/(?<=[^\[])\[\[ *([^\]]*?) *\| *(.*?) *\]\](?=[^\]])/&parse_link($1,$2)/egm;
 	s/(?<=[^\[])\[\[ *(.*?) *\]\](?=[^\]])/&parse_link('',$1)/egm;
-
+	
 	s/(?<=[^\(])\(\( *(.*?) *(?:\| *(.*?) *)?\)\)(?=[^\)])/&parse_remark($1,$2)/egs;
-
+	
 	# Parse structured elements
 	s/^(=+)(.*?)\1\n/&parse_section(length($1),$2)/egm;
 	s/^<סעיף *(.*?)>(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
@@ -104,22 +107,24 @@ sub convert {
 	s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3\n$1:: $4/gm;
 	s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3/gm;
 	s/^([:]+) *(\([^( ]+\)|\[[^[ ]+\]|) *(.*)\n/&parse_line(length($1),$2,$3)/egm;
-
+	
 	# Parse file linearly, constructing all ankors and links
 	$_ = linear_parser($_);
 	s/__TOC__/&insert_TOC()/e;
 	s/__NOTOC__ *//g;
-
+	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<\/(ויקי)?\>)/&unescape_text($1) . "<\/>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
-
+	
 	s/(^\{\|(.*\n)+^\|\} *$)/&parse_wikitable($1)/egm;
-
+	
 	return $_;
 }
 
 # Allow usage as a module and as a executable script
 __PACKAGE__->main() unless (caller);
+
+######################################################################
 
 sub parse_title {
 	my $_ = shift;
@@ -370,7 +375,6 @@ sub parse_wikitable {
 				push @td_history, true;
 			}
 		}
-		# $out .= $_ . "\n";
 		$out .= $_;
 	}
 
@@ -503,21 +507,14 @@ sub escape_text {
 
 sub unescape_text {
 	my $_ = shift;
-	my %table = ( 'quote' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", 
-		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'shy' => '&nil;',
-		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε',
+	my %table = ( 'quot' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", # No &amp; conversion here!
+		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'shy' => '&null;',
+		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 
+		'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε',
 	);
 	s/&#(\d+);/chr($1)/ge;
 	s/(&([a-z]+);)/($table{$2} || $1)/ge;
-# 	s/&quote;/"/g;
-# 	s/&lt;/</g;
-# 	s/&gt;/>/g;
-# 	s/&ndash;/–/g;
-# 	s/&nbsp;/ /g;
-# 	s/&lrm;/\x{200E}/g;
-# 	s/&rlm;/\x{200F}/g;
-# 	s/&shy;//g;
-	s/&nil;//g;
+	s/&null;//g;
 	s/&amp;/&/g;
 #	print STDERR "|$_|\n";
 	return $_;
@@ -824,7 +821,7 @@ sub findHREF {
 		$ext = findExtRef($1);
 	}
 	
-	$_ = $glob{href}{ditto} if (/^(אות[וה] ה?(סעיף|תקנה)|[בהלמ]?(סעיף|תקנה) האמורה?)$/);
+	$_ = $glob{href}{ditto} if (/^(אות[וה] ה?(סעיף|תקנה)|$pre_sig(סעיף|תקנה) האמורה?)$/);
 	
 	if (/דברי?[- ]ה?מלך/ and /(סימן|סימנים) \d/) {
 		s/(סימן|סימנים)/סעיף/;
@@ -840,7 +837,7 @@ sub findHREF {
 	s/[\(_]/ ( /g;
 	s/[\"\']//g;
 	s/\bו-//g;
-	s/\bאו\b/ /g;
+	s/\b(או|מן|סיפא|רישא)\b/ /g;
 	s/^ *(.*?) *$/$1/;
 	s/טבלת השוואה/טבלת_השוואה/;
 	
@@ -859,16 +856,16 @@ sub findHREF {
 		$num = undef;
 		given ($_) {
 			when (/טבלתהשוואה/) { $class = "table"; $num = ""; }
-			when (/^ו?כ?ש?[בהלמ]?(חלק|חלקים)/) { $class = "part"; }
-			when (/^ו?כ?ש?[בהלמ]?(פרק|פרקים)/) { $class = "sect"; }
-			when (/^ו?כ?ש?[בהלמ]?(סימן|סימנים)/) { $class = "subs"; }
-			when (/^ו?כ?ש?[בהלמ]?(תוספת|נספח)/) { $class = "supl"; $num = ""; }
-			when (/^ו?כ?ש?[בהלמ]?(טופס|טפסים)/) { $class = "form"; }
-			when (/^ו?כ?ש?[בהלמ]?(לוח|לוחות)/) { $class = "tabl"; }
-			when (/^ו?כ?ש?[בהלמ]?(טבל[הא]|טבלאות)/) { $class = "tabl2"; }
-			when (/^ו?כ?ש?[בהלמ]?(סעיף|סעיפים|תקנה|תקנות)/) { $class = "chap"; }
-			when (/^ו?כ?ש?[בהלמ]?(פריט|פרט)/) { $class = "supchap"; }
-			when (/^ו?כ?ש?[בהלמ]?(קט[נן]|פי?סקה|פסקאות|משנה|טור)/) { $class = "small"; }
+			when (/^$pre_sig(חלק|חלקים)/) { $class = "part"; }
+			when (/^$pre_sig(פרק|פרקים)/) { $class = "sect"; }
+			when (/^$pre_sig(סימן|סימנים)/) { $class = "subs"; }
+			when (/^$pre_sig(תוספת|תוספות|נספח|נספחים)/) { $class = "supl"; $num = ""; }
+			when (/^$pre_sig(טופס|טפסים)/) { $class = "form"; }
+			when (/^$pre_sig(לוח|לוחות)/) { $class = "tabl"; }
+			when (/^$pre_sig(טבל[הא]|טבלאות)/) { $class = "tabl2"; }
+			when (/^$pre_sig(סעיף|סעיפים|תקנה|תקנות)/) { $class = "chap"; }
+			when (/^$pre_sig(פריט|פרט)/) { $class = "supchap"; }
+			when (/^$pre_sig(קט[נן]|פי?סקה|פסקאות|משנה|טור)/) { $class = "small"; }
 			when ("(") { $class = "small" unless ($class eq "supchap"); }
 			when (/^ה?(זה|זו|זאת)/) {
 				given ($class) {
@@ -950,21 +947,20 @@ sub findHREF {
 	return ($href,$ext);
 }	
 
-
 sub findExtRef {
 	my $_ = shift;
 	return $_ if (/^https?:\/\//);
 	tr/"'`//;
-	s/ *\(נוסח (חדש|משולב)\)//g;
-	s/ *\[נוסח (חדש|משולב)\]//g;
-#	s/(^[^\,\.]*).*/$1/;
 	s/#.*$//;
+	s/_/ /g;
+	
+	s/ *\(נוסח (חדש|משולב)\)//g;
+	s/ *\[.*?\]//g;
 	s/\.[^\.]*$//;
 	s/\, *[^ ]*\d+$//;
 	s/ מיום \d+.*$//;
 	s/\, *\d+ עד \d+$//;
-	s/\[.*?\]//g;
-	s/^\s*(.*?)\s*$/$1/;
+	s/^ *(.*?) *$/$1/;
 	
 	if (/^$extref_sig(.*)$/) {
 		$_ = "$1$2";
@@ -972,13 +968,9 @@ sub findExtRef {
 		return '' if ($2 eq "" && !defined $glob{href}{marks}{"$1"});
 		return '-' if ($2 =~ /^ *[בלמ]?(האמורה?|האמורות|אות[הו]|שב[הו]|הה[וי]א)\b/);
 	}
-	s/\s[-——]+\s/_XX_/g;
-	s/_/ /g;
+	
+	s/ [-——]+ / - /g;
 	s/ {2,}/ /g;
-	# s/[-]+/ /g;
-	s/_XX_/ - /g;
-	# s/[ _\:.]+/ /g;
-#	print STDERR "$prev -> $_\n";
 	return $_;
 }
 
