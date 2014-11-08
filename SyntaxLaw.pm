@@ -92,7 +92,7 @@ sub convert {
 	s/(?<=[^\[])\[\[ *([^\]]*?) *\| *(.*?) *\]\](?=[^\]])/&parse_link($1,$2)/egm;
 	s/(?<=[^\[])\[\[ *(.*?) *\]\](?=[^\]])/&parse_link('',$1)/egm;
 	
-	s/(?<=[^\(])\(\( *(.*?) *(?:\| *(.*?) *)?\)\)(?=[^\)])/&parse_remark($1,$2)/egs;
+#	s/(?<=[^\(])\(\( *(.*?) *(?:\| *(.*?) *)?\)\)(?=[^\)])/&parse_remark($1,$2)/egs;
 	
 	# Parse structured elements
 	s/^(=+)(.*?)\1\n/&parse_section(length($1),$2)/egm;
@@ -106,12 +106,14 @@ sub convert {
 	s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
 	s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3\n$1:: $4/gm;
 	s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3/gm;
-	s/^([:]+) *(\([^( ]+\)|\[[^[ ]+\]|) *(.*)\n/&parse_line(length($1),$2,$3)/egm;
+	s/^([:]+) *(\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|) *(.*)\n/&parse_line(length($1),$2,$3)/egm;
 	
 	# Parse file linearly, constructing all ankors and links
 	$_ = linear_parser($_);
 	s/__TOC__/&insert_TOC()/e;
 	s/__NOTOC__ *//g;
+	
+	s/(?<=[^\(])\(\( *(.*?) *(?:\| *(.*?) *)?\)\)(?=[^\)])/&parse_remark($1,$2)/egs;
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<\/(ויקי)?\>)/&unescape_text($1) . "<\/>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
@@ -161,8 +163,9 @@ sub parse_section {
 		$num = '';
 	}
 	
-	($type) = (/\bה?($type_sig)\b/);
-	$type = '' if !defined $type;
+	$type = $_;
+	$type =~ s/\(\(.*?\)\)//g;
+	$type = ($type =~ /\bה?($type_sig)\b/ ? $1 : '');
 	$type = 'לוחהשוואה' if ($type =~ /השוואה/);
 	
 	my $str = "<קטע";
@@ -568,42 +571,10 @@ sub parse_element {
 	
 	given ($element) {
 		when (/קטע/) {
-			my ($level,$name) = split(/ /,$params,2);
-			my ($type,$num) = split(/ /,$name || '');
-			$num = get_numeral($num) if defined($num);
-			given ($type) {
-				when (undef) {}
-				when (/חלק/) { $glob{part} = $num; $glob{sect} = $glob{subs} = undef; }
-				when (/פרק/) { $glob{sect} = $num; $glob{subs} = undef; }
-				when (/סימן/) { $glob{subs} = $num; }
-				when (/לוחהשוואה/) { $glob{supl} = $glob{part} = $glob{sect} = $glob{subs} = undef; }
-				when (/תוספת|נספח/) { $glob{supl} = ($num || ""); $glob{part} = $glob{sect} = $glob{subs} = undef; }
-				when (/טופס/) { $glob{form} = ($num || ""); $glob{part} = $glob{sect} = $glob{subs} = undef; }
-				when (/לוח/) { $glob{tabl} = ($num || ""); $glob{part} = $glob{sect} = $glob{subs} = undef; }
-				when (/טבלה/) { $glob{tabl2} = ($num || ""); $glob{part} = $glob{sect} = $glob{subs} = undef; }
-			}
-			if (defined $type) {
-				$name = "פרק $glob{sect} $name" if ($type eq 'סימן' && defined $glob{sect});
-				$name = "חלק $glob{part} $name" if ($type =~ 'סימן|פרק' && $glob{sect_type}==3 && defined $glob{part});
-				$name = "תוספת $glob{supl} $name" if ($type ne 'תוספת' && defined $glob{supl});
-				$name = "לוח השוואה" if ($type eq 'לוחהשוואה');
-				$name =~ s/  / /g;
-				$sections{$idx} = $name;
-				# print STDERR "GOT section |$type|$num| as |$name| (position is " . current_position() . ")\n" if ($type);
-			}
+			process_section($params);
 		}
 		when (/סעיף/) {
-			my $num = get_numeral($params);
-			$glob{chap} = $num;
-			if ((defined $glob{supl} || defined $glob{tabl}) && $num) {
-				my $ankor = "פרט $num";
-				$ankor = "לוח $glob{tabl} $ankor" if defined $glob{tabl};
-				$ankor = "טבלה $glob{tabl2} $ankor" if defined $glob{tabl2};
-				$ankor = "תוספת $glob{supl} $ankor" if defined $glob{supl};
-				$ankor =~ s/  / /g;
-				$line[$idx] =~ s/סעיף\*?/סעיף*/;
-				$line[$idx] .= "<עוגן $ankor>";
-			}
+			process_chapter($params);
 		}
 		when (/תיאור/) {
 			# Split, ignore outmost parenthesis.
@@ -625,7 +596,7 @@ sub parse_element {
 		}
 		when ('/' and $glob{context} eq 'href') {
 			my $href_idx = $glob{href}{idx};
-			$hrefs{$href_idx} = processHREF();
+			$hrefs{$href_idx} = process_HREF();
 			# print STDERR "GOT href at $href_idx = |$hrefs{$href_idx}|\n";
 			$glob{context} = '';
 		}
@@ -636,25 +607,87 @@ sub parse_element {
 	
 }
 
+sub process_section {
+	my $params = shift;
+	my ($level,$name) = split(/ /,$params,2);
+	my ($type,$num) = split(/ /,$name || '');
+	$num = get_numeral($num) if defined($num);
+	$type =~ s/\(\(.*?\)\)//g if (defined $type);
+	given ($type) {
+		when (undef) {}
+		when (/חלק/) { $glob{part} = $num; $glob{sect} = $glob{subs} = undef; }
+		when (/פרק/) { $glob{sect} = $num; $glob{subs} = undef; }
+		when (/סימן/) { $glob{subs} = $num; }
+		when (/לוחהשוואה/) { delete @glob{"part", "subs", "appn", "form", "tabl", "tabl2"}; }
+		when (/תוספת/) { $glob{supl} = ($num || ""); delete @glob{"part", "subs", "appn", "form", "tabl", "tabl2"}; }
+		when (/נספח/) { $glob{appn} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
+		when (/טופס/) { $glob{form} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
+		when (/לוח/) { $glob{tabl} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
+		when (/טבלה/) { $glob{tabl2} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
+	}
+	if (defined $type) {
+		$name = "פרק $glob{sect} $name" if ($type eq 'סימן' && defined $glob{sect});
+		$name = "חלק $glob{part} $name" if ($type =~ 'סימן|פרק' && $glob{sect_type}==3 && defined $glob{part});
+		$name = "תוספת $glob{supl} $name" if ($type ne 'תוספת' && defined $glob{supl});
+		$name = "לוח השוואה" if ($type eq 'לוחהשוואה');
+		$name =~ s/  / /g;
+		$sections{$idx} = $name;
+		# print STDERR "GOT section |$type|$num| as |$name| (position is " . current_position() . ")\n" if ($type);
+	}
+}
+
+sub process_chapter {
+	my $params = shift;
+	my $num = get_numeral($params);
+	$glob{chap} = $num;
+	if ((defined $glob{supl} || defined $glob{tabl}) && $num) {
+		my $ankor = "פרט $num";
+		$ankor = "חלק $glob{part} $ankor" if defined $glob{part};
+		$ankor = "לוח $glob{tabl} $ankor" if defined $glob{tabl};
+		$ankor = "טבלה $glob{tabl2} $ankor" if defined $glob{tabl2};
+		$ankor = "נספח $glob{appn} $ankor" if defined $glob{appn};
+		$ankor = "תוספת $glob{supl} $ankor" if defined $glob{supl};
+		$ankor =~ s/  / /g;
+		$line[$idx] =~ s/סעיף\*?/סעיף*/;
+		$line[$idx] .= "\n<עוגן $ankor>";
+	}
+}
+
+sub current_position {
+	my @type = ( 'supl', 'תוספת', 'appn', 'נספח', 'form', 'טופס', 'tabl', 'לוח', 'tabl2', 'טבלה', 'part', 'חלק', 'sect', 'פרק', 'subs', 'סימן' );
+	my $str = '';
+	for (my $i=0; $i < @type; $i +=2) {
+		$str .= " $type[$i+1] $glob{$type[$i]}" if (defined $glob{$type[$i]});
+	}
+	$str =~ s/^ +//;
+	return $str;
+}
+
+#---------------------------------------------------------------------
 
 sub insert_TOC {
 	# str = "== תוכן ==\n";
 	my $str = "<קטע 2> תוכן עניינים\n<סעיף*>\n";
 	$str .= "<div style=\"columns: 2 auto; -moz-columns: 2 auto; -webkit-columns: 2 auto; text-align: right; padding-bottom: 1em;\">\n";
+	my ($name, $indent, $text, $next, $style, $skip);
 	for (sort {$a <=> $b} keys %sections) {
-		my ($name, $indent, $text, $next, $style);
 		$text = $next = '';
 		$name = $sections{$_};
 		$indent = $line[$_++];
-		$indent = $indent =~ /<קטע (\d)/ ? $1 : 2;
+		$indent = ($indent =~ /<קטע (\d)/ ? $1 : 2);
 		$text .= $line[$_++] while ($text !~ /\n/ and defined $line[$_]);
 		$next .= $line[$_++] while ($next !~ /\n/ and defined $line[$_]);
 		if ($next =~ /<הערה>.?<קישור/) {
 			$next = '';
 			$next .= $line[$_++] while ($next !~ /\n/ and defined $line[$_]);
 		}
-		next if ($text =~ /__NOTOC__/);
+		if ($text =~ /__NOTOC__/) {
+			$skip = $indent;
+			next;
+		}
+		next if ($skip and $indent>$skip);
 		next if ($indent>3);
+		$skip = 0;
 		$text =~ s/<(תיקון|אחר).*?> *//g;
 		$text =~ s/<קישור.*?>(.*?)<\/>/$1/g;
 		$text =~ s/<b>(.*?)<\/b?>/$1/g;
@@ -666,7 +699,7 @@ sub insert_TOC {
 			$next = $2;
 			if ($text =~ /^(.*?) *(<הערה>.*<\/>$)/) {
 				$text = "$1: $next $2";
-			} else {
+			} elsif (defined $next) {
 				$text .= ": $next";
 			}
 		}
@@ -681,20 +714,6 @@ sub insert_TOC {
 	$str .= "</div>\n";
 	return $str;
 }
-
-
-sub current_position {
-	my $str = '';
-	$str .= " תוספת $glob{supl}" if (defined $glob{supl});
-	$str .= " טופס $glob{form}" if (defined $glob{form});
-	$str .= " לוח $glob{tabl}" if (defined $glob{tabl});
-	$str .= " טבלה $glob{tabl}" if (defined $glob{tabl2});
-	$str .= " חלק $glob{part}" if (defined $glob{part});
-	$str .= " פרק $glob{sect}" if (defined $glob{sect});
-	$str .= " סימן $glob{subs}" if (defined $glob{subs});
-	return substr($str,1);
-}
-
 
 sub check_structure {
 	my %types;
@@ -716,7 +735,7 @@ sub check_structure {
 
 #---------------------------------------------------------------------
 
-sub processHREF {
+sub process_HREF {
 	
 	my $text = $glob{href}{txt};
 	my $helper = $glob{href}{helper};
@@ -835,6 +854,7 @@ sub findHREF {
 	}
 	
 	s/[\(_]/ ( /g;
+	s/(פרי?ט|פרטים) \(/$1/g;
 	s/[\"\']//g;
 	s/\bו-//g;
 	s/\b(או|מן|סיפא|רישא)\b/ /g;
@@ -931,6 +951,7 @@ sub findHREF {
 		$href = "סעיף $elm{chap}";
 	} elsif (defined $elm{supchap} && $ext eq '') {
 		$href = "פרט $elm{supchap}";
+		$href = "חלק $glob{part} $href" if (defined $glob{part});
 		$href = "לוח $glob{tabl} $href" if (defined $glob{tabl});
 		$href = "טבלה $glob{tabl2} $href" if (defined $glob{tabl2});
 		$href = "תוספת $glob{supl} $href" if (defined $glob{supl});
