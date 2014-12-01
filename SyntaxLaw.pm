@@ -540,6 +540,8 @@ our %sections;
 our (@line, $idx);
 
 sub linear_parser {
+	undef %glob; undef %hrefs; undef %sections; undef @line;
+	
 	my $_ = shift;
 	
 	my @sec_list = (m/<קטע \d (.*?)>/g);
@@ -627,7 +629,7 @@ sub process_section {
 	}
 	if (defined $type) {
 		$name = "פרק $glob{sect} $name" if ($type eq 'סימן' && defined $glob{sect});
-		$name = "חלק $glob{part} $name" if ($type =~ 'סימן|פרק' && $glob{sect_type}==3 && defined $glob{part});
+		$name = "חלק $glob{part} $name" if ($type =~ 'סימן|פרק' && ($glob{sect_type}==3 || defined $glob{supl}) && defined $glob{part});
 		$name = "תוספת $glob{supl} $name" if ($type ne 'תוספת' && defined $glob{supl});
 		$name = "לוח השוואה" if ($type eq 'לוחהשוואה');
 		$name =~ s/  / /g;
@@ -642,11 +644,12 @@ sub process_chapter {
 	$glob{chap} = $num;
 	if ((defined $glob{supl} || defined $glob{tabl}) && $num) {
 		my $ankor = "פרט $num";
-		$ankor = "חלק $glob{part} $ankor" if defined $glob{part};
-		$ankor = "לוח $glob{tabl} $ankor" if defined $glob{tabl};
-		$ankor = "טבלה $glob{tabl2} $ankor" if defined $glob{tabl2};
-		$ankor = "נספח $glob{appn} $ankor" if defined $glob{appn};
-		$ankor = "תוספת $glob{supl} $ankor" if defined $glob{supl};
+		$ankor = "סימן $glob{subs} $ankor" if (defined $glob{part} && defined $glob{subs});
+		$ankor = "חלק $glob{part} $ankor" if (defined $glob{part});
+		$ankor = "לוח $glob{tabl} $ankor" if (defined $glob{tabl});
+		$ankor = "טבלה $glob{tabl2} $ankor" if (defined $glob{tabl2});
+		$ankor = "נספח $glob{appn} $ankor" if (defined $glob{appn});
+		$ankor = "תוספת $glob{supl} $ankor" if (defined $glob{supl});
 		$ankor =~ s/  / /g;
 		$line[$idx] =~ s/סעיף\*?/סעיף*/;
 		$line[$idx] .= "\n<עוגן $ankor>";
