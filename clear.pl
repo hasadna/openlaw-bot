@@ -15,6 +15,7 @@ $variant = $debug = 0;
 GetOptions(
 	"type=i" => \$variant, 
 	"debug" => \$debug,
+	"verbose" => \$debug,
 #	"help|?" => \&HelpMessage,
 ) or die("Error in command line arguments\n");
 
@@ -41,15 +42,7 @@ my $LRE = "\x{202A}";
 my $RLE = "\x{202B}";
 my $PDF = "\x{202C}";
 
-# Try to fix RLE/PDF (usually dumb bidi in PDF files)
-# s/ ?([\x{202A}\x{202B}](.|(?1))\x{202C}) (?=[\x{202A}\x{202B}])/$1/g;
-   # Place lines with [RLE][PDF] inside [LRE][PDF] context
-   # and recursively pop embedded bidi formating
-s/^(.*?\x{202B}.*?\x{202C}.*)$/\x{202A}$1\x{202C}/gm;
-s/([\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}]*|(?0))*\x{202C})/&pop_embedded($1)/ge;
-
 # General cleanup
-tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away BIDI characters
 tr/\x{2000}-\x{200A}\x{205F}/ /; # Typographic spaces
 tr/\x{200B}-\x{200D}//d;  # Zero-width spaces
 tr/־–—‒―/-/;        # Convert typographic dashes
@@ -57,6 +50,17 @@ tr/\xAD\x96\x97/-/; # Convert more typographic dashes
 tr/״”“„‟″‶/"/;      # Convert typographic double quotes
 tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
 
+# Try to fix RLE/PDF (usually dumb bidi in PDF files)
+# s/ ?([\x{202A}\x{202B}](.|(?1))\x{202C}) (?=[\x{202A}\x{202B}])/$1/g;
+   # Place lines with [RLE][PDF] inside [LRE][PDF] context
+   # and recursively pop embedded bidi formating
+if (/[\x{202A}-\x{202C}]/) {
+	s/^(.+)$/\x{202A}$1\x{202C}/gm;
+	# s/^(.*?\x{202B}.*?\x{202C}.*)$/\x{202A}$1\x{202C}/gm;
+	s/([\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}]*|(?0))*\x{202C})/&pop_embedded($1)/ge;
+}
+
+tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away BIDI characters
 
 # Clean HTML markups
 s/\s*\n\s*/ /g if /<\/p>/i;
@@ -64,6 +68,12 @@ s/<br\/?>/\n/gi;
 s/<\/p>/\n\n/gi;
 s/<\/?(?:".*?"|'.*?'|[^'">]*+)*>//g;
 $_ = unescape_text($_);
+
+my %frac = ( 
+	'½' => '¹⁄₂', '⅓' => '¹⁄₃', '⅔' => '²⁄₃', '¼' => '¹⁄₄', '¾' => '³⁄₄', 
+	'⅕' => '¹⁄₅', '⅙' => '¹⁄₆', '⅐' => '¹⁄₇', '⅛' => '¹⁄₈', '⅑' => '¹⁄₉', '⅒' => '¹⁄₁₀'
+);
+s/([½⅓⅔¼¾⅕⅙⅐⅛⅑⅒])/$frac{$1}/ge;
 
 # Clean WIKI markups
 s/'''//g;
@@ -123,7 +133,8 @@ sub pop_embedded {
 		$type .= $1; $_ = $2;
 		my @arr = (m/([^\x{202A}-\x{202C}]+|[\x{202A}\x{202B}](?0)*\x{202C})/g);
 		if ($type eq "\x{202A}" && scalar(@arr)>1) {
-			s/^([^\x{202A}-\x{202C}]+)$/\x{202A}$1\x{202C}/ for @arr;
+			# dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
+			# s/^([^\x{202A}-\x{202C}]+)$/\x{202A}$1\x{202C}/ for @arr;
 		}
 		dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
 		@arr = map { pop_embedded($_,$type) } @arr;
@@ -133,14 +144,15 @@ sub pop_embedded {
 	} 
 	if ($type =~ /\x{202B}/) {        # within RLE block
 	# if (substr($type,-1) eq "\x{202B}") {
-		tr/([{<>}])/)]}><{[(/ if ($variant==0);
-	} 
+		tr/([{<>}])/)]}><{[(/ if ($variant==0 || $variant==2);
+	}
 	if (substr($type,-1) eq "\x{202A}") { # LRE block
-		my $soft = '(?:[ \t.\,:;?!#$%^&*"\'\\-\(\)\[\]{|}<>א-ת]|\d|\d[\d.,\\/\\\\-]*?\d)';
+		my $soft = '(?:[ \t.\,:;?!#$%^&*"\'\\-–\(\)\[\]{|}<>א-ת]|\d[\d.,\\/\\-]*\d[%$]?|\d)';
 		my ($pre,$mid,$post) = (m/^($soft*+)(.*?)($soft*)$/);
 		$pre = join('',reverse(split /($soft)/, $pre));
 		$post = join('',reverse(split /($soft)/, $post));
 		$_ = $pre . $mid . $post;
+		tr/([{<>}])/)]}><{[(/ if ($variant==3 || $variant==2);
 		# s/^($soft*)(.*?)($soft*)$/reverse($3).$2.reverse($1)/e;
 	}
 	return $_;
