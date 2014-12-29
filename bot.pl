@@ -2,7 +2,7 @@
 
 use strict;
 no strict 'refs';
-no warnings 'experimental';
+no if ($]>=5.018), warnings => 'experimental';
 use English;
 use Encode;
 use MediaWiki::Bot;

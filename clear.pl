@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-no warnings 'experimental';
+no if $] >= 5.018, warnings => 'experimental';
 use strict;
 no strict 'refs';
 use English;
@@ -106,6 +106,9 @@ s/ ('[ .,:;])/$1/g;
 s/^([:]++)(?=\S)/$1 /gm;
 
 s/^לתחילת העמוד$//gm;
+
+# my @lines = split(/\n/);
+# s/^(.{50,65}[^;.])\n
 
 print $_;
 exit;
