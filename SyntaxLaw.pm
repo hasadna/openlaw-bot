@@ -9,7 +9,7 @@ our $VERSION = "0.0";
 our @EXPORT = qw(convert);
 
 use v5.14;
-no warnings 'experimental';
+no if ($]>=5.018), warnings => 'experimental';
 use strict;
 no strict 'refs';
 use English;
@@ -102,7 +102,7 @@ sub convert {
 	s/^@ *(\d\S*) *\n/&parse_chapter($1,"","סעיף")/egm;
 	s/^@ *(\d[^ .]*\.) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
 	s/^@ *([^ \n.]+\.) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
-	s/^@ *(\(.*?\)) *(.*?)\n/&parse_chapter($1,$2,"סעיף*")/egm;
+	s/^@ *(\([^()]*?\)) *(.*?)\n/&parse_chapter($1,$2,"סעיף*")/egm;
 	s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
 	s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3\n$1:: $4/gm;
 	s/^([:]+) *(\([^( ]+\)) *(\([^( ]+\))/$1 $2\n$1: $3/gm;
@@ -141,7 +141,7 @@ sub parse_title {
 
 sub parse_section {
 	my ($level, $_) = @_;
-	my ($type, $num, $fix, $extra);
+	my ($type, $num, $fix, $extra, $str);
 	
 	$level = 2 unless defined $level;
 	
@@ -149,12 +149,16 @@ sub parse_section {
 	($_, $fix) = get_fixstr($_);
 	($_, $extra) = get_extrastr($_);
 	
+	$str = $_;
+	
 	# print STDERR "parse_section with |$_|\n";
+	s/^\(\(([^()]*?)\)\)/$1/g;
 	
 	if (/^\((.*?)\)$/) {
 		$num = '';
-	} elsif (s/^\((.*?)\) *//) {
+	} elsif (/^\((.*?)\) */) {
 		$num = $1;
+		$str =~ s/^\((.*?)\) *//;
 	} elsif (/^(.+?)( *:| +[-])/) {
 		$num = get_numeral($1);
 	} elsif (/^((?:[^ (]+( +|$)){2,3})/) {
@@ -168,7 +172,8 @@ sub parse_section {
 	$type = ($type =~ /\bה?($type_sig)\b/ ? $1 : '');
 	$type = 'לוחהשוואה' if ($type =~ /השוואה/);
 	
-	my $str = "<קטע";
+	$_ = $str;
+	$str = "<קטע";
 	$str .= " $level" if ($level);
 	$str .= " $type" if ($type);
 	$str .= " $num" if ($type && $num ne '');
@@ -221,7 +226,7 @@ sub parse_link {
 	my ($id,$txt) = @_;
 	my $str;
 	$id = unquote($id);
-	($id,$txt) = ($txt,$1) if ($txt =~ /^w:(.*)$/ && !$id); 
+	($id,$txt) = ($txt,$1) if ($txt =~ /^w:(?:[a-z]{2}:)?(.*)$/ && !$id); 
 	$str = ($id ? "<קישור $id>$txt</>" : "<קישור>$txt</>");
 	return $str;
 }
@@ -613,15 +618,15 @@ sub process_section {
 	my $params = shift;
 	my ($level,$name) = split(/ /,$params,2);
 	my ($type,$num) = split(/ /,$name || '');
-	$num = get_numeral($num) if defined($num);
+	# $num = get_numeral($num) if defined($num);
 	$type =~ s/\(\(.*?\)\)//g if (defined $type);
 	given ($type) {
 		when (undef) {}
 		when (/חלק/) { $glob{part} = $num; $glob{sect} = $glob{subs} = undef; }
 		when (/פרק/) { $glob{sect} = $num; $glob{subs} = undef; }
 		when (/סימן/) { $glob{subs} = $num; }
-		when (/לוחהשוואה/) { delete @glob{"part", "subs", "appn", "form", "tabl", "tabl2"}; }
-		when (/תוספת/) { $glob{supl} = ($num || ""); delete @glob{"part", "subs", "appn", "form", "tabl", "tabl2"}; }
+		when (/לוחהשוואה/) { delete @glob{"part", "sect", "subs", "appn", "form", "tabl", "tabl2"}; }
+		when (/תוספת/) { $glob{supl} = ($num || ""); delete @glob{"part", "sect", "subs", "appn", "form", "tabl", "tabl2"}; }
 		when (/נספח/) { $glob{appn} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
 		when (/טופס/) { $glob{form} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
 		when (/לוח/) { $glob{tabl} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
@@ -757,7 +762,7 @@ sub process_HREF {
 	
 	if ($helper =~ /^קובץ:|file:|תמונה:|image:/) {
 		return "";
-	} elsif ($helper =~ /^https?:\/\//) {
+	} elsif ($helper =~ /^https?:\/\/|w:/) {
 		$type = 4;
 		$ext = $helper;
 		$int = $helper = '';
@@ -844,6 +849,8 @@ sub findHREF {
 	}
 	
 	$_ = $glob{href}{ditto} if (/^(אות[וה] ה?(סעיף|תקנה)|$pre_sig(סעיף|תקנה) האמורה?)$/);
+	
+	s/\(\((.*?)\)\)/$1/g;
 	
 	if (/דברי?[- ]ה?מלך/ and /(סימן|סימנים) \d/) {
 		s/(סימן|סימנים)/סעיף/;
