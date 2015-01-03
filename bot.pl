@@ -5,6 +5,8 @@ no strict 'refs';
 no if ($]>=5.018), warnings => 'experimental';
 use English;
 use Encode;
+# use Array::Utils;
+use Data::Dumper;
 use MediaWiki::Bot;
 use IPC::Run 'run';
 use Getopt::Long;
@@ -15,7 +17,7 @@ use SyntaxLaw;
 binmode STDOUT, ":utf8";
 
 my @pages = ();
-my ($verbose, $dryrun, $force, $editnotice, $print, $onlycheck, $interactive);
+my ($verbose, $dryrun, $force, $editnotice, $print, $onlycheck, $interactive, $recent);
 my $locforce = 0;
 my $outfile;
 
@@ -29,6 +31,7 @@ GetOptions(
 	"verbose" => \$verbose,
 #	"OUTPUT=s" => sub { $print = 1; open(STDOUT, ">_[1]"); },
 	"output" => \$print,
+	"recent" => \$recent,
 	"help|?" => \&HelpMessage,
 	"" => \$interactive
 ) or die("Error in command line arguments\n");
@@ -37,8 +40,7 @@ GetOptions(
 
 my %credentials = load_credentials('wiki_botconf.txt');
 my $host = ( $credentials{host} || 'he.wikisource.org' );
-print "HOST $host\n";
-print "USER $credentials{username}\n";
+print "HOST $host USER $credentials{username}\n";
 my $bot = MediaWiki::Bot->new({
 	host       => $host,
 	agent      => sprintf('PerlWikiBot/%s',MediaWiki::Bot->VERSION),
@@ -53,19 +55,39 @@ if ($interactive) {
 	push @pages, '-';
 }
 
+if (@pages and $recent) {
+	$recent = 0;
+	print "Warning: '-recent' ignored.\n";
+}
+
 unless (@pages) {
+	# Get category list
 	my $cat = decode_utf8('קטגוריה:בוט חוקים');
 	@pages = $bot->get_pages_in_category($cat);
 	print "CATEGORY contains " . scalar(@pages) . " pages.\n";
 }
 
-$force = 0 if ($onlycheck);
+if ($recent) {
+	# Get recently changed pages in namespace
+	$recent = 1;
+	my %cat = map { $_ => undef } @pages;
+	@pages = $bot->recentchanges({ns => 116, limit => 100}); # Namespace 116 is 'מקור'
+	@pages = map {$_->{title}} @pages;
+	map {s/^\s*(?:מקור:|)\s*(.*?)\s*$/$1/} @pages;
+	# Intersect list with category list
+	@pages = grep {exists($cat{ $_ })} @pages;
+}
+
+if ($onlycheck and $force) {
+	$force = 0;
+	print "Warning: '-force' ignored.\n";
+}
 
 foreach my $page_dst (@pages) {
 	my $text;
 	
 	if ($page_dst eq '-') {
-		# Interactive mode: Query new page
+		# Interactive mode: Query for page name
 		print "> ";
 		$_ = decode_utf8(<STDIN>);
 		chomp;
@@ -81,37 +103,14 @@ foreach my $page_dst (@pages) {
 	$page_dst =~ s/ /_/g;
 	my $page_src = decode_utf8("מקור:") . $page_dst;
 	
-	my @hist_s = $bot->get_history($page_src);
-	my @hist_t = $bot->get_history($page_dst);
-	
-	my $src_ok = (@hist_s>0);
-	my $dst_ok = (@hist_t>0);
-	
-	if (!$src_ok) {
-		# Check if source at "חוק/מקור"
-		$page_src = $page_dst . decode_utf8("/מקור");
-		@hist_s = $bot->get_history($page_src);
-		$src_ok = (@hist_s>0);
-		if (!$src_ok) {
-			print "Source page \"מקור:$page_dst\" or \"$page_dst/מקור\" not found!\n";
-			next;
-		}
-	}
+	my ($revid_s, $revid_t, $comment) = get_revid($bot, $page_dst);
+	my $src_ok = ($revid_s>0);
+	my $dst_ok = ($revid_t>0);
 	
 	print "PAGE \x{202B}\"$page_dst\"\x{202C}:\t";
 	
-	my $revid_s = $hist_s[0]->{revid};
-	my $revid_t = 0;
-	my $comment = $hist_s[0]->{comment};
-	my $rec     = undef;
-	
-	foreach my $rec (@hist_t) {
-		last if ($revid_t);
-		$revid_t = $rec->{comment};
-		$revid_t =~ s/^ *(?:\[(\d+)\]|(\d+)).*/$1/ || ( $revid_t = 0 );
-	}
-	
 	my $update = ($revid_t<$revid_s);
+	my $done = 0;
 	
 	print "ID $revid_s " . ($update?'>':'=') . " $revid_t";
 	if ($onlycheck) {
@@ -119,11 +118,10 @@ foreach my $page_dst (@pages) {
 		print ", Modified.\n" if ($revid_t<$revid_s && $dst_ok);
 		print ", Target changed.\n" if ($revid_t>$revid_s);
 		print ", Same.\n" if ($revid_t==$revid_s);
-		next;
-	}
-	if (!$update && !$force && !$locforce) {
+		$done = 1;
+	} elsif (!$update && !$force && !$locforce) {
 		print ", Skipping.\n";
-		next;
+		$done = 1;
 	} elsif (!$update && ($force || $locforce)) {
 		print ", Updating anyway (-force).\n";
 	} elsif ($dryrun) {
@@ -131,6 +129,17 @@ foreach my $page_dst (@pages) {
 	} else {
 		print ", Updating.\n";
 	}
+	
+	if ($recent>0 and !$update) {
+		if (++$recent > 5) { # No more recent updated, early exit
+			print "Consecutive not-modified in recent changes; done for now.\n";
+			last;
+		}
+	} elsif ($recent>0 and $update) {
+		$recent = 1;
+	}
+	
+	next if ($done);
 	
 	if ($comment =~ /העבירה? את הדף/) {
 		$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *// || $comment =~ s/ \[.*/.../;
@@ -169,7 +178,7 @@ foreach my $page_dst (@pages) {
 			});
 		}
 	}
-
+	
 	$noticepage = "Mediawiki:Editnotice-116-$page_dst";
 	$id = $bot->get_id($noticepage);
 	if (!defined $id && !$dryrun) {
@@ -185,6 +194,7 @@ $bot->logout();
 
 exit 0;
 1;
+
 
 sub RunParsers {
 	my ( $str1, $str2, $str3 );
@@ -213,6 +223,33 @@ sub load_credentials {
 	return %obj;
 }
 
+sub get_revid {
+	my $bot = shift;
+	my $page = shift;
+	$page = $page->{title} if (ref($page) eq 'HASH');
+	
+	$page =~ s/^\s*(?:מקור:)?(.*?)\s*$/$1/s;
+	$page =~ s/ /_/g;
+	
+	my @hist_s = $bot->get_history(decode_utf8("מקור:") . $page);
+	my @hist_t = $bot->get_history($page);
+	
+	return (0,0,undef) unless (scalar(@hist_s));
+	
+	my $revid_s = $hist_s[0]->{revid};
+	my $revid_t = 0;
+	my $comment = $hist_s[0]->{comment};
+	
+	foreach my $rec (@hist_t) {
+		last if ($revid_t);
+		$revid_t = $rec->{comment};
+		$revid_t =~ s/^ *(?:\[(\d+)\]|(\d+)).*/$1/ || ( $revid_t = 0 );
+	}
+	
+	return ($revid_s,$revid_t,$comment);
+}
+
+
 sub HelpMessage {
 	print <<EOP;
 USAGE: bot.pl [-h] [-d] [-f] [-l LOG] [-o] [-O OUTPUT] [-s] [-v]
@@ -231,9 +268,10 @@ Optional flags:
   -f, --force            Force changing contents of destination
   -l LOG, --log LOG      Set a custom log file
   -o, --output           Output the final format to stdout
-  -O FILE, --OUTPUT FILE Output the final format to file FILE
-  -v, --verbose          Output full process log to stdout
+  -r, --recent           Check only recent changes
   -s, --silent           Do not output the log info to stdout
+  -v, --verbose          Output full process log to stdout
 EOP
+#  -O FILE, --OUTPUT FILE Output the final format to file FILE
 	exit 0;
 }
