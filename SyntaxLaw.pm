@@ -438,6 +438,7 @@ sub get_numeral {
 	return '' if (!defined($_));
 	my $num = '';
 	my $token = '';
+	s/&quote;/"/g;
 	s/[.,"']//g;
 	$_ = unparent($_);
 	while ($_) {
