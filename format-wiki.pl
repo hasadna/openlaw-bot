@@ -856,7 +856,6 @@ sub printHeader {
 sub printFooter {
 	print "\n{{ח:סוף}}\n";
 	if (@{$global{footer}}) {
-		print "\n";
 		print join("\n", @{$global{footer}});
 	}
 }
@@ -1104,18 +1103,20 @@ sub flushCompareTable {
 	
 	$col = int(($col+1)/2);
 	
-	push @text, '<table border="0" cellpadding="1" cellspacing="0" dir="rtl" align="center" class="NOTE2">';
+	push @text, '<table border="0" cellpadding="1" cellspacing="0" dir="rtl" align="center">';
     push @text, '  <tr><th width="120">הסעיף הקודם</th>';
     push @text, '  <th width="120">הסעיף החדש</th>';
     push @text, '  <th width="120">הסעיף הקודם</th>';
     push @text, '  <th width="120">הסעיף החדש</th></tr>';
-    push @text, '  <tr><td colspan="4"><hr noshade width="100%"></td></tr>';
+#   push @text, '  <tr><td colspan="4"><hr noshade width="100%"></td></tr>';
 
 	for (my $i=0; $i<$col; $i++) {
-		push @text, "  <tr><td>" . ($table[$i][0]?$table[$i][0]:"&nbsp;") . "</td>" . 
-			"<td>" . ($table[$i][1]?$table[$i][1]:"&nbsp;") . "</td>" . 
-			"<td>" . ($table[$i+$col][0]?$table[$i+$col][0]:"&nbsp;") . "</td>" . 
-			"<td>" . ($table[$i+$col][1]?$table[$i+$col][1]:"&nbsp;") . "</td></tr>";
+		push @text, "  <tr>" . 
+			"<td>" . ($table[$i][0] || "&nbsp;") . "</td>" . 
+			"<td>" . ($table[$i][1] || "&nbsp;") . "</td>" . 
+			"<td>" . ($table[$i+$col][0] || "&nbsp;") . "</td>" . 
+			"<td>" . ($table[$i+$col][1] || "&nbsp;") . "</td>" . 
+			"</tr>";
 	}
 
 	push @text, '</table>';
