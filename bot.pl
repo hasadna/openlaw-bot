@@ -130,7 +130,7 @@ foreach my $page_dst (@pages) {
 		print ", Updating.\n";
 	}
 	
-	if ($recent>0 and !$update) {
+	if ($recent and $recent>0 and !$update) {
 		if (++$recent > 5) { # No more recent updated, early exit
 			print "Consecutive not-modified in recent changes; done for now.\n";
 			last;
