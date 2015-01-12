@@ -11,6 +11,7 @@ use HTML::TreeBuilder::XPath;
 use IO::HTML;
 use Getopt::Long;
 
+use constant { true => 1, false => 0 };
 
 my $what = 0;
 GetOptions(
@@ -20,7 +21,8 @@ GetOptions(
 	"url" => sub { $what = 3 },
 ) or die $!;
 
-my $page = "http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawLaws.aspx?t=LawLaws&st=LawLaws";
+# Base "http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawLaws.aspx?t=LawLaws&st=LawLaws";
+my $page = "http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawLaws.aspx?t=LawLaws&st=LawLaws&pn=2&sb=LatestPublicationDate&so=D";
 my $id;
 my ($tree, @trees);
 my (@table, @lol);
@@ -34,15 +36,24 @@ if ($ARGV[0] && -f $ARGV[0]) {
     print STDERR "reading html " . $page;
 }
 
+my $initial = true;
+my $count = 1;
+my $total = 1;
+
 while ($page) {
-	print STDERR "Reading HTML file...\n";
 	if (-f $page) {
 		$tree = HTML::TreeBuilder::XPath->new_from_file(html_file($page));
 	} else {
 		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 	}
+    if ($initial) {
+        # ALON FIXME: get the page number (pn=/d*) from this href and store it in $total
+        $tree->findnodes('//td[@class = "LawBottomNav"]/a[contains(@id, "_aLastPage")]')->[0]->attr('href');
+        $initial = false;
+    }
 	push @trees, $tree;
 	
+	print STDERR "Reading HTML file " . $page . "\n";
 	my @loc_table = $tree->findnodes('//table[@class = "rgMasterTable"]//tr');
 	
 	my $loc_id = $tree->findnodes('//form[@name = "aspnetForm"]')->[0];
