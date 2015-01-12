@@ -10,7 +10,8 @@ use Data::Dumper;
 use Getopt::Long;
 
 our ($variant, $debug);
-$variant = $debug = 0; 
+$variant = 1;
+$debug = 0;
 
 GetOptions(
 	"type=i" => \$variant, 
@@ -55,12 +56,15 @@ tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
    # Place lines with [RLE][PDF] inside [LRE][PDF] context
    # and recursively pop embedded bidi formating
 if (/[\x{202A}-\x{202C}]/) {
+	s/\x{200F}\x{202C}\n/\x{200F}\x{202C} /g;
 	s/^(.+)$/\x{202A}$1\x{202C}/gm;
 	# s/^(.*?\x{202B}.*?\x{202C}.*)$/\x{202A}$1\x{202C}/gm;
 	s/([\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}]*|(?0))*\x{202C})/&pop_embedded($1)/ge;
 }
 
 tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away BIDI characters
+while (s/\n(.*)\n(\(.{1,2}\)|\*|[0-9]|[1-9].?\.)\n/\n$2 $1\n/g) {}
+
 
 # Clean HTML markups
 s/\s*\n\s*/ /g if /<\/p>/i;

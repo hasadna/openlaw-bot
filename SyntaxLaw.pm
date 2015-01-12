@@ -70,16 +70,19 @@ sub convert {
 	tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
 	s/[ ]{2,}/ /g;      # Pack  long spaces
 	
+	s/\[\[קטגוריה:.*?\]\] *\n?//g;  # Ignore categories (for now)
+	
 	# Unescape HTML characters
 	$_ = unescape_text($_);
 	
 	s/([ :])-([ \n])/$1–$2/g;
-	s/([א-ת]) ([,.:;])/$1$2/g;
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escape_text($1)/egs;
 	
 	# Parse various elements
 	s/^(?|<שם> *\n?(.*)|=([^=].*)=)\n/&parse_title($1)/em; # Once!
+	s/<שם קודם> *\n?//;
+	s/<מאגר .*?>\n?//;
 	s/^<חתימות> *\n?(((\*.*\n)+)|(.*\n))/&parse_signatures($1)/egm;
 	s/^<פרסום> *\n?(.*)\n/&parse_pubdate($1)/egm;
 	# s/^<מקור> *\n?(.*)\n\n/<מקור>\n$1\n<\\מקור>\n\n/egm;
@@ -232,9 +235,15 @@ sub parse_link {
 }
 
 sub parse_remark {
-	my ($text,$tip) = @_;
+	my ($text,$tip,$url) = @_;
 	# print STDERR "|$text|$tip|" . length($tip) . "\n";
 	if ($tip) {
+		($tip,$url) = split(/\|/, $tip);
+		if ($url) {
+			$url = "http://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
+			$url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
+			$tip .= "|$url";
+		}
 		return "<תיבה $tip>$text</>";
 	} else {
 		return "<הערה>$text</>";
@@ -438,6 +447,7 @@ sub get_numeral {
 	return '' if (!defined($_));
 	my $num = '';
 	my $token = '';
+	s/&quote;/"/g;
 	s/[.,"']//g;
 	$_ = unparent($_);
 	while ($_) {
@@ -625,7 +635,7 @@ sub process_section {
 		when (/חלק/) { $glob{part} = $num; $glob{sect} = $glob{subs} = undef; }
 		when (/פרק/) { $glob{sect} = $num; $glob{subs} = undef; }
 		when (/סימן/) { $glob{subs} = $num; }
-		when (/לוחהשוואה/) { delete @glob{"part", "sect", "subs", "appn", "form", "tabl", "tabl2"}; }
+		when (/לוחהשוואה/) { delete @glob{"part", "sect", "subs", "supl", "appn", "form", "tabl", "tabl2"}; }
 		when (/תוספת/) { $glob{supl} = ($num || ""); delete @glob{"part", "sect", "subs", "appn", "form", "tabl", "tabl2"}; }
 		when (/נספח/) { $glob{appn} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
 		when (/טופס/) { $glob{form} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
@@ -869,7 +879,7 @@ sub findHREF {
 	s/\bו-//g;
 	s/\b(או|מן|סיפא|רישא)\b/ /g;
 	s/^ *(.*?) *$/$1/;
-	s/טבלת השוואה/טבלת_השוואה/;
+	s/לוח השוואה/לוחהשוואה/;
 	
 	my $href = $_;
 	my @parts = split /[ ,.\-\)]+/;
@@ -885,7 +895,7 @@ sub findHREF {
 		$_ = substr($href,$p);
 		$num = undef;
 		given ($_) {
-			when (/טבלתהשוואה/) { $class = "table"; $num = ""; }
+			when (/לוחהשוואה/) { $class = "comptable"; $num = ""; }
 			when (/^$pre_sig(חלק|חלקים)/) { $class = "part"; }
 			when (/^$pre_sig(פרק|פרקים)/) { $class = "sect"; }
 			when (/^$pre_sig(סימן|סימנים)/) { $class = "subs"; }
@@ -923,8 +933,8 @@ sub findHREF {
 	$elm{chap} = $elm{chap_} if (defined $elm{chap_} and !defined $elm{chap});
 	
 	$href = '';
-	if (defined $elm{table}) {
-		$href = "טבלת השוואה";
+	if (defined $elm{comptable}) {
+		$href = "לוח השוואה";
 	} elsif (defined $elm{supl}) {
 		$elm{supl} = $elm{supl} || $glob{supl} || '' if ($ext eq '');
 		$elm{supchap} = $elm{supchap} || $elm{chap};
