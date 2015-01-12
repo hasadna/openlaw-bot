@@ -135,7 +135,7 @@ foreach my $page_dst (@pages) {
 			print "Consecutive not-modified in recent changes; done for now.\n";
 			last;
 		}
-	} elsif ($recent>0 and $update) {
+	} elsif ($recent and $recent>0 and $update) {
 		$recent = 1;
 	}
 	
