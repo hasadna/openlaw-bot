@@ -1,11 +1,14 @@
 #!/usr/bin/perl
 
 use warnings;
-no warnings 'experimental';
+no if ($]>=5.018), warnings => 'experimental';
 use strict;
 no strict 'refs';
-use English;
 use utf8;
+use English;
+use Encode;
+
+use IPC::Run 'run';
 
 binmode STDIN, "utf8";
 binmode STDOUT, "utf8";
@@ -13,6 +16,7 @@ binmode STDERR, "utf8";
 
 local $/;
 $_ = <>;
+$_ = cleanup($_);
 
 # ignore /^[=:@<]/
 
@@ -35,6 +39,7 @@ my $fix_sig = 'תי?קו(?:ן|ים)';
 
 s/^(?:\n?@ *|)(\d[^. ]*\.) *(.*)$/"\n@ $1 " . fix_description($2)/gme;
 s/^(\([^)]{1,4}\))/: $1/gm;
+s/^(@.*?)\n([^:]+)$/$1\n: $2/gm;
 
 s/^(:+) *(\([^)\n]*\)[.;])$/$1 (($2))/gm;
 s/^(:+ \([^ )\n]+\)) (\([^)\n]*\)[.;])$/$1 (($2))/gm;
@@ -53,9 +58,12 @@ s/\]\] \[\[(?=$law_sig)/ /g;
 s/\[\[($law_sig [^\[\]].*?) ($law_sig[^\[\]].*)\]\]/$1 [[$2]]/g;
 
 s/\[\[([^\[\]]*+)\[\[(.*?)\]\](.*?)\]\]/[[$1$2$3]]/g;
-
-s/^(?:\<שם\>|) *(.*)\n/"<שם> ". remove_brakets($1) . "\n"/se;
 s/^(=.*)$/remove_brakets($1)/gme;
+
+if (/^\[*(חוק|פקודת|תקנות)\b/s) {
+	s/^(?:\<שם\>|) *(.*)\n/"<שם> ". remove_brakets($1) . "\n"/se;
+	s/^(.*?\n)/$1\n<מקור>\n...\n/s if (!/<מקור>/);
+}
 
 s/\n*(.*?)\n*$/$1\n/s;
 s/\n{3,}/\n\n/g;
@@ -81,4 +89,13 @@ sub remove_brakets {
 	s/\[\[//;
 	s/\]\]//;
 	return $_;
+}
+
+
+sub cleanup {
+	my @cmd = ('./clear.pl');
+	my $in = shift;
+	my $out;
+	run \@cmd, \$in, \$out, *STDERR;
+	return decode_utf8($out);
 }

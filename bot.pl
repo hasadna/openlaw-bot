@@ -83,6 +83,8 @@ if ($onlycheck and $force) {
 	print "Warning: '-force' ignored.\n";
 }
 
+my %processed;
+
 foreach my $page_dst (@pages) {
 	my $text;
 	
@@ -102,6 +104,11 @@ foreach my $page_dst (@pages) {
 	$page_dst =~ s/^ *(.*?) *$/$1/;
 	$page_dst =~ s/ /_/g;
 	my $page_src = decode_utf8("מקור:") . $page_dst;
+	
+	if ($recent) {
+		next if defined $processed{$page_dst};
+		$processed{$page_dst} = '';
+	}
 	
 	my ($revid_s, $revid_t, $comment) = get_revid($bot, $page_dst);
 	my $src_ok = ($revid_s>0);

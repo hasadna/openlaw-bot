@@ -27,11 +27,10 @@ my (@table, @lol);
 
 if ($page =~ /^\d+$/) {
 	$page = "http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawPrimary.aspx?t=lawlaws&st=lawlaws&lawitemid=$page";
-	print STDERR "Page: $page\n";
 }
 
 binmode STDOUT, ":utf8";
-
+binmode STDERR, ":utf8";
 
 while ($page) {
 	print STDERR "Reading HTML file...\n";
@@ -61,6 +60,16 @@ while ($page) {
 	@table = (@table, @loc_table);
 }
 
+if (!scalar(@table)) {
+	print STDERR "No data.\n";
+	exit 0;
+}
+
+my $law_name = $tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]');
+$law_name =~ s/^[ \n]*(.*?)[ \n]*$/$1/;
+$law_name =~ s/, ([א-ת"]*-)?\d{4}//;
+print STDERR "Law $id \"$law_name\"\n";
+
 foreach my $node (@table) {
     my @list = $node->findnodes('td');
     shift @list;
@@ -74,7 +83,7 @@ foreach my $node (@table) {
     $url = decode_url($url);
     $url =~ s|/?\\|/|g;
     $url =~ s/\.PDF$/.pdf/;
-    push @list, $lawid, $url;
+    push @list, $lawid, $url, scalar(@lol);
     grep(s/^[ \t\xA0]*(.*?)[ \t\xA0]*$/$1/g, @list);
     push @lol, [@list];
 }
@@ -84,8 +93,13 @@ foreach my $node (@table) {
 # Sort array in lexicographical order of [booklet, page, NAME] (lawid is not monotonic).
 # @lol = grep { $_->[2] =~ /\d+/ } @lol;
 # @lol = sort { $a->[2] <=> $b->[2] || $a->[3] <=> $b->[3] || $a->[0] cmp $b->[0] } @lol;
+@lol = reverse @lol;
 @lol = sort { compare_law($a,$b) } @lol;
 
+if ($what>1) {
+	print "<מאגר $id תיקון $lol[-1][5]>\n\n";
+	print "<מקור>\n";
+}
 foreach my $list (@lol) {
 	print_fix(@$list) if ($what>=1);
 	print_line(@$list) if ($what==0);
@@ -106,6 +120,8 @@ sub compare_law {
 	my $b_date = $b->[4] =~ s/.*?(\d{1,2})(.)(\d{1,2})\2(\d{4}).*?/sprintf("%04d%02d%02d",$4,$3,$1)/re;
 	my $res = 0;
 	
+	$res = -1 if (!$a_date || !$b_date); # Keep order if not date is given
+	
 	if ($a->[2] =~ /^\d+$/ && $b->[2] =~ /^\d+$/) {
 		$res ||= $a->[2] <=> $b->[2];
 	} else {
@@ -120,7 +136,7 @@ sub compare_law {
 #-------------------------------------------------------------------------------
 
 my ($last_type, $last_year, $last_id);
-my $law_name;
+# my $law_name;
 my $first_run;
 
 sub print_line {
@@ -151,8 +167,9 @@ sub print_fix {
 	
 	$name =~ s/ {2,}/ /g;
 	$name =~ s/ *\(חוק מקורי\)//;
-	$law_name = ($name =~ s/ *\[.*?\]//gr) if ($first_run);
+	# $law_name = ($name =~ s/ *\[.*?\]//gr) if ($first_run);
 	
+	$name =~ s/\bמס\. $/מס' /;
 	$name =~ s/ (ב|של |)$law_name$//;
 	$name =~ s/^תיקון טעות.*/ת"ט/;
 	$name =~ s/\((מס' \d\S*?)\)/(תיקון $1)/;
@@ -164,7 +181,7 @@ sub print_fix {
 	$url =~ s/.*?\/(\d+)_lsr_(\d+).pdf/$1:$2/ if ($what==2);
 	
 	if ($last_type && $type eq $last_type) { $type = ''; } else { $last_type = $type; }
-	if ($last_year && $year eq $last_year) { $year = ''; } else { $last_year = $year; }
+	if ($last_year && $year eq $last_year) { $year = '' if (!$type); } else { $last_year = $year; }
 	
 	$type =~ s/ער"מ/ע"ר/;
 	

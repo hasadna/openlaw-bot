@@ -65,6 +65,9 @@ if (/[\x{202A}-\x{202C}]/) {
 tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away BIDI characters
 while (s/\n(.*)\n(\(.{1,2}\)|\*|[0-9]|[1-9].?\.)\n/\n$2 $1\n/g) {}
 
+if (scalar(/\).\(/g) > scalar(/\(.\)/g)) {
+	tr/([{<>}])/)]}><{[(/;
+}
 
 # Clean HTML markups
 s/\s*\n\s*/ /g if /<\/p>/i;
