@@ -93,7 +93,8 @@ sub remove_brakets {
 
 
 sub cleanup {
-	my @cmd = ('./clear.pl');
+	my $pwd = $0; $pwd =~ s/[^\/]*$//;
+	my @cmd = ("$pwd/clear.pl");
 	my $in = shift;
 	my $out;
 	run \@cmd, \$in, \$out, *STDERR;
