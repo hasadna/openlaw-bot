@@ -726,7 +726,7 @@ sub open_TITLE {
 	# if (/[\)\]\}]\s*$/) { $_ = $_ . "\xFE"; }
 	s|&|&amp;|g;
 	s|"|&quot;|g;
-	s|([\[\]])|"&#".ord($1).";"|ge; # HTML escape
+	# s|([\[\]])|"&#".ord($1).";"|ge; # HTML escape
 	$object{title} = $_;
 	$textline = $textline . "{{ח:תיבה|";
 }
