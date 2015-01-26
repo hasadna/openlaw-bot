@@ -81,7 +81,7 @@ sub convert {
 	
 	# Parse various elements
 	s/^(?|<שם> *\n?(.*)|=([^=].*)=)\n/&parse_title($1)/em; # Once!
-	s/<שם קודם> *\n?//;
+	s/<שם קודם> .*\n//g;
 	s/<מאגר .*?>\n?//;
 	s/^<חתימות> *\n?(((\*.*\n)+)|(.*\n))/&parse_signatures($1)/egm;
 	s/^<פרסום> *\n?(.*)\n/&parse_pubdate($1)/egm;
@@ -120,7 +120,7 @@ sub convert {
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<\/(ויקי)?\>)/&unescape_text($1) . "<\/>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
-	s/(^\{\|(.*\n)+^\|\} *$)/&parse_wikitable($1)/egm;
+	s/^(\:* *|<ת+> *)(\{\|(.*\n)+^\|\} *)$/"$1" . &parse_wikitable($2)/egm;
 	s/\x00//g; # Remove nulls
 	
 	return $_;
