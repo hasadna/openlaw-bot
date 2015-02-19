@@ -81,7 +81,7 @@ sub convert {
 	
 	# Parse various elements
 	s/^(?|<שם> *\n?(.*)|=([^=].*)=)\n/&parse_title($1)/em; # Once!
-	s/<שם קודם> *\n?//;
+	s/<שם קודם> .*\n//g;
 	s/<מאגר .*?>\n?//;
 	s/^<חתימות> *\n?(((\*.*\n)+)|(.*\n))/&parse_signatures($1)/egm;
 	s/^<פרסום> *\n?(.*)\n/&parse_pubdate($1)/egm;
@@ -120,8 +120,8 @@ sub convert {
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<\/(ויקי)?\>)/&unescape_text($1) . "<\/>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
-	
-	s/(^\{\|(.*\n)+^\|\} *$)/&parse_wikitable($1)/egm;
+	s/^(\:* *|<ת+> *)(\{\|(.*\n)+^\|\} *)$/"$1" . &parse_wikitable($2)/egm;
+	s/\x00//g; # Remove nulls
 	
 	return $_;
 }
@@ -231,6 +231,7 @@ sub parse_link {
 	$id = unquote($id);
 	($id,$txt) = ($txt,$1) if ($txt =~ /^w:(?:[a-z]{2}:)?(.*)$/ && !$id); 
 	$str = ($id ? "<קישור $id>$txt</>" : "<קישור>$txt</>");
+	$str =~ s/([()])\1/$1\x00$1/g unless ($str =~ /\(\(.*\)\)/); # Avoid splitted comments
 	return $str;
 }
 
@@ -242,6 +243,7 @@ sub parse_remark {
 		if ($url) {
 			$url = "http://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
 			$url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
+			$url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
 			$tip .= "|$url";
 		}
 		return "<תיבה $tip>$text</>";
