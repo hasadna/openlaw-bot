@@ -5,12 +5,12 @@ no strict 'refs';
 no if ($]>=5.018), warnings => 'experimental';
 use English;
 use Encode;
+use utf8;
 # use Array::Utils;
 use Data::Dumper;
 use MediaWiki::Bot;
 use IPC::Run 'run';
 use Getopt::Long;
-use utf8;
 
 use SyntaxLaw;
 
