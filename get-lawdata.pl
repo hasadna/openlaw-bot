@@ -68,6 +68,7 @@ if (!scalar(@table)) {
 my $law_name = $tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]');
 $law_name =~ s/^[ \n]*(.*?)[ \n]*$/$1/;
 $law_name =~ s/, ([א-ת"]*-)?\d{4}//;
+$law_name =~ s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
 print STDERR "Law $id \"$law_name\"\n";
 
 foreach my $node (@table) {
@@ -177,8 +178,11 @@ sub print_fix {
 	$name =~ s/חוק לתיקון פקודת/תיקון לפקודת/;
 	$name =~ s/^(?:חוק לתיקון |תיקון ל|)(\S.*?)\s\((תי?קון .*?)\)/$2 ל$1/;
 	$name =~ s/ *(.*?) */$1/;
-	
-	$url =~ s/.*?\/(\d+)_lsr_(\d+).pdf/$1:$2/ if ($what==2);
+
+	if ($what==2) {
+		$url =~ s/.*?\/(\d+)_lsr_(\d+).pdf/$1:$2/;
+		$url ||= $booklet if ($name ne 'ת"ט');
+	}
 	
 	if ($last_type && $type eq $last_type) { $type = ''; } else { $last_type = $type; }
 	if ($last_year && $year eq $last_year) { $year = '' if (!$type); } else { $last_year = $year; }
@@ -211,7 +215,8 @@ sub poorman_hebrewyear {
 	return $year if ($date < "19480514");
 	$year += 3760;
 	# Assume new year starts between YYYY0901 and YYYY1015
-	$year++ if (($mmdd > "0900" and $mmdd <= "1015" and $page<200) or ($mmdd > "1015"));
+	# print STDERR "MMDD = $mmdd; PAGE = $page; threshold = " . (100 + ($year-5700)*2) . "\n";
+	$year++ if (($mmdd > "0900" and $mmdd <= "1015" and $page<100 + ($year-5700)*2) or ($mmdd > "1015"));
 	$year =~ /(\d)(\d)(\d)(\d)$/;
 	$year = (qw|- ק ר ש ת תק תר תש תת תתק|)[$2] . (qw|- י כ ל מ נ ס ע פ צ|)[$3] . (qw|- א ב ג ד ה ו ז ח ט|)[$4];
 	$year =~ s/-//g;
