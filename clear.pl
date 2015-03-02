@@ -161,7 +161,7 @@ sub pop_embedded {
 		tr/([{<>}])/)]}><{[(/ if ($variant==0 || $variant==2);
 	}
 	if (substr($type,-1) eq "\x{202A}") { # LRE block
-		my $soft = '(?:[ \t.\,:;?!#$%^&*"\'\\-–\(\)\[\]{|}<>א-ת]|\d[\d.,\\/\\-]*\d[%$]?|\d)';
+		my $soft = '(?:[ \t.\,:;?!#$%^&*"\'\\-–\(\)\[\]{|}<>א-ת]|\d[\d.,\\/\\-:]*\d[%$]?|\d)';
 		my ($pre,$mid,$post) = (m/^($soft*+)(.*?)($soft*)$/);
 		$pre = join('',reverse(split /($soft)/, $pre));
 		$post = join('',reverse(split /($soft)/, $post));
