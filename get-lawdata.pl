@@ -43,9 +43,11 @@ while ($page) {
 	
 	my @loc_table = $tree->findnodes('//table[@class = "rgMasterTable"]//tr');
 	
-	my $loc_id = $tree->findnodes('//form[@name = "aspnetForm"]')->[0];
-	($loc_id) = ($loc_id->attr('action') =~ m/lawitemid=(\d+)/);
-	$id ||= $loc_id;
+	my $loc_id = $tree->findnodes('//form[@id = "aspnetForm"]')->[0];
+	if (defined $loc_id) {
+		($loc_id) = ($loc_id->attr('action') =~ m/lawitemid=(\d+)/);
+		$id ||= $loc_id;
+	}
 	
 	my $nextpage = $tree->findnodes('//td[@class = "LawBottomNav"]/a[contains(@id, "_aNextPage")]')->[0] || '';
 	$nextpage &&= $nextpage->attr('href');
