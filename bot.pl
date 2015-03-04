@@ -21,6 +21,10 @@ my ($verbose, $dryrun, $force, $editnotice, $print, $onlycheck, $interactive, $r
 my $locforce = 0;
 my $outfile;
 
+my %processed;
+my ($page, $id, $text);
+
+
 $editnotice = 1;
 
 GetOptions(
@@ -78,15 +82,32 @@ if ($recent) {
 	@pages = grep {exists($cat{ $_ })} @pages;
 }
 
+if ($recent) {
+	# Check for additional pages at משתמש:OpenLawBot/הוספה
+	$page = decode_utf8("משתמש:OpenLawBot/הוספה");
+	$text = $bot->get_text($page) // "";
+	my @new_pages = ($text =~ /\[\[(.*?)(?:\|.*?)?\]\]/g);
+	if (scalar(@new_pages)>0) {
+		map {s/^\s*(?:מקור:|)\s*(.*?)\s*$/$1/} @pages;
+		print "ADDING " . scalar(@new_pages) . " new pages: " . join(", ", @new_pages) . "\n";
+		$bot->edit( {
+			page      => $page,
+			text      => decode_utf8("רשימת דפים להוספה על ידי הבוט\n* ...\n"),
+			summary   => decode_utf8("תודה"),
+			bot       => 1,
+			minor     => 0,
+			assertion => 'bot',
+		}) unless ($onlycheck || $dryrun);
+		@pages = (@new_pages, @pages);
+	}
+}
+
 if ($onlycheck and $force) {
 	$force = 0;
 	print "Warning: '-force' ignored.\n";
 }
 
-my %processed;
-
 foreach my $page_dst (@pages) {
-	my $text;
 	
 	if ($page_dst eq '-') {
 		# Interactive mode: Query for page name
@@ -120,9 +141,14 @@ foreach my $page_dst (@pages) {
 	my $done = 0;
 	
 	print "ID $revid_s " . ($update?'>':'=') . " $revid_t";
-	if ($onlycheck) {
-		print ", Target not exist.\n" if (!$dst_ok);
-		print ", Modified.\n" if ($revid_t<$revid_s && $dst_ok);
+	if (!$src_ok) {
+		print ", Source not exist.\n";
+		$done = 1;
+	} elsif (!$dst_ok) {
+		print ", Target not exist.\n";
+		$done = 1;
+	} elsif ($onlycheck) {
+		print ", Modified.\n" if ($revid_t<$revid_s);
 		print ", Target changed.\n" if ($revid_t>$revid_s);
 		print ", Same.\n" if ($revid_t==$revid_s);
 		$done = 1;
@@ -137,7 +163,7 @@ foreach my $page_dst (@pages) {
 		print ", Updating.\n";
 	}
 	
-	if ($recent and $recent>0 and !$update) {
+	if ($recent and $recent>0 and $src_ok and !$update) {
 		if (++$recent > 5) { # No more recent updated, early exit
 			print "Consecutive not-modified in recent changes; done for now.\n";
 			last;
@@ -171,30 +197,45 @@ foreach my $page_dst (@pages) {
 	next unless $editnotice;
 	
 	# Check editnotice and update if neccessary
-	my $noticepage = "Mediawiki:Editnotice-0-$page_dst";
-	my $id = $bot->get_id($noticepage);
+	$page = "Mediawiki:Editnotice-0-$page_dst";
+	$id = $bot->get_id($page);
 	if (!defined $id) {
 		if ($dryrun) {
 			print "Editnotice for '$page_dst' does not exist.\n";
 		} else {
 			print "Creating editnotice '$page_dst'.\n";
 			$bot->edit({
-				page    => $noticepage,
+				page    => $page,
 				text    => decode_utf8("{{הודעת עריכה חוקים}}"),
 				summary => "editnotice",
+				minor   => 1,
 			});
 		}
 	}
 	
-	$noticepage = "Mediawiki:Editnotice-116-$page_dst";
-	$id = $bot->get_id($noticepage);
+	$page = "Mediawiki:Editnotice-116-$page_dst";
+	$id = $bot->get_id($page);
 	if (!defined $id && !$dryrun) {
 		$bot->edit({
-			page    => $noticepage,
+			page    => $page,
 			text    => decode_utf8("{{הודעת עריכה חוקים}}"),
 			summary => "editnotice",
+			minor   => 1,
 		});
 	}
+	
+	# Check talkpage and add redirection if neccessary
+	$page = "שיחת מקור:$page_dst";
+	$id = $bot->get_id($page);
+	if (!defined $id && !$dryrun) {
+		$bot->edit({
+			page    => $page,
+			text    => decode_utf8("#הפניה [[שיחה:$page_dst]]"),
+			summary => decode_utf8("הפנייה"),
+			minor   => 1,
+		});
+	}
+	
 }
 
 $bot->logout();
