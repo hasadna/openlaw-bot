@@ -146,7 +146,7 @@ foreach my $page_dst (@pages) {
 		$done = 1;
 	} elsif (!$dst_ok) {
 		print ", Target not exist.\n";
-		$done = 1;
+		$done = 1 if ($onlycheck);
 	} elsif ($onlycheck) {
 		print ", Modified.\n" if ($revid_t<$revid_s);
 		print ", Target changed.\n" if ($revid_t>$revid_s);
