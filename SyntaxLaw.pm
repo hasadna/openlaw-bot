@@ -762,7 +762,11 @@ sub process_HREF {
 	my $text = $glob{href}{txt};
 	my $helper = $glob{href}{helper};
 	my $id = $glob{href}{idx};
-	
+
+	# Canonic name
+	$text =~ tr/–־/-/; $text =~ tr/״”“/"/; $text =~ tr/׳‘’/'/;
+	$helper =~ tr/–־/-/; $helper =~ tr/״”“/"/; $helper =~ tr/׳‘’/'/;
+
 	my ($int,$ext) = findHREF($text);
 	my $marker = '';
 	my $found = false;
@@ -828,10 +832,6 @@ sub process_HREF {
 	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
 	if ($ext) {
-		# Canonic name
-		$ext =~ tr/–־/-/;
-		$ext =~ tr/״”“/"/;
-		$ext =~ tr/׳‘’/'/;
 		$helper = $ext =~ s/[-: ]+/ /gr;
 		$ext = $glob{href}{marks}{$helper} if ($glob{href}{marks}{$helper});
 		$text = ($int ? "$ext#$int" : $ext);
