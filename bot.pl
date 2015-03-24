@@ -17,7 +17,7 @@ use SyntaxLaw;
 binmode STDOUT, ":utf8";
 
 my @pages = ();
-my ($verbose, $dryrun, $force, $editnotice, $print, $onlycheck, $interactive, $recent);
+my ($verbose, $dryrun, $force, $editnotice, $print, $onlycheck, $interactive, $recent, $select);
 my $locforce = 0;
 my $outfile;
 
@@ -36,6 +36,7 @@ GetOptions(
 #	"OUTPUT=s" => sub { $print = 1; open(STDOUT, ">_[1]"); },
 	"output" => \$print,
 	"recent" => \$recent,
+	"select=s" => \$select,
 	"help|?" => \&HelpMessage,
 	"" => \$interactive
 ) or die("Error in command line arguments\n");
@@ -69,6 +70,11 @@ unless (@pages) {
 	my $cat = decode_utf8('קטגוריה:בוט חוקים');
 	@pages = $bot->get_pages_in_category($cat);
 	print "CATEGORY contains " . scalar(@pages) . " pages.\n";
+	if (defined $select) {
+		$select = convert_regexp(decode_utf8($select));
+		@pages = grep { /^$select/ } @pages;
+		print scalar(@pages) . " pages math selector \'$select\'. \n";
+	}
 }
 
 if ($recent) {
@@ -297,10 +303,19 @@ sub get_revid {
 	return ($revid_s,$revid_t,$comment);
 }
 
+sub convert_regexp {
+	my $_ = shift;
+	s/\./\\./g;
+	s/\*/.*/g;
+	s/\?/./g;
+	s/^\^?/^/;
+	s/\.\*$//;
+	return $_;
+}
 
 sub HelpMessage {
 	print <<EOP;
-USAGE: bot.pl [-h] [-d] [-f] [-l LOG] [-o] [-O OUTPUT] [-s] [-v]
+USAGE: bot.pl [-h] [-d] [-f] [-l LOG] [-o] [-s SELECT] [-v]
               [TITLE [TITLE ...]] | [-]
 
 Process law-source files to wiki-source.
@@ -308,17 +323,17 @@ Process law-source files to wiki-source.
 Optional arguments:
   TITLE                 Wiki titles to fetch by the bot
   -                     Enter interacitve mode
+  [-s|--select] rule    Select titles using basic regexp rule
 
 Optional flags:
-  -h, -?, --help         Show this help message and exit
-  -c, --check            Lists wiki files with no commit
-  -d, --dry-run          Run the process with no commit
-  -f, --force            Force changing contents of destination
-  -l LOG, --log LOG      Set a custom log file
-  -o, --output           Output the final format to stdout
-  -r, --recent           Check only recent changes
-  -s, --silent           Do not output the log info to stdout
-  -v, --verbose          Output full process log to stdout
+  -h, -?, --help        Show this help message and exit
+  -c, --check           Lists wiki files with no commit
+  -d, --dry-run         Run the process with no commit
+  -f, --force           Force changing contents of destination
+  -l LOG, --log LOG     Set a custom log file
+  -o, --output          Output the final format to stdout
+  -r, --recent          Check only recent changes
+  -v, --verbose         Output full process log to stdout
 EOP
 #  -O FILE, --OUTPUT FILE Output the final format to file FILE
 	exit 0;
