@@ -697,7 +697,7 @@ sub insert_TOC {
 		$indent = ($indent =~ /<קטע (\d)/ ? $1 : 2);
 		$text .= $line[$_++] while ($text !~ /\n/ and defined $line[$_]);
 		$next .= $line[$_++] while ($next !~ /\n/ and defined $line[$_]);
-		if ($next =~ /<הערה>.?<קישור/) {
+		if ($next =~ /(<הערה>|\(\().?<קישור/) {
 			$next = '';
 			$next .= $line[$_++] while ($next !~ /\n/ and defined $line[$_]);
 		}
@@ -709,6 +709,8 @@ sub insert_TOC {
 		next if ($indent>3);
 		$skip = 0;
 		$text =~ s/<(תיקון|אחר).*?> *//g;
+		$text =~ s/<הערה>.?<קישור.*?>.*?<\/>.*?<\/> *//g;
+		$text =~ s/\(\(.?<קישור.*?>.*?<\/>.?\)\) *//g;
 		$text =~ s/<קישור.*?>(.*?)<\/>/$1/g;
 		$text =~ s/<b>(.*?)<\/b?>/$1/g;
 		($text) = ($text =~ /^ *(.*) *$/m);
@@ -826,6 +828,10 @@ sub process_HREF {
 	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
 	if ($ext) {
+		# Canonic name
+		$ext =~ tr/–־/-/;
+		$ext =~ tr/״”“/"/;
+		$ext =~ tr/׳‘’/'/;
 		$helper = $ext =~ s/[-: ]+/ /gr;
 		$ext = $glob{href}{marks}{$helper} if ($glob{href}{marks}{$helper});
 		$text = ($int ? "$ext#$int" : $ext);
