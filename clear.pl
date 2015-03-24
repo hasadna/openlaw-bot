@@ -35,8 +35,7 @@ if ($#ARGV>=0) {
 	binmode STDIN, "utf8";
 	binmode STDOUT, "utf8";
 	binmode STDERR, "utf8";
-	local $/;
-	$_ = <STDIN>;
+	$_ = join("\n", <STDIN>);
 }
 
 my $LRE = "\x{202A}";
