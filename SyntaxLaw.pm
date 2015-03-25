@@ -19,10 +19,9 @@ use Data::Dumper;
 
 use constant { true => 1, false => 0 };
 
-our $extref_sig = '\bו?[בהלמש]?(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|הוראו?ת|הודעה|כללים?|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)\b';
-our $type_sig = 'חלק|פרק|סימן|לוח(ות)? השוואה|נספח|תוספת|טופס|לוח|טבל[הא]';
-our $pre_sig = 'ו?כ?ש?[בהלמ]?';
-
+our $pre_sig = "ו?כ?ש?[בהלמ]?";
+our $extref_sig = "\\b$pre_sig(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|הוראו?ת|הודעה|כללים?|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)\\b";
+our $type_sig = "חלק|פרק|סימן|לוח(ות)? השוואה|נספח|תוספת|טופס|לוח|טבל[הא]";
 
 sub main() {
 	if ($#ARGV>=0) {
@@ -94,8 +93,7 @@ sub convert {
 	
 	s/(?<=[^\[])\[\[ *([^\]]*?) *\| *(.*?) *\]\](?=[^\]])/&parse_link($1,$2)/egm;
 	s/(?<=[^\[])\[\[ *(.*?) *\]\](?=[^\]])/&parse_link('',$1)/egm;
-	
-#	s/(?<=[^\(])\(\( *(.*?) *(?:\| *(.*?) *)?\)\)(?=[^\)])/&parse_remark($1,$2)/egs;
+	s/(?<!\()\(\((.*?)\)\)(?!\))/&parse_remark($1)/egs;
 	
 	# Parse structured elements
 	s/^(=+)(.*?)\1\n/&parse_section(length($1),$2)/egm;
@@ -115,8 +113,6 @@ sub convert {
 	$_ = linear_parser($_);
 	s/__TOC__/&insert_TOC()/e;
 	s/__NOTOC__ *//g;
-	
-	s/(?<=[^\(])\(\( *(.*?) *(?:\| *(.*?) *)?\)\)(?=[^\)])/&parse_remark($1,$2)/egs;
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<\/(ויקי)?\>)/&unescape_text($1) . "<\/>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
@@ -236,11 +232,13 @@ sub parse_link {
 }
 
 sub parse_remark {
-	my ($text,$tip,$url) = @_;
-	# print STDERR "|$text|$tip|" . length($tip) . "\n";
+	my $_ = shift;
+	my ($text,$tip,$url) = ( /((?:\{\{.*?\}\}|\[\[.*?\]\]|[^\|])+)/g );
+	$text =~ s/^ *(.*?) *$/$1/;
 	if ($tip) {
-		($tip,$url) = split(/\|/, $tip);
+		$tip =~ s/^ *(.*?) *$/$1/;
 		if ($url) {
+			$url =~ s/^ *(.*?) *$/$1/;
 			$url = "http://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
 			$url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
 			$url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
@@ -520,7 +518,7 @@ sub escape_text {
 	my $_ = unquote(shift);
 #	print STDERR "|$_|";
 	s/&/\&amp;/g;
-	s/([(){}"'\[\]<>])/"&#" . ord($1) . ";"/ge;
+	s/([(){}"'\[\]<>\|])/"&#" . ord($1) . ";"/ge;
 #	print STDERR "$_|\n";
 	return $_;
 }
