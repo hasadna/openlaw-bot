@@ -68,6 +68,7 @@ sub convert {
 	tr/״”“„‟″‶/"/;      # Convert typographic double quotes
 	tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
 	s/[ ]{2,}/ /g;      # Pack  long spaces
+	s/ -- / — /g;
 	
 	s/\[\[קטגוריה:.*?\]\] *\n?//g;  # Ignore categories (for now)
 	
