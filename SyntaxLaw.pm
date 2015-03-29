@@ -113,7 +113,8 @@ sub convert {
 	# Parse file linearly, constructing all ankors and links
 	$_ = linear_parser($_);
 	s/__TOC__/&insert_TOC()/e;
-	s/__NOTOC__ *//g;
+	s/ *__NOTOC__//g;
+	s/ *__NOSUB__//g;
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<\/(ויקי)?\>)/&unescape_text($1) . "<\/>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
@@ -479,7 +480,7 @@ sub get_numeral {
 			($num,$token) = ("$1-3","$1$2") when /^(\d+)([- ]?ter)\b/i;
 			($num,$token) = ("$1-4","$1$2") when /^(\d+)([- ]?quater)\b/i;
 			($num,$token) = ($1,$1) when /^(\d+(([א-י]|טו|טז|[יכלמנסעפצ][א-ט]?|)\d*|))\b/;
-			($num,$token) = ($1,$1) when /^(([א-י]|טו|טז|[יכלמנ][א-ט]?)(\d+[א-י]*|))\b/;
+			($num,$token) = ($1,$1) when /^(([א-י]|טו|טז|[יכלמנסעפצ][א-ט]?|[ק](טו|טז|[יכלמנסעפצ]?[א-ט]?))(\d+[א-י]*|))\b/;
 		}
 		if ($num ne '') {
 			# Remove token from rest of string
@@ -707,6 +708,7 @@ sub insert_TOC {
 		next if ($skip and $indent>$skip);
 		next if ($indent>3);
 		$skip = 0;
+		$skip = $indent if ($text =~ s/ *__NOSUB__//);
 		$text =~ s/<(תיקון|אחר).*?> *//g;
 		$text =~ s/<הערה>.?<קישור.*?>.*?<\/>.*?<\/> *//g;
 		$text =~ s/\(\(.?<קישור.*?>.*?<\/>.?\)\) *//g;
