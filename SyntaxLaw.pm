@@ -227,7 +227,7 @@ sub parse_link {
 	my ($id,$txt) = @_;
 	my $str;
 	$id = unquote($id);
-	($id,$txt) = ($txt,$1) if ($txt =~ /^w:(?:[a-z]{2}:)?(.*)$/ && !$id); 
+	($id,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$id); 
 	$str = ($id ? "<קישור $id>$txt</>" : "<קישור>$txt</>");
 	$str =~ s/([()])\1/$1\x00$1/g unless ($str =~ /\(\(.*\)\)/); # Avoid splitted comments
 	return $str;
@@ -548,6 +548,14 @@ sub bracket_match {
 	return $_;
 }
 
+sub canonic_name {
+	my $_ = shift;
+	tr/–־/-/;
+	tr/״”“/"/;
+	tr/׳‘’/'/;
+	return $_;
+}
+
 
 #---------------------------------------------------------------------
 
@@ -765,8 +773,8 @@ sub process_HREF {
 	my $id = $glob{href}{idx};
 
 	# Canonic name
-	$text =~ tr/–־/-/; $text =~ tr/״”“/"/; $text =~ tr/׳‘’/'/;
-	$helper =~ tr/–־/-/; $helper =~ tr/״”“/"/; $helper =~ tr/׳‘’/'/;
+	$text = canonic_name($text);
+	$helper = canonic_name($helper);
 
 	my ($int,$ext) = findHREF($text);
 	my $marker = '';
@@ -781,7 +789,7 @@ sub process_HREF {
 	
 	if ($helper =~ /^קובץ:|file:|תמונה:|image:/) {
 		return "";
-	} elsif ($helper =~ /^https?:\/\/|w:/) {
+	} elsif ($helper =~ /^https?:\/\/|w:|s:/) {
 		$type = 4;
 		$ext = $helper;
 		$int = $helper = '';
@@ -830,7 +838,7 @@ sub process_HREF {
 	} else {
 	}
 	
-	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
+	## print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
 	if ($ext) {
 		$helper = $ext =~ s/[-: ]+/ /gr;
@@ -858,7 +866,7 @@ sub findHREF {
 	
 	my $ext = '';
 	
-	if (/^(w:|http:|https:|קובץ:|file:|תמונה:|image:)/) {
+	if (/^([ws]:|https?:|קובץ:|file:|תמונה:|image:)/) {
 		return ('',$_);
 	}
 	
