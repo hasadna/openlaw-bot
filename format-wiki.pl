@@ -186,6 +186,11 @@ my %markup = (
 		init => "initSSSSSUB",
 		done => "flushText",
 	},
+	"תתתתתתת" => {
+		context => 2,
+		init => "initSSSSSSUB",
+		done => "flushText",
+	},
 	"יציאה" => {
 		context => 2,
 		init => "removeIndent",
@@ -451,6 +456,7 @@ sub initCHAPTER {
 	$object{ssub} = undef;
 	$object{sssub} = undef;
 	$object{ssssub} = undef;
+	$object{sssssub} = undef;
 	$object{indent} = 0;
 	$object{class} = "";
 	
@@ -514,13 +520,12 @@ sub gotANKOR {
 
 sub initSUB {
 	$object{sptr} = scalar(@{$object{lines}});
-	$object{ssptr} = undef;
-	$object{sssptr} = undef;
-	$object{ssssptr} = undef;
 	$object{sub} = shift;
-	$object{ssub} = undef;
-	$object{sssub} = undef;
-	$object{ssssub} = undef;
+	$object{ssptr} = $object{ssub} = undef;
+	$object{sssptr} = $object{sssub} = undef;
+	$object{ssssptr} = $object{ssssub} = undef;
+	$object{sssssptr} = $object{sssssub} = undef;
+	$object{ssssssptr} = $object{ssssssub} = undef;
 	$object{indent} = 1;
 	$object{class} = "";
 	$object{ankor} = 1;
@@ -536,6 +541,7 @@ sub initSSUB {
 	$object{sssptr} = $object{sssub} = undef;
 	$object{ssssptr} = $object{ssssub} = undef;
 	$object{sssssptr} = $object{sssssub} = undef;
+	$object{ssssssptr} = $object{ssssssub} = undef;
 	$object{indent} = 2;
 	$object{class} = "";
 }
@@ -544,6 +550,7 @@ sub initSSSUB {
 	$object{sssub} = shift;
 	$object{ssssptr} = $object{ssssub} = undef;
 	$object{sssssptr} = $object{sssssub} = undef;
+	$object{ssssssptr} = $object{ssssssub} = undef;
 	$object{indent} = 3;
 	$object{class} = "";
 }
@@ -551,13 +558,21 @@ sub initSSSSUB {
 	$object{ssssptr} = scalar(@{$object{lines}});
 	$object{ssssub} = shift;
 	$object{sssssptr} = $object{sssssub} = undef;
+	$object{ssssssptr} = $object{ssssssub} = undef;
 	$object{indent} = 4;
 	$object{class} = "";
 }
 sub initSSSSSUB {
 	$object{sssssptr} = scalar(@{$object{lines}});
 	$object{sssssub} = shift;
+	$object{ssssssptr} = $object{ssssssub} = undef;
 	$object{indent} = 5;
+	$object{class} = "";
+}
+sub initSSSSSSUB {
+	$object{ssssssptr} = scalar(@{$object{lines}});
+	$object{ssssssub} = shift;
+	$object{indent} = 6;
 	$object{class} = "";
 }
 sub initSSUB2 {
@@ -574,6 +589,7 @@ sub flushText {
 		sssub => $object{sssub},
 		ssssub => $object{ssssub},
 		sssssub => $object{sssssub},
+		ssssssub => $object{ssssssub},
 		class => $object{class},
 		ankor => $object{ankor},
 		scnt => 0,
@@ -593,12 +609,18 @@ sub flushText {
 	$object{ssub} = undef;
 	$object{sssub} = undef;
 	$object{ssssub} = undef;
+	$object{sssssub} = undef;
+	$object{ssssssub} = undef;
 	@text = ();
 	# $href{mark} = undef;
 	$object{ankors2} = undef;
 }
 
 sub removePointers {
+	if ($object{indent}<6) {
+		$object{ssssssptr} = undef;
+		$object{ssssssub} = undef;
+	}
 	if ($object{indent}<5) {
 		$object{sssssptr} = undef;
 		$object{sssssub} = undef;
@@ -968,6 +990,7 @@ sub printChapter {
 		print "{{ח:תתתת|$line->{sssub}}} " if (defined $line->{sssub});
 		print "{{ח:תתתתת|$line->{ssssub}}} " if (defined $line->{ssssub});
 		print "{{ח:תתתתתת|$line->{sssssub}}} " if (defined $line->{sssssub});
+		print "{{ח:תתתתתתת|$line->{ssssssub}}} " if (defined $line->{ssssssub});
 		my $text = join("\n", @{$line->{text}});
 		$text = fixFormat($text);
 		$text = "\n$text" if ($text =~ /^\{\|/);
