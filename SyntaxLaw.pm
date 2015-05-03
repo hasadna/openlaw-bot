@@ -90,7 +90,7 @@ sub convert {
 	s/^-{3,}$/<מפריד>/gm;
 	
 	# Parse links and remarks
-	s/\[\[(?:קובץ:|תמונה:|[fF]ile:)(.*?)\]\]/<תמונה $1>/gm;
+	s/\[\[(?:קובץ:|תמונה:|[Ff]ile:|[Ii]mage:)(.*?)\]\]/<תמונה $1>/gm;
 	
 	s/(?<=[^\[])\[\[ *([^\]]*?) *\| *(.*?) *\]\](?=[^\]])/&parse_link($1,$2)/egm;
 	s/(?<=[^\[])\[\[ *(.*?) *\]\](?=[^\]])/&parse_link('',$1)/egm;
@@ -787,7 +787,7 @@ sub process_HREF {
 	
 	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
-	if ($helper =~ /^קובץ:|file:|תמונה:|image:/) {
+	if ($helper =~ /^(קובץ|[Ff]ile|תמונה|[Ii]mage):/) {
 		return "";
 	} elsif ($helper =~ /^https?:\/\/|w:|s:/) {
 		$type = 4;
@@ -866,7 +866,7 @@ sub findHREF {
 	
 	my $ext = '';
 	
-	if (/^([ws]:|https?:|קובץ:|file:|תמונה:|image:)/) {
+	if (/^([ws]:|https?:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/) {
 		return ('',$_);
 	}
 	
