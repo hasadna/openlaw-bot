@@ -103,6 +103,7 @@ s/\n{2,}$/\n/sg;   # Remove last linefeed
 
 # Special corrections
 s/(\S) ([,.:;])/$1$2/g;  # Remove redundant whitespaces
+s/([^'])''([^'])/$1"$2/g;
 s/("[א-ת])(\d{4})[-]/$1-$2/g;
 s/^[.](\d.*?) +/$1. /gm;
 s/(\S[([\-]) /$1/gm;
