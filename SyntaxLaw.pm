@@ -831,7 +831,7 @@ sub process_HREF {
 	} elsif ($helper) {
 		if ($found) {
 			(undef,$ext) = findHREF($helper);
-			$ext = $helper unless ($ext);
+			$ext = $helper if ($ext eq '');
 		} else {
 			($int,$ext) = findHREF($helper);
 		}
@@ -887,9 +887,9 @@ sub findHREF {
 	
 	s/(\b[לב]?(אותו|אותה)\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
 		
-	if (/^(.*?)\s*($extref_sig\b[- ]*([א-ת]+\b.*)?)$/ && $ext eq '') {
+	if (/^(.*?)\s*($extref_sig\b[- ]*([א-ת]+\b.*)?)$/) {
 		$_ = $1;
-		$ext = findExtRef($2);
+		$ext = findExtRef($2) unless ($ext);
 	}
 	
 	s/[\(_]/ ( /g;
@@ -1023,11 +1023,11 @@ sub findExtRef {
 	s/\, *\d+ עד \d+$//;
 	s/^ *(.*?) *$/$1/;
 	
-	if (/^$extref_sig(.*)$/) {
-		$_ = "$1$2";
-		return '' if ($2 =~ /^ *ה?(זאת|זו|זה|אלה|אלו)\b/);
-		return '' if ($2 eq "" && !defined $glob{href}{marks}{"$1"});
-		return '-' if ($2 =~ /^ *[בלמ]?(האמורה?|האמורות|אות[הו]|שב[הו]|הה[וי]א)\b/);
+	if (/^$extref_sig *(.*)$/) {
+		$_ = "$1 $2";
+		return '0' if ($2 =~ /^ה?(זאת|זו|זה|אלה|אלו)\b/);
+		return '0' if ($2 eq "" && !defined $glob{href}{marks}{"$1"});
+		return '-' if ($2 =~ /^[בלמ]?(האמורה?|האמורות|אות[הו]|שב[הו]|הה[וי]א)\b/);
 	}
 	
 	s/ [-——]+ / - /g;
