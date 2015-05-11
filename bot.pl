@@ -18,12 +18,12 @@ binmode STDOUT, ":utf8";
 
 my @pages = ();
 my ($verbose, $dryrun, $force, $editnotice, $print, $onlycheck, $interactive, $recent, $select);
+my $botpage;
 my $locforce = 0;
 my $outfile;
 
 my %processed;
 my ($page, $id, $text);
-
 
 $editnotice = 1;
 
@@ -92,6 +92,7 @@ if ($recent) {
 	# Check for additional pages at משתמש:OpenLawBot/הוספה
 	$page = decode_utf8("משתמש:OpenLawBot/הוספה");
 	$text = $bot->get_text($page) // "";
+	
 	my @new_pages = ($text =~ /\[\[(.*?)(?:\|.*?)?\]\]/g);
 	if (scalar(@new_pages)>0) {
 		map {s/^\s*(?:מקור:|)\s*(.*?)\s*$/$1/} @pages;
@@ -180,8 +181,10 @@ foreach my $page_dst (@pages) {
 	
 	next if ($done);
 	
-	if ($comment =~ /העבירה? את הדף/) {
-		$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *// || $comment =~ s/ \[.*/.../;
+	$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *// || $comment =~ s/ \[.*/.../ if ($comment =~ /העבירה? את הדף/);
+	if ($comment =~ /^יצירת דף עם התוכן "/) {
+		$comment = $page_dst;
+		$comment =~ s/[_ ]+/ /;
 	}
 	
 	$locforce = 0;
