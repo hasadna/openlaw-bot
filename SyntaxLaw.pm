@@ -840,7 +840,7 @@ sub process_HREF {
 	} else {
 	}
 	
-	## print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
+	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
 	if ($ext) {
 		$helper = $ext =~ s/[-: ]+/ /gr;
@@ -887,7 +887,7 @@ sub findHREF {
 	
 	s/(\b[לב]?(אותו|אותה)\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
 		
-	if (/^(.*?)\s*($extref_sig\b[- ]*([א-ת]+\b.*)?)$/) {
+	if (/^(.*?)\s*($extref_sig\b[- ]*([א-ת]+\b.*)?)$/ && $ext eq '') {
 		$_ = $1;
 		$ext = findExtRef($2);
 	}
@@ -1010,6 +1010,7 @@ sub findHREF {
 sub findExtRef {
 	my $_ = shift;
 	return $_ if (/^https?:\/\//);
+	return $_ if (/^[+-]$/);
 	tr/"'`//;
 	s/#.*$//;
 	s/_/ /g;
