@@ -184,7 +184,7 @@ foreach my $page_dst (@pages) {
 	$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *// || $comment =~ s/ \[.*/.../ if ($comment =~ /העבירה? את הדף/);
 	if ($comment =~ /^יצירת דף עם התוכן "/) {
 		$comment = $page_dst;
-		$comment =~ s/[_ ]+/ /;
+		$comment =~ s/[_ ]+/ /g;
 	}
 	
 	$locforce = 0;
