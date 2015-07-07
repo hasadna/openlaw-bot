@@ -850,7 +850,7 @@ sub process_HREF {
 		if ($type==3) {
 			$glob{href}{last} = $ext;
 			for (@{$glob{href}{ahead}}) {
-				$hrefs{$_} =~ s/\+#/$ext#/;
+				$hrefs{$_} =~ s/\+(#|$)/$ext$1/;
 			}
 			$glob{href}{ahead} = [];
 		}
