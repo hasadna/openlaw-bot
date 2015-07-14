@@ -94,7 +94,7 @@ sub convert {
 	
 	s/(?<=[^\[])\[\[ *([^\]]*?) *\| *(.*?) *\]\](?=[^\]])/&parse_link($1,$2)/egm;
 	s/(?<=[^\[])\[\[ *(.*?) *\]\](?=[^\]])/&parse_link('',$1)/egm;
-	s/(?<!\()\(\((.*?)\)\)(?!\))/&parse_remark($1)/egs;
+	s/(?<!\()(\(\((.*?)\)\)([^(]*?\)\))?)(?!\))/&parse_remark($1)/egs;
 	
 	# Parse structured elements
 	s/^(=+)(.*?)\1\n/&parse_section(length($1),$2)/egm;
@@ -235,6 +235,7 @@ sub parse_link {
 
 sub parse_remark {
 	my $_ = shift;
+	s/^\(\((.*?)\)\)$/$1/;
 	my ($text,$tip,$url) = ( /((?:\{\{.*?\}\}|\[\[.*?\]\]|[^\|])+)/g );
 	$text =~ s/^ *(.*?) *$/$1/;
 	if ($tip) {
@@ -705,7 +706,7 @@ sub insert_TOC {
 		$indent = ($indent =~ /<קטע (\d)/ ? $1 : 2);
 		$text .= $line[$_++] while ($text !~ /\n/ and defined $line[$_]);
 		$next .= $line[$_++] while ($next !~ /\n/ and defined $line[$_]);
-		if ($next =~ /(<הערה>|\(\().?<קישור/) {
+		if ($next =~ /(<הערה>|\(\()[^)]*<קישור/) {
 			$next = '';
 			$next .= $line[$_++] while ($next !~ /\n/ and defined $line[$_]);
 		}
