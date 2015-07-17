@@ -783,6 +783,7 @@ sub process_HREF {
 	my $marker = '';
 	my $found = false;
 	my $hash = false;
+	my $update_lookahed = false;
 	
 	my $type = ($ext) ? 3 : 1;
 	
@@ -829,6 +830,7 @@ sub process_HREF {
 		$type = 2;
 		$ext = $glob{href}{last};
 		($int, undef) = findHREF("-#$text") unless ($found);
+		$update_lookahed = true;
 	} elsif ($helper) {
 		if ($found) {
 			(undef,$ext) = findHREF($helper);
@@ -841,14 +843,14 @@ sub process_HREF {
 	} else {
 	}
 	
-	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
+	## print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
 	if ($ext) {
 		$helper = $ext =~ s/[-: ]+/ /gr;
 		$ext = $glob{href}{marks}{$helper} if ($glob{href}{marks}{$helper});
 		$text = ($int ? "$ext#$int" : $ext);
 		
-		if ($type==3) {
+		if ($type==3 || $update_lookahed) {
 			$glob{href}{last} = $ext;
 			for (@{$glob{href}{ahead}}) {
 				$hrefs{$_} =~ s/\+(#|$)/$ext$1/;
