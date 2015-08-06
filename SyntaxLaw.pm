@@ -67,6 +67,7 @@ sub convert {
 	tr/\xAD\x96\x97/-/; # Convert more typographic dashes
 	tr/״”“„‟″‶/"/;      # Convert typographic double quotes
 	tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
+	tr/;/;/;            # Convert wrong OCRed semicolon
 	s/[ ]{2,}/ /g;      # Pack  long spaces
 	s/ -- / — /g;
 	
@@ -719,12 +720,12 @@ sub insert_TOC {
 		$skip = 0;
 		$skip = $indent if ($text =~ s/ *__NOSUB__//);
 		$text =~ s/<(תיקון|אחר).*?> *//g;
-		$text =~ s/<הערה>.?(<קישור.*?>.*?<\/>.*?)+<\/> *//g;
+		$text =~ s/<הערה>([^)]*<קישור.*?>.*?<\/>.*?)+<\/> *//g;
 		$text =~ s/\(\(.?<קישור.*?>.*?<\/>.?\)\) *//g;
 		$text =~ s/<קישור.*?>(.*?)<\/>/$1/g;
 		$text =~ s/<b>(.*?)<\/b?>/$1/g;
 		$text =~ s/ +$//;
-		($text) = ($text =~ /^ *(.*) *$/m);
+		($text) = ($text =~ /^ *(.*?) *$/m);
 		if ($next =~ /^<קטע (\d)> *(.*?) *$/m && $1>=$indent) {
 			$next = $2;
 			$next =~ s/<(תיקון|אחר).*?> *//g;
