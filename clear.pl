@@ -49,6 +49,7 @@ tr/־–—‒―/-/;        # Convert typographic dashes
 tr/\xAD\x96\x97/-/; # Convert more typographic dashes
 tr/״”“„‟″‶/"/;      # Convert typographic double quotes
 tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
+tr/;/;/;            # Convert wrong OCRed semicolon
 
 # Try to fix RLE/PDF (usually dumb bidi in PDF files)
 # s/ ?([\x{202A}\x{202B}](.|(?1))\x{202C}) (?=[\x{202A}\x{202B}])/$1/g;
