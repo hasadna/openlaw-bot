@@ -59,7 +59,8 @@ my $bot = MediaWiki::Bot->new({
 
 
 print "Note: Using stored files (-s) if exist.\n" if $dump;
-print "Note: Dryrun (-d).\n" if $dryrun;
+print "Note: Dryrun (-d), use (-w) to write wiki.\n" if $dryrun;
+print "Note: Writing changes to wiki (-w).\n" unless $dryrun;
 
 @list = grep /\#?\d+/, @ARGV;
 
@@ -83,6 +84,7 @@ if (scalar(@list)) {
 # Check all secondary pages (amendments) for primary laws
 foreach my $id (@pages) {
 	last unless $count--;
+	my $any_change = 0;
 	if ($id>2000000) {
 		@list = ($id);
 	} else {
@@ -106,11 +108,12 @@ foreach my $id (@pages) {
 		if (defined $processed{$id2}) {
 			print "    Got primary #$id2 '$law_name', already processed.\n";
 		} else {
-			process_law($id2);
+			$any_change += (process_law($id2) // 0);
 			$processed{$id2} = $law_name;
 		}
 	}
 	# print_line(@$_) for @list;
+	$count++ if $any_change;
 }
 
 update_global_todo() unless $noglobaltodo;
@@ -169,10 +172,9 @@ sub get_revid {
 
 sub HelpMessage {
 	print <<EOP;
-USAGE: bot.pl [-h] [-d] [-f] [-l LOG] [-o] [-O OUTPUT] [-s] [-v]
-              [TITLE [TITLE ...]] | [-]
+USAGE: update-bot.pl [-h] ...
 
-Process law-source files to wiki-source.
+Check recent updates at the Knesset website, and update wiki.
 
 Optional arguments:
   TITLE                 Wiki titles to fetch by the bot
@@ -180,9 +182,9 @@ Optional arguments:
 
 Optional flags:
   -h, -?, --help         Show this help message and exit
-  -d, --dry-run          Run the process with no commit
-  -r, --recent           Check only recent changes
-  -s, --silent           Do not output the log info to stdout
+  -d, --dry-run          Run the bot without commit
+  -w, --write            Bot can write changes to wiki
+  -c [#], --count [#]    Check [#] latest changes
   -v, --verbose          Output full process log to stdout
 EOP
 #  -O FILE, --OUTPUT FILE Output the final format to file FILE
@@ -483,20 +485,20 @@ sub process_law {
 		$text = $bot->get_text($law_name);
 		if (!$text) {
 			print "\tPage '$law_name' not found.\n";
-			return;
+			return 0;
 		}
 		if ($text =~ /#(?:הפניה|Redirect) \[\[(.*?)\]\]/) {
 			print "\tRedirection '$law_name' to '$1'.\n";
 			$law_name = $1;
 		} else {
 			print "\tPage '$law_name' found, but page '$src_page' does not exist.\n";
-			return;
+			return 0;
 		}
 		$src_page = "מקור:$law_name";
 		$text = $bot->get_text($src_page);
 		if (!$text) {
 			print "\tPage '$src_page' not found.\n";
-			return;
+			return 0;
 		}
 	}
 	
@@ -516,7 +518,7 @@ sub process_law {
 		$text =~ s/\G/<מאגר $id תיקון 0>\n\n/;
 	} elsif ($id ne $1) {
 		print "\tERROR: ID mismatch ($id <> $1)!\n";
-		return;
+		return 0;
 	} else {
 		print "ID is $id == $1; last update $2\n";
 		$last = $2;
@@ -565,7 +567,7 @@ sub process_law {
 	
 	if ($text eq $text_org) {
 		print "\tNo change.\n";
-		return;
+		return 0;
 	}
 	
 	print "\tLast update: <מאגר $id תיקון $i>\n";
@@ -620,45 +622,50 @@ sub process_law {
 	
 	# Push [$lawname,$count] at front
 	unshift @global_todo, $law_name, $count;
+	
+	return 1;
 }
 
 
 sub update_makor {
 	my ($text, $old, $new) = @_;
 	my $i = 0;
-	my $u;
+	my (@uuu, $u);
 	my $text2;
 	my $str2 = $old.$new;
 	
-	my @urls = ($str2 =~ /\(\([^|]*?\|[^|]*?\|(\d+:\d+)\)\)/g);
+	my @urls;
+	while ($str2 =~ /\(\(([^|]*?)\|([^|]*?)\|(\d+:\d+)\)\)([.,;]?)/g) {
+		push @urls, [$1, $2, $3, $4];
+	}
 	
 	if (!scalar(@urls)) {
 		return ($text, '');
 	}
 	
-	foreach (reverse(@urls)) {
-		$i++;
-		if ($text =~ /\|$_\)\)/) {
-			$str2 =~ s/^.*?\|$_\)\)//s;
+	for ($i = @urls-1; $i>=0; $i--) {
+		$u = $urls[$i][2];
+		if ($text =~ /\|$u\)\)/) {
+			pos($text) = $+[0]; # $text =~ m/\|$u\)\)/g;
+			$str2 =~ s/^.*?\|$u\)\)//s;
 			last;
 		}
 	}
-	splice @urls, 0, -$i;
-	$u = shift @urls;
-	$text =~ m/\|$u\)\)/g || unshift @urls, $u;
-	# print "\t\tPOS of $u is " . pos($text) . "\n";
-	while (@urls) {
-		$u = shift @urls;
-		$text =~ m/\G[^\n]*?(\(\(.*?\)\))/;
-		my $text2 = $1 // '';
-		if ($text2 =~ s/\(\(([^|]*)\|([^|]*)\|?([^)|]*)\)\)/(($1|$2|$u))/) {
+	$i++;
+	for (; $i < @urls; $i++) {
+		$u = $urls[$i][2];
+		$text =~ m/\G[^\n]*?(\(\(.*?\)\))(?!\))/g || last;
+		my $text2 = $1;
+		$text2 =~ /^\(\(([^|]*)\|([^|]*)\|?([^)|]*)\)\)$/ || last;
+		if ($1 eq $urls[$i][0] || $2 eq $urls[$i][1]) {
+			next if (!$u);
+			$text2 = "(($1|$2|$u))";
 			print "\t\tReplacing '$3' with '$u'\n";
 			$str2 =~ s/^.*?\|$u\)\)//s;
-			$text =~ s/\G(.*?)(\(\(.*?\)\))/$1$text2/;
+			$text =~ s/\G(.*?)(\(\(.*?\)\))(?!\))/$1$text2/;
 			# Rewind and find next:
-			pos($text) = $-[0]; $text =~ m/\(\(.*?\)\)/g;
+			pos($text) = $-[0]; $text =~ m/\(\(.*?\)\)(?!\))/g;
 		} else {
-			unshift @urls, $u;
 			last;
 		}
 	}
