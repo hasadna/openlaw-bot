@@ -7,6 +7,7 @@ junk*
 *.log
 __*
 [א-ת]*
+*.dump
 Files/*
 Misc/*
 Regulations/*
