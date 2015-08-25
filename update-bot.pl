@@ -6,10 +6,8 @@ no if ($]>=5.018), warnings => 'experimental';
 use English;
 use Encode;
 use utf8;
-# use Array::Utils;
 use Data::Dumper;
 use MediaWiki::Bot;
-use IPC::Run 'run';
 use Getopt::Long;
 use HTML::Parser;
 use HTML::TreeBuilder::XPath;
@@ -71,10 +69,11 @@ if (scalar(@list)) {
 	@pages = @list;
 } else {
 	print "Reading update list.\n";
-	if ($dump and -f "main.dump") {
+	if (0 and $dump and -f "main.dump") {
 		@list = @{retrieve("main.dump")};
 	} else {
 		$page = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawReshumot.aspx?t=LawReshumot&st=LawReshumot';
+		# $page .= '&pn=3';
 		@list = get_primary_page($page,1);
 		store \@list, "main.dump" if ($dump);
 	}
@@ -106,6 +105,7 @@ foreach my $id (@pages) {
 	
 	foreach my $id2 (@list) {
 		if (defined $processed{$id2}) {
+			$law_name = $processed{$id2};
 			print "    Got primary #$id2 '$law_name', already processed.\n";
 		} else {
 			$any_change += (process_law($id2) // 0);
@@ -600,24 +600,21 @@ sub process_law {
 		$text = "<noinclude>{{מטלות}}</noinclude>\n$todo";
 	}
 	
-	$bot->edit({
-		page      => $todo_page,
-		text      => $text,
-		summary   => $summary,
-		bot       => 1,
-		minor     => 1,
-	}) if !$dryrun;
-	
-	$text = $bot->get_text($talk_page) // "";
-	unless ($text && $text =~ /{{מטלות}}/) {
-		$text = "{{מטלות}}\n\n$text";
+	unless ($dryrun) {
 		$bot->edit({
-			page      => $talk_page,
-			text      => $text,
-			summary   => "תבנית מטלות",
-			bot       => 1,
-			minor     => 1,
-		}) if !$dryrun;
+			page => $todo_page, text => $text, summary   => $summary,
+			bot => 1, minor => 1,
+		});
+		
+		$text = $bot->get_text($talk_page) // "";
+		unless ($text && $text =~ /{{(מטלות|משימות)}}/) {
+			$text = "{{מטלות}}\n\n$text";
+			$bot->edit({
+				page => $talk_page, text => $text, summary => "תבנית מטלות",
+				bot => 1, minor     => 1,
+			});
+		}
+		$bot->purge_page($todo_page);
 	}
 	
 	# Push [$lawname,$count] at front
@@ -635,7 +632,7 @@ sub update_makor {
 	my $str2 = $old.$new;
 	
 	my @urls;
-	while ($str2 =~ /\(\(([^|]*?)\|([^|]*?)\|(\d+:\d+)\)\)([.,;]?)/g) {
+	while ($str2 =~ /\(\(([^|]*?)\|([^|]*?)\|?(\d+:\d+)?\)\)([.,;]?)/g) {
 		push @urls, [$1, $2, $3, $4];
 	}
 	
@@ -644,7 +641,7 @@ sub update_makor {
 	}
 	
 	for ($i = @urls-1; $i>=0; $i--) {
-		$u = $urls[$i][2];
+		$u = $urls[$i][2] || next;
 		if ($text =~ /\|$u\)\)/) {
 			pos($text) = $+[0]; # $text =~ m/\|$u\)\)/g;
 			$str2 =~ s/^.*?\|$u\)\)//s;
@@ -652,21 +649,38 @@ sub update_makor {
 		}
 	}
 	$i++;
+	my $trynext = 0;
 	for (; $i < @urls; $i++) {
 		$u = $urls[$i][2];
-		$text =~ m/\G[^\n]*?(\(\(.*?\)\))(?!\))/g || last;
+		$text =~ m/\G[^\n]*?(\(\(.*?\)\))(?!\))/gc || last;
+		my $lastpos = $-[1];
 		my $text2 = $1;
 		$text2 =~ /^\(\(([^|]*)\|([^|]*)\|?([^)|]*)\)\)$/ || last;
+		print "\t\tGot $text2 and (($urls[$i][0]|$urls[$i][1])).\n" if ($verbose);
 		if ($1 eq $urls[$i][0] || $2 eq $urls[$i][1]) {
+			$trynext = 0;
 			next if (!$u);
 			$text2 = "(($1|$2|$u))";
 			print "\t\tReplacing '$3' with '$u'\n";
 			$str2 =~ s/^.*?\|$u\)\)//s;
-			$text =~ s/\G(.*?)(\(\(.*?\)\))(?!\))/$1$text2/;
+			#	$text =~ m/(.{10})\G(.{0,10})/;
+			#	print "\t\tPOS is " . pos($text) . "; Now at ... $1 <-G-> $2 ...\n";
+			pos($text) = $lastpos;
+			$text =~ s/\G(\(\(.*?\)\))(?!\))/$text2/;
 			# Rewind and find next:
-			pos($text) = $-[0]; $text =~ m/\(\(.*?\)\)(?!\))/g;
+			pos($text) = $lastpos; $text =~ m/\(\(.*?\)\)(?!\))/g;
+			#	$text =~ m/(.{10})\G(.{0,10})/;
+			#	print "\t\tPOS is " . pos($text) . "; Now at ... $1 <-G-> $2 ...\n";
 		} else {
-			last;
+			if (!$trynext) {
+				# Retry next position
+				$trynext = $lastpos;
+				$i--;
+			} else {
+				# We already tried next position, and failed.
+				pos($text) = $trynext; $text =~ m/\(\(.*?\)\)(?!\))/g;
+				last;
+			}
 		}
 	}
 	
@@ -735,15 +749,13 @@ sub update_global_todo {
 	$summary .= ($laws>1 ? " ב-$laws חוקים" : " בחוק אחד");
 	
 	if ($dryrun) {
-		print "Global todo list ($summary):\n$text"
+		print "Global todo list ($summary).\n";
 	} else {
 		$bot->edit({
-			page      => $page,
-			text      => $text,
-			summary   => $summary,
-			bot       => 1,
-			minor     => 1,
+			page => $page, text => $text, summary => $summary,
+			bot => 1, minor => 1,
 		});
+		$bot->purge_page($page);
 	}
 }
 
