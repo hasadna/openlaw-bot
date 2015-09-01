@@ -244,8 +244,21 @@ foreach my $page_dst (@pages) {
 			minor   => 1,
 		});
 	}
+	$page = "שיחה:$page_dst";
+	$id = $bot->get_id($page);
+	if (!defined $id && !$dryrun) {
+		$bot->edit({
+			page    => $page,
+			text    => "",
+			summary => "",
+			minor   => 1,
+		});
+	}
 	
 }
+
+$page = 'ויקיטקסט:ספר החוקים הפתוח';
+$bot->purge_page($page);
 
 $bot->logout();
 
