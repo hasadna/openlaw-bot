@@ -250,7 +250,7 @@ foreach my $page_dst (@pages) {
 		$bot->edit({
 			page    => $page,
 			text    => "",
-			summary => "",
+			summary => "דף ריק",
 			minor   => 1,
 		});
 	}
