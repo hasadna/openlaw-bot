@@ -95,7 +95,7 @@ if ($recent) {
 	
 	my @new_pages = ($text =~ /\[\[(.*?)(?:\|.*?)?\]\]/g);
 	if (scalar(@new_pages)>0) {
-		map {s/^\s*(?:מקור:|)\s*(.*?)\s*$/$1/} @pages;
+		map {s/^\s*(?:מקור:|)\s*(.*?)\s*$/-f $1/} @pages;
 		print "ADDING " . scalar(@new_pages) . " new pages: " . join(", ", @new_pages) . "\n";
 		$bot->edit( {
 			page      => $page,
@@ -121,7 +121,6 @@ foreach my $page_dst (@pages) {
 		print "> ";
 		$_ = decode_utf8(<STDIN>);
 		chomp;
-		$locforce = 1 if (s/^-f //);
 		s/[\x{200E}\x{200F}\x{202A}-\x{202E}]//g;
 		s/^\s*(?:מקור:)?(.*?)\s*$/$1/s;
 		next if (!$_);
@@ -129,6 +128,7 @@ foreach my $page_dst (@pages) {
 		push(@pages, '-');
 	}
 	
+	$locforce = ($page_dst =~ s/^-f //);
 	$page_dst =~ s/^ *(.*?) *$/$1/;
 	$page_dst =~ s/ /_/g;
 	my $page_src = decode_utf8("מקור:") . $page_dst;
@@ -171,7 +171,7 @@ foreach my $page_dst (@pages) {
 	}
 	
 	if ($recent and $recent>0 and $src_ok and !$update) {
-		if (++$recent > 5) { # No more recent updated, early exit
+		if (++$recent > 10) { # No more recent updated, early exit
 			print "Consecutive not-modified in recent changes; done for now.\n";
 			last;
 		}
