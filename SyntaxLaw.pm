@@ -109,7 +109,9 @@ sub convert {
 	s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
 	s/^(:+) *(\([^( ]+\)) *(\([^( ]{1,2}\)) *(\([^( ]{1,2}\))/$1 $2\n$1: $3\n$1:: $4/gm;
 	s/^(:+) *(\([^( ]+\)) *(\([^( ]{1,2}\))/$1 $2\n$1: $3/gm;
-	s/^(:+) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(?| +(.*?)|([-–].*?)|())\n/&parse_line(length($1),$2,$3)/egm;
+#	s/^(:+) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(?| +(.*?)|([-–].*?)|())\n/&parse_line(length($1),$2,$3)/egm;
+	s/^(:+)([-–]?) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(.*?)\n/&parse_line(length($1),$3,"$2$4")/egm;
+
 	
 	# Parse file linearly, constructing all ankors and links
 	$_ = linear_parser($_);
@@ -784,7 +786,7 @@ sub process_HREF {
 	my $marker = '';
 	my $found = false;
 	my $hash = false;
-	my $update_lookahed = false;
+	my $update_lookahead = false;
 	
 	my $type = ($ext) ? 3 : 1;
 	
@@ -831,7 +833,7 @@ sub process_HREF {
 		$type = 2;
 		$ext = $glob{href}{last};
 		($int, undef) = findHREF("-#$text") unless ($found);
-		$update_lookahed = true;
+		$update_lookahead = true;
 	} elsif ($helper) {
 		if ($found) {
 			(undef,$ext) = findHREF($helper);
@@ -851,7 +853,7 @@ sub process_HREF {
 		$ext = $glob{href}{marks}{$helper} if ($glob{href}{marks}{$helper});
 		$text = ($int ? "$ext#$int" : $ext);
 		
-		if ($type==3 || $update_lookahed) {
+		if ($type==3 || $update_lookahead) {
 			$glob{href}{last} = $ext;
 			for (@{$glob{href}{ahead}}) {
 				$hrefs{$_} =~ s/\+(#|$)/$ext$1/;
