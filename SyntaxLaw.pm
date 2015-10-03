@@ -892,10 +892,13 @@ sub findHREF {
 	}
 	
 	s/(\b[לב]?(אותו|אותה)\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
-		
-	if (/^(.*?)\s*($extref_sig\b[- ]*([א-ת]+\b.*)?)$/) {
+	
+	if (/^(.*?)\s*($extref_sig[- ]*([א-ת]+\b.*)?)$/) {
 		$_ = $1;
 		$ext = findExtRef($2) unless ($ext);
+	} elsif (/^(.*?) *$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
+		$ext = "$2$3";
+		$_ = $1;
 	}
 	
 	s/[\(_]/ ( /g;
