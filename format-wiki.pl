@@ -980,7 +980,8 @@ sub printChapter {
 	my $first = 1;
 	my $line;
 	for $line (@lines) {
-		if ($line->{indent}==0 && !$first) { 
+		# if ($line->{indent}==0 && !$first) { 
+		if ($line->{indent}==0) { 
 		# if ($line->{indent}==0 && scalar(@lines)>1) { 
 			print "{{ח:ת}} ";
 		}
