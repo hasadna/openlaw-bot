@@ -167,6 +167,7 @@ sub pop_embedded {
 		$pre = join('',reverse(split /($soft)/, $pre));
 		$post = join('',reverse(split /($soft)/, $post));
 		$_ = $pre . $mid . $post;
+		$_ = $post . $mid . $pre;
 		tr/([{<>}])/)]}><{[(/ if ($variant==3 || $variant==2);
 		# s/^($soft*)(.*?)($soft*)$/reverse($3).$2.reverse($1)/e;
 	}
