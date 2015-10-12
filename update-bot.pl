@@ -14,12 +14,14 @@ use HTML::TreeBuilder::XPath;
 use IO::HTML;
 use Storable;
 
+use constant { true => 1, false => 0 };
+
 binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 
 my $page;
 my @pages = ();
-my ($verbose, $dryrun, $dump, $interactive, $recent, $noglobaltodo);
+my ($verbose, $dryrun, $dump, $interactive, $recent, $noglobaltodo, $list_arg);
 my $outfile;
 
 $interactive = 1;
@@ -28,7 +30,7 @@ $dryrun = 1;
 my @list;
 my $law_name;
 my %processed;
-my $count = 2;
+my $count = 10;
 
 my @global_todo;
 
@@ -67,24 +69,26 @@ if (scalar(@list)) {
 	print "Got $count pages from ARGV.\n";
 	map s/#//, @list;
 	@pages = @list;
+	$recent = false;
 } else {
 	print "Reading update list.\n";
 	if (0 and $dump and -f "main.dump") {
 		@list = @{retrieve("main.dump")};
 	} else {
 		$page = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawReshumot.aspx?t=LawReshumot&st=LawReshumot';
-		# $page .= '&pn=3';
+		# $page .= '&pn=10';
 		@list = get_primary_page($page,1);
 		store \@list, "main.dump" if ($dump);
 	}
 	@pages = map {$_->[5]} @list;
+	$recent = true;
 }
 
 # Check all secondary pages (amendments) for primary laws
 foreach my $id (@pages) {
 	last unless $count--;
 	my $any_change = 0;
-	if ($id>2000000) {
+	if ($id>2000000 && !$recent) {
 		@list = ($id);
 	} else {
 		print "Reading secondary #$id ";
@@ -116,10 +120,10 @@ foreach my $id (@pages) {
 	$count++ if $any_change;
 }
 
-update_global_todo() unless $noglobaltodo;
-
-# $page = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid=565194';
-# $page = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid=552728';
+unless ($noglobaltodo) {
+	update_global_todo();
+	$bot->purge_page('ויקיטקסט:ספר החוקים הפתוח');
+}
 
 $bot->logout();
 
@@ -295,7 +299,7 @@ sub get_secondary_page {
 		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 		push @trees, $tree;
 		
-		my @loc_table = $tree->findnodes('//table[@class = "rgMasterTable"]//tr');
+		my @loc_table = $tree->findnodes('//table[@class = "rgMasterTable"]//tr[contains(@id, "rgRulesAmendedLaw")]');
 		
 		my $loc_id = $tree->findnodes('//form[@id = "aspnetForm"]')->[0];
 		if (defined $loc_id) {
@@ -311,8 +315,6 @@ sub get_secondary_page {
 			$page = '';
 		}
 		
-		# Remove first row and push into @table;
-		shift @loc_table;
 		@table = (@table, @loc_table);
 	}
 	
@@ -431,24 +433,6 @@ sub poorman_hebrewyear {
 	return $year;
 }
 
-# sub hebrew_numeral {
-# 	my $n = shift;
-# 	my $noun = shift;
-# 	my $gender = shift // 'ז';
-# 	my $str = '';
-# 	
-# 	my @numerals_m = qw|אפס אחד שני שלושה ארבעה חמשה ששה שבעה שמונה תשעה עשרה|
-# 	
-# 	if (substr($gender,1) eq 'ז') {
-# 		if 
-# 		(qw|אפס אחד שני שלושה ארבעה חמשה ששה שבעה שמונה תשעה|)[int($n % 10)]
-# 	
-# 	} else {
-# 	
-# 	
-# 	}
-# }
-
 sub decode_url {
 	my $_ = shift;
 	s/%([0-9A-Fa-f]{2})/pack('H2',$1)/ge;
@@ -511,7 +495,7 @@ sub process_law {
 	$text =~ s/^<שם>[ \n]+(.*?) *\n/<שם> $1\n/s;
 	
 	print "\tChecking page: ";
-	if ($text !~ /<מאגר[ א-ת]* (\d+)(?: *תי?קון *(\d+)|) *>/ || !defined $1) {
+	if ($text !~ /<מאגר[ א-ת]* (\d+)(?: *(?|תי?קון|עדכון) *(\d+)|) *>/ || !defined $1) {
 		print "\tID is $id; no last update [0].\n";
 		$last = 0;
 		$text =~ /<שם>.+?\n+/g;
@@ -524,12 +508,6 @@ sub process_law {
 		$last = $2;
 	}
 	my $i; 
-# 	print "\tLaw length is " . scalar(@list) . "; countdown:";
-# 	for ($i=0; $i<@list; $i++) {
-# 		print " $list[$i]->[5]";
-# 		last if ($list[$i]->[5] eq $last);
-# 	}
-# 	print (($i==0) ? " (none)\n" : ", that is, $i update(s)\n");
 	
 	($last_type, $last_year, $last_id, $first_run) = undef;
 	my ($partial, $prev) = '';
@@ -659,7 +637,11 @@ sub update_makor {
 		print "\t\tGot $text2 and (($urls[$i][0]|$urls[$i][1])).\n" if ($verbose);
 		if ($1 eq $urls[$i][0] || $2 eq $urls[$i][1]) {
 			$trynext = 0;
-			next if (!$u);
+			if (!$u) {
+				print "\t\tNo URL, next please.\n" if ($verbose);
+				$str2 =~ s/^.*?\)\)//s;
+				next;
+			}
 			$text2 = "(($1|$2|$u))";
 			print "\t\tReplacing '$3' with '$u'\n";
 			$str2 =~ s/^.*?\|$u\)\)//s;
@@ -685,9 +667,8 @@ sub update_makor {
 	}
 	
 	$text =~ m/\G[ .,;]*/gc;
-	# $text =~ m/\G.*/gmc;
 	
-	$text =~ m/(.{10})\G(.{0,10})/;
+	$text =~ m/(.{0,10})\G(.{0,10})/;
 	print "\t\tPOS is " . pos($text) . "; Now at ... $1 <-G-> $2 ...\n";
 	
 	($text2) = ($text =~ /^(.*)\G/s);
