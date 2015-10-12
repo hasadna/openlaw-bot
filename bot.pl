@@ -95,7 +95,7 @@ if ($recent) {
 	
 	my @new_pages = ($text =~ /\[\[(.*?)(?:\|.*?)?\]\]/g);
 	if (scalar(@new_pages)>0) {
-		map {s/^\s*(?:מקור:|)\s*(.*?)\s*$/-f $1/} @pages;
+		map {s/^\s*(?:מקור:|)\s*(.*?)\s*$/-f $1/} @new_pages;
 		print "ADDING " . scalar(@new_pages) . " new pages: " . join(", ", @new_pages) . "\n";
 		$bot->edit( {
 			page      => $page,
