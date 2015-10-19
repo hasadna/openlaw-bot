@@ -805,7 +805,7 @@ sub process_HREF {
 		$type = 3;
 		$helper = $1 || $ext;
 		# $ext = '' if ($1 ne '');
-		$ext = $1;
+		$ext = $1; $int = $2;
 		($int, undef) = findHREF("+#$2") if ($2);
 		$found = true;
 		$hash = ($2 eq '');
