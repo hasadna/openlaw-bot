@@ -85,8 +85,8 @@ if (scalar(@list)) {
 }
 
 # Check all secondary pages (amendments) for primary laws
-foreach my $id (@pages) {
-	last unless $count--;
+while (my $id = shift @pages) {
+	last if $recent and $count-- <= 0;
 	my $any_change = 0;
 	if ($id>2000000 && !$recent) {
 		@list = ($id);
@@ -103,6 +103,13 @@ foreach my $id (@pages) {
 			store \%tt, "$id.dump" if ($dump);
 		}
 		print "'$law_name'\n";
+		foreach (@list) {
+			if ($_->[3] =~ /^[sS]/) {
+				print "    Adding secondary #$_->[2] '$_->[0]'.\n";
+				unshift(@pages, $_->[2]);
+				$count++;
+			}
+		}
 		@list = grep {$_->[3] =~ /^[pP]/} @list;
 		@list = map {$_->[2]} @list;
 	}
@@ -384,8 +391,10 @@ sub print_fix {
 	$name =~ s/\((מס' \d\S*?)\)/(תיקון $1)/;
 	$name =~ s/^(?:חוק לתיקון |)$law_name \((.*?)\)/ $1/;
 	$name =~ s/חוק לתיקון פקודת/תיקון לפקודת/;
-	$name =~ s/^(?:חוק לתיקון |תיקון ל|)(\S.*?)\s\((תי?קון .*?)\)/$2 ל$1/;
+	$name =~ s/^(?:חוק לתיקון |תיקון ל|)(\S.*?) \((תי?קון .*?)\)(.*)/$2 $3 ל$1/;
+	$name =~ s/ *ל$law_name//;
 	$name =~ s/ *(.*?) */$1/;
+	$name =~ s/ {2,}/ /g;
 	
 	$url =~ s/.*?\/(\d+)_lsr_(\d+).pdf/$1:$2/;
 	$url ||= $booklet if ($name ne 'ת"ט');
@@ -561,11 +570,8 @@ sub process_law {
 	$summary = 'בוט: קישורים' if $count==0;
 	print "\tUpdating page with summary \"$summary\"\n";
 	$bot->edit({
-		page      => $src_page,
-		text      => $text,
-		summary   => $summary,
-		bot       => 1,
-		minor     => 1,
+		page => $src_page, text => $text, summary => $summary,
+		bot => 1, minor => 1,
 	}) if !$dryrun;
 	
 	return if ($count==0);
@@ -580,7 +586,7 @@ sub process_law {
 	
 	unless ($dryrun) {
 		$bot->edit({
-			page => $todo_page, text => $text, summary   => $summary,
+			page => $todo_page, text => $text, summary => $summary,
 			bot => 1, minor => 1,
 		});
 		
@@ -589,7 +595,7 @@ sub process_law {
 			$text = "{{מטלות}}\n\n$text";
 			$bot->edit({
 				page => $talk_page, text => $text, summary => "תבנית מטלות",
-				bot => 1, minor     => 1,
+				bot => 1, minor => 1,
 			});
 		}
 		$bot->purge_page($todo_page);
