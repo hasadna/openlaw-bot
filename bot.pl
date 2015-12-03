@@ -194,14 +194,12 @@ foreach my $page_dst (@pages) {
 	$comment = ( $comment ? "[$revid_s] $comment" : "[$revid_s]" );
 	
 	print STDOUT "$text\n" if ($print || $dryrun);
-	$bot->edit( {
-		page      => $page_dst,
-		text      => $text,
-		summary   => $comment,
-		bot       => 1,
-		minor     => 0,
-		assertion => 'bot',
-	}) unless ($dryrun);
+	unless ($dryrun) {
+		$bot->edit( {
+			page => $page_dst, text => $text, summary => $comment,
+			bot => 1, minor => 0, assertion => 'bot'});
+		# $bot->protect($page, $reason, $editlvl, $movelvl, $time, $cascade);
+	}
 	
 	next unless $editnotice;
 	
@@ -214,10 +212,8 @@ foreach my $page_dst (@pages) {
 		} else {
 			print "Creating editnotice '$page_dst'.\n";
 			$bot->edit({
-				page    => $page,
-				text    => decode_utf8("{{הודעת עריכה חוקים}}"),
-				summary => "editnotice",
-				minor   => 1,
+				page => $page, text => decode_utf8("{{הודעת עריכה חוקים}}"),
+				summary => "editnotice", minor => 1,
 			});
 		}
 	}
@@ -226,10 +222,8 @@ foreach my $page_dst (@pages) {
 	$id = $bot->get_id($page);
 	if (!defined $id && !$dryrun) {
 		$bot->edit({
-			page    => $page,
-			text    => decode_utf8("{{הודעת עריכה חוקים}}"),
-			summary => "editnotice",
-			minor   => 1,
+			page    => $page, text => decode_utf8("{{הודעת עריכה חוקים}}"),
+			summary => "editnotice", minor => 1,
 		});
 	}
 	
@@ -238,20 +232,16 @@ foreach my $page_dst (@pages) {
 	$id = $bot->get_id($page);
 	if (!defined $id && !$dryrun) {
 		$bot->edit({
-			page    => $page,
-			text    => decode_utf8("#הפניה [[שיחה:$page_dst]]"),
-			summary => decode_utf8("הפנייה"),
-			minor   => 1,
+			page => $page, text => decode_utf8("#הפניה [[שיחה:$page_dst]]"),
+			summary => decode_utf8("הפנייה"), minor => 1,
 		});
 	}
 	$page = "שיחה:$page_dst";
 	$id = $bot->get_id($page);
 	if (!defined $id && !$dryrun) {
 		$bot->edit({
-			page    => $page,
-			text    => "",
-			summary => "דף ריק",
-			minor   => 1,
+			page => $page, text => "", summary => "דף ריק",
+			minor => 1,
 		});
 	}
 	
