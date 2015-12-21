@@ -165,7 +165,7 @@ sub print_fix {
 	$type2 = "תוס' $1" if ($booklet =~ s/תוס(?:'|פת) (\S+) *//);
 	$type2 = "כרך $1 פרק $2" if ($booklet =~ s/כרך (\S+?) ?- ?(\S+) *//);
 	
-	$name =~ s/,? *ה?(תש.?".)-\d{4}// and $year = $1;
+	$name =~ s/,? *ה?(תש.?".)-\d{4}//g and $year = $1;
 	$year = poorman_hebrewyear($date,$page);
 	
 	$name =~ s/ {2,}/ /g;

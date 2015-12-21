@@ -21,7 +21,7 @@ use constant { true => 1, false => 0 };
 
 our $pre_sig = "ו?כ?ש?[בהלמ]?";
 our $extref_sig = "\\b$pre_sig(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|הוראו?ת|הודעה|מנשר|כללים?|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)\\b";
-our $type_sig = "חלק|פרק|סימן|לוח(ות)? השוואה|נספח|תוספת|טופס|לוח|טבל[הא]";
+our $type_sig = "חלק|פרק|סימן( משנה)?|לוח(ות)? השוואה|נספח|תוספת|טופס|לוח|טבל[הא]";
 
 sub main() {
 	if ($#ARGV>=0) {
@@ -174,6 +174,7 @@ sub parse_section {
 	$type = $_;
 	$type =~ s/\(\(.*?\)\)//g;
 	$type = ($type =~ /\bה?($type_sig)\b/ ? $1 : '');
+	$type = 'משנה' if ($type =~ /סימ(ן|ני) משנה/);
 	$type = 'לוחהשוואה' if ($type =~ /השוואה/);
 	
 	$_ = $str;
@@ -230,6 +231,7 @@ sub parse_link {
 	my ($id,$txt) = @_;
 	my $str;
 	$id = unquote($id);
+	$txt =~ s/\(\((.*?)\)\)/$1/g;
 	($id,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$id); 
 	$str = ($id ? "<קישור $id>$txt</>" : "<קישור>$txt</>");
 	$str =~ s/([()])\1/$1\x00$1/g unless ($str =~ /\(\(.*\)\)/); # Avoid splitted comments
@@ -648,22 +650,23 @@ sub process_section {
 		when (undef) {}
 		when (/חלק/) { $glob{part} = $num; $glob{sect} = $glob{subs} = undef; }
 		when (/פרק/) { $glob{sect} = $num; $glob{subs} = undef; }
+		when (/משנה/) { $glob{subsub} = $num; }
 		when (/סימן/) { $glob{subs} = $num; }
-		when (/לוחהשוואה/) { delete @glob{"part", "sect", "subs", "supl", "appn", "form", "tabl", "tabl2"}; }
-		when (/תוספת/) { $glob{supl} = ($num || ""); delete @glob{"part", "sect", "subs", "appn", "form", "tabl", "tabl2"}; }
-		when (/נספח/) { $glob{appn} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
-		when (/טופס/) { $glob{form} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
-		when (/לוח/) { $glob{tabl} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
-		when (/טבלה/) { $glob{tabl2} = ($num || ""); delete @glob{"part", "sect", "subs"}; }
+		when (/לוחהשוואה/) { delete @glob{"part", "sect", "subs", "subsub", "supl", "appn", "form", "tabl", "tabl2"}; }
+		when (/תוספת/) { $glob{supl} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub", "appn", "form", "tabl", "tabl2"}; }
+		when (/נספח/) { $glob{appn} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
+		when (/טופס/) { $glob{form} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
+		when (/לוח/) { $glob{tabl} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
+		when (/טבלה/) { $glob{tabl2} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
 	}
 	if (defined $type) {
-		$name = "פרק $glob{sect} $name" if ($type eq 'סימן' && defined $glob{sect});
-		$name = "חלק $glob{part} $name" if ($type =~ 'סימן|פרק' && ($glob{sect_type}==3 || defined $glob{supl}) && defined $glob{part});
+		$name = "סימן $glob{subs} $name" if ($type =~ 'משנה' && defined $glob{subs});
+		$name = "פרק $glob{sect} $name" if ($type =~ 'סימן|משנה' && defined $glob{sect});
+		$name = "חלק $glob{part} $name" if ($type =~ 'סימן|פרק|משנה' && ($glob{sect_type}==3 || defined $glob{supl}) && defined $glob{part});
 		$name = "תוספת $glob{supl} $name" if ($type ne 'תוספת' && defined $glob{supl});
 		$name = "לוח השוואה" if ($type eq 'לוחהשוואה');
 		$name =~ s/  / /g;
 		$sections{$idx} = $name;
-		# print STDERR "GOT section |$type|$num| as |$name| (position is " . current_position() . ")\n" if ($type);
 	}
 }
 
@@ -686,7 +689,7 @@ sub process_chapter {
 }
 
 sub current_position {
-	my @type = ( 'supl', 'תוספת', 'appn', 'נספח', 'form', 'טופס', 'tabl', 'לוח', 'tabl2', 'טבלה', 'part', 'חלק', 'sect', 'פרק', 'subs', 'סימן' );
+	my @type = ( 'supl', 'תוספת', 'appn', 'נספח', 'form', 'טופס', 'tabl', 'לוח', 'tabl2', 'טבלה', 'part', 'חלק', 'sect', 'פרק', 'subs', 'סימן', 'subsub', 'משנה' );
 	my $str = '';
 	for (my $i=0; $i < @type; $i +=2) {
 		$str .= " $type[$i+1] $glob{$type[$i]}" if (defined $glob{$type[$i]});
@@ -777,11 +780,11 @@ sub process_HREF {
 	my $text = $glob{href}{txt};
 	my $helper = $glob{href}{helper};
 	my $id = $glob{href}{idx};
-
+	
 	# Canonic name
 	$text = canonic_name($text);
 	$helper = canonic_name($helper);
-
+	
 	my ($int,$ext) = findHREF($text);
 	my $marker = '';
 	my $found = false;
@@ -909,6 +912,7 @@ sub findHREF {
 	s/\b(או|מן|סיפא|רישא)\b/ /g;
 	s/^ *(.*?) *$/$1/;
 	s/לוח השוואה/לוחהשוואה/;
+	s/סימ(ן|ני) משנה/משנה/;
 	
 	my $href = $_;
 	my @parts = split /[ ,.\-\)]+/;
@@ -927,6 +931,7 @@ sub findHREF {
 			when (/לוחהשוואה/) { $class = "comptable"; $num = ""; }
 			when (/^$pre_sig(חלק|חלקים)/) { $class = "part"; }
 			when (/^$pre_sig(פרק|פרקים)/) { $class = "sect"; }
+			when (/^$pre_sig(משנה)/) { $class = "subsub"; }
 			when (/^$pre_sig(סימן|סימנים)/) { $class = "subs"; }
 			when (/^$pre_sig(תוספת|תוספות|נספח|נספחים)/) { $class = "supl"; $num = ""; }
 			when (/^$pre_sig(טופס|טפסים)/) { $class = "form"; }
@@ -944,6 +949,11 @@ sub findHREF {
 						$elm{subs} = $glob{subs} unless defined $elm{subs};
 						$elm{sect} = $glob{sect} unless defined $elm{sect};
 					}
+					when (/subsub/) {
+						$elm{subsub} = $glob{subsub} unless defined $elm{subsub};
+						$elm{subs} = $glob{subs} unless defined $elm{subs};
+						$elm{sect} = $glob{sect} unless defined $elm{sect};
+					}
 				}
 				$elm{supl} = $glob{supl} if ($glob{supl} && !defined($elm{supl}));
 			}
@@ -952,7 +962,7 @@ sub findHREF {
 				$class = "chap_" if ($num ne '' && $class eq '');
 			}
 		}
-		# print STDERR "  --> |$_|$class|" . ($num || '') . "|\n";
+		# print STDERR " --> |$_|$class|" . ($num || '') . "|\n";
 		
 		if (defined($num) && !$elm{$class}) {
 			$elm{$class} = $num;
@@ -986,13 +996,22 @@ sub findHREF {
 		$href = "חלק $elm{part}";
 		$href .= " פרק $elm{sect}" if (defined $elm{sect});
 		$href .= " סימן $elm{subs}" if (defined $elm{subs});
+		$href .= " משנה $elm{subsub}" if (defined $elm{subsub});
 	} elsif (defined $elm{sect}) {
 		$href = "פרק $elm{sect}";
-		$href = "$href סימן $elm{subs}" if (defined $elm{subs});
+		$href .= " סימן $elm{subs}" if (defined $elm{subs});
+		$href .= " משנה $elm{subsub}" if (defined $elm{subsub});
 		$href = "חלק $glob{part} $href" if ($glob{sect_type}==3 && defined $glob{part} && $ext eq '');
 		# $href = "תוספת $glob{supl} $href" if ($glob{supl} && $ext eq '');
 	} elsif (defined $elm{subs}) {
 		$href = "סימן $elm{subs}";
+		$href .= " משנה $elm{subsub}" if (defined $elm{subsub});
+		$href = "פרק $glob{sect} $href" if (defined $glob{sect} && $ext eq '');
+		$href = "חלק $glob{part} $href" if ($glob{sect_type}==3 && defined $glob{part} && $ext eq '');
+		# $href = "תוספת $glob{supl} $href" if (defined $elm{supl} && $glob{supl} && $ext eq '');
+	} elsif (defined $elm{subsub}) {
+		$href = "משנה $elm{subsub}";
+		$href = "סימן $glob{subs} $href" if (defined $glob{subs});
 		$href = "פרק $glob{sect} $href" if (defined $glob{sect} && $ext eq '');
 		$href = "חלק $glob{part} $href" if ($glob{sect_type}==3 && defined $glob{part} && $ext eq '');
 		# $href = "תוספת $glob{supl} $href" if (defined $elm{supl} && $glob{supl} && $ext eq '');
