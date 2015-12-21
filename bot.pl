@@ -142,7 +142,8 @@ foreach my $page_dst (@pages) {
 	my $src_ok = ($revid_s>0);
 	my $dst_ok = ($revid_t>0);
 	
-	print "PAGE \x{202B}\"$page_dst\"\x{202C}:\t";
+#	print "PAGE \x{202B}\"$page_dst\"\x{202C}:\t";
+	print "PAGE \"$page_dst\":\t";
 	
 	my $update = ($revid_t<$revid_s);
 	my $done = 0;
