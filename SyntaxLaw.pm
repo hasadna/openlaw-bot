@@ -199,6 +199,7 @@ sub parse_chapter {
 	($desc, $ankor) = get_ankor($desc);
 	$desc =~ s/"/&quote;/g;
 	$num =~ s/[.,]$//;
+	$num =~ s/"/&quote;/g;
 	
 	my $str = "<$type" . ($num ? " $num" : "") . ">";
 	$str .= "<תיאור \"$desc\">" if ($desc);
@@ -217,6 +218,7 @@ sub parse_line {
 		$id = '';
 	}
 	$id = unparent($id);
+	$id =~ s/"/&quote;/g;
 	$line =~ s/^ *(.*?) *$/$1/;
 	my $str;
 	$str = "ת"x($len+($id?1:0));
@@ -248,7 +250,7 @@ sub parse_remark {
 		if ($url) {
 			$url =~ s/^ *(.*?) *$/$1/;
 			$url = "http://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
-			$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$2.pdf" if ($url =~ /^([a-z]+):(\d+):(\d+)$/);
+			$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^([a-z]+):(\d+):(\d+)$/);
 			$url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
 			$url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
 			$tip .= "|$url";

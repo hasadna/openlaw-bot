@@ -329,6 +329,7 @@ while (my $line = <$FIN>) {
 		$href{text} .= $PREMATCH if ($href{type}>0);
 		$line = $POSTMATCH;
 		$param =~ s/^"(.*)"$/$1/;
+		$param =~ s/&quote;/"/g;
 		# print STDERR "%% Got |$command|$param|\n";
 		
 		if (!defined $markup{$command}) {
