@@ -24,72 +24,17 @@ my $page = $ARGV[0];
 my $id;
 my ($tree, @trees);
 my (@table, @lol);
+my $law_name;
 
-if ($page =~ /^\d+$/) {
-	$page = "http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawPrimary.aspx?t=lawlaws&st=lawlaws&lawitemid=$page";
-}
+my $primary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawPrimary.aspx?lawitemid';
+my $secondary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid';
+
+$page = "$primary_prefix=$page" if ($page =~ /^\d+$/);
 
 binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 
-while ($page) {
-	print STDERR "Reading HTML file...\n";
-	if (-f $page) {
-		$tree = HTML::TreeBuilder::XPath->new_from_file(html_file($page));
-	} else {
-		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
-	}
-	push @trees, $tree;
-	
-	my @loc_table = $tree->findnodes('//table[@class = "rgMasterTable"]//tr');
-	
-	my $loc_id = $tree->findnodes('//form[@id = "aspnetForm"]')->[0];
-	if (defined $loc_id) {
-		($loc_id) = ($loc_id->attr('action') =~ m/lawitemid=(\d+)/);
-		$id ||= $loc_id;
-	}
-	
-	my $nextpage = $tree->findnodes('//td[@class = "LawBottomNav"]/a[contains(@id, "_aNextPage")]')->[0] || '';
-	$nextpage &&= $nextpage->attr('href');
-	if ($nextpage) {
-		$page = "http://main.knesset.gov.il$nextpage";
-	} else {
-		$page = '';
-	}
-	
-	# Remove first row and push into @table;
-	shift @loc_table;
-	@table = (@table, @loc_table);
-}
-
-if (!scalar(@table)) {
-	print STDERR "No data.\n";
-	exit 0;
-}
-
-my $law_name = $tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]');
-$law_name =~ s/^[ \n]*(.*?)[ \n]*$/$1/;
-$law_name =~ s/, ([א-ת"]*-)?\d{4}//;
-$law_name =~ s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
-print STDERR "Law $id \"$law_name\"\n";
-
-foreach my $node (@table) {
-    my @list = $node->findnodes('td');
-    shift @list;
-    my $url = pop @list;
-    my $lawid = $list[0]->findnodes('a')->[0];
-    $lawid &&= $lawid->attr('href'); $lawid ||= '';
-    $lawid = $1 if ($lawid =~ m/lawitemid=(\d+)/);
-    map { $_ = $_->as_text(); } @list;
-    $url = $url->findnodes('a')->[0];
-    $url &&= $url->attr('href'); $url ||= '';
-    $url = decode_url($url);
-    $url =~ s|/?\\|/|g;
-    $url =~ s/\.PDF$/.pdf/;
-    push @list, $lawid, $url, scalar(@lol);
-    grep(s/^[ \t\xA0]*(.*?)[ \t\xA0]*$/$1/g, @list);
-    push @lol, [@list];
-}
+@lol = get_primary_page($page);
 
 # # Sort array in lexicographical order of [booklet, page, lawid].
 # @lol = sort { $a->[2] <=> $b->[2] || $a->[3] <=> $b->[3] || $a->[5] <=> $b->[5] } @lol;
@@ -103,15 +48,15 @@ if ($what>1) {
 	print "<מאגר $id תיקון $lol[-1][5]>\n\n";
 	print "<מקור>\n";
 }
+
+my $str = '';
 foreach my $list (@lol) {
-	print_fix(@$list) if ($what>=1);
-	print_line(@$list) if ($what==0);
+	$str .= print_fix(@$list) if ($what>=1);
+	$str .= print_line(@$list) if ($what==0);
 }
 
-print_fix() if ($what>=1);
-
-# Cleanups
-$_->delete() for (@trees);
+$str .= print_fix() if ($what>=1);
+print $str;
 
 exit 0;
 
@@ -123,7 +68,7 @@ sub compare_law {
 	my $b_date = $b->[4] =~ s/.*?(\d{1,2})(.)(\d{1,2})\2(\d{4}).*?/sprintf("%04d%02d%02d",$4,$3,$1)/re;
 	my $res = 0;
 	
-	$res = -1 if (!$a_date || !$b_date); # Keep order if not date is given
+	$res = -1 if (!$a_date || !$b_date); # Keep order if no date is given
 	
 	if ($a->[2] =~ /^\d+$/ && $b->[2] =~ /^\d+$/) {
 		$res ||= $a->[2] <=> $b->[2];
@@ -144,28 +89,28 @@ my $first_run;
 
 sub print_line {
 	pop @_;
-	print join('|',@_) . "\n";
+	return join('|',@_) . "\n";
 }
 
 sub print_fix {
 	$first_run = (!defined($first_run));
-	
 	my ($name, $type, $booklet, $page, $date, $lawid, $url) = @_;
 	my $year = ''; my $type2;
+	my $str = '';
 	
 	if (!defined($name)) {
-		print ".\n" if (!$first_run);
-		return;
+		$str = ".\n" if (!$first_run);
+		return $str;
 	}
 	
-	return if ($lawid ne '' && $last_id && $lawid eq $last_id);
+#	return if ($lawid ne '' && $last_id && $lawid eq $last_id);
 	$last_id = $lawid if ($lawid);
 	
 	$type =~ s/ה?(.)\S+ ?/$1/g; $type =~ s/(?=.$)/"/;
 	$type2 = "תוס' $1" if ($booklet =~ s/תוס(?:'|פת) (\S+) *//);
 	$type2 = "כרך $1 פרק $2" if ($booklet =~ s/כרך (\S+?) ?- ?(\S+) *//);
 	
-	$name =~ s/,? *ה?(תש.?".)-\d{4}//g and $year = $1;
+	$name =~ s/,? *ה?(תש.?".)[-–]\d{4}// and $year = $1;
 	$year = poorman_hebrewyear($date,$page);
 	
 	$name =~ s/ {2,}/ /g;
@@ -178,11 +123,14 @@ sub print_fix {
 	$name =~ s/\((מס' \d\S*?)\)/(תיקון $1)/;
 	$name =~ s/^(?:חוק לתיקון |)$law_name \((.*?)\)/ $1/;
 	$name =~ s/חוק לתיקון פקודת/תיקון לפקודת/;
-	$name =~ s/^(?:חוק לתיקון |תיקון ל|)(\S.*?)\s\((תי?קון .*?)\)/$2 ל$1/;
+	$name =~ s/^(?:חוק לתיקון |תיקון ל|)(\S.*?) \((תי?קון .*?)\)(.*)/$2 $3 ל$1/;
+	$name =~ s/ *ל$law_name//;
 	$name =~ s/ *(.*?) */$1/;
-
-	if ($what==2) {
+	$name =~ s/ {2,}/ /g;
+	
+	if ($url) {
 		$url =~ s/.*?\/(\d+)_lsr_(\d+).pdf/$1:$2/;
+		$url =~ s/.*?\/(\d+)_lsnv_(\d+).pdf/nv:$1:$2/;
 		$url ||= $booklet if ($name ne 'ת"ט');
 	}
 	
@@ -191,17 +139,18 @@ sub print_fix {
 	
 	$type =~ s/ער"מ/ע"ר/;
 	
-	print ", " if (!$year);
-	print "; " if ($year and !$type);
-	print ".\n" if ($year and $type and !$first_run);
+	$str .= ", " if (!$year);
+	$str .= "; " if ($year and !$type);
+	$str .= ".\n" if ($year and $type and !$first_run);
 	
-	print "((";
-	print "$type " if ($type);
-	print "$year, " if ($year);
-	print "$type2, " if ($type2);
-	print "$page|$name";
-	print "|$url" if ($url and $what>=2);
-	print "))";
+	$str .= "((";
+	$str .= "$type " if ($type);
+	$str .= "$year, " if ($year);
+	$str .= "$type2, " if ($type2);
+	$str .= "$page|$name";
+	$str .= "|$url" if ($url and $what>=2);
+	$str .= "))";
+	return $str;
 }
 
 
@@ -228,8 +177,128 @@ sub poorman_hebrewyear {
 	return $year;
 }
 
+sub trim {
+	my $_ = shift // '';
+	s/^[ \t\xA0\n]*(.*?)[ \t\xA0\n]*$/$1/s;
+	return $_;
+}
+
 sub decode_url {
 	my $_ = shift;
 	s/%([0-9A-Fa-f]{2})/pack('H2',$1)/ge;
 	return $_;
+}
+
+
+sub get_primary_page {
+	my $page = shift;
+#	my $id;
+	my ($tree, @trees);
+	my (@table, @lol);
+	
+	$page = "$primary_prefix=$page" unless ($page =~ /^https?:/);
+	
+	while ($page) {
+		print STDERR "Reading HTML file...\n";
+		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
+		push @trees, $tree;
+		
+		my @loc_table = $tree->findnodes('//table[@class = "rgMasterTable"]//tr');
+		
+		my $loc_id = $tree->findnodes('//form[@id = "aspnetForm"]')->[0];
+		if (defined $loc_id) {
+			($loc_id) = ($loc_id->attr('action') =~ m/lawitemid=(\d+)/);
+			$id ||= $loc_id;
+		}
+		
+		my $nextpage = $tree->findnodes('//td[@class = "LawBottomNav"]/a[contains(@id, "_aNextPage")]')->[0] || '';
+		$nextpage &&= $nextpage->attr('href');
+		if ($nextpage) {
+			$page = "http://main.knesset.gov.il$nextpage";
+		} else {
+			$page = '';
+		}
+		
+		# Remove first row and push into @table;
+		shift @loc_table;
+		@table = (@table, @loc_table);
+	}
+	
+	if (!scalar(@table)) {
+		print "No data.\n";
+		$_->delete() for (@trees);
+		return [];
+	}
+
+	$law_name = $tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]');
+	$law_name =~ s/^[ \n]*(.*?)[ \n]*$/$1/;
+	$law_name =~ s/, ([א-ת"]*-)?\d{4}//;
+	$law_name =~ s/ \[ה?תש.?".\]//;
+	$law_name =~ s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
+	# print "Law $id \"$law_name\"\n";
+
+	foreach my $node (@table) {
+		my @list = $node->findnodes('td');
+		shift @list;
+		my $url = pop @list;
+		my $lawid = $list[0]->findnodes('a')->[0];
+		$lawid &&= $lawid->attr('href'); $lawid ||= '';
+		$lawid = $1 if ($lawid =~ m/lawitemid=(\d+)/);
+		map { $_ = trim($_->as_text()); } @list;
+		if (!$list[3] || $list[1] eq 'דיני מדינת ישראל') {
+			@list = get_secondary_entry($lawid);
+			$url = pop @list;
+		} else {
+			$url = $url->findnodes('a')->[0];
+			$url &&= $url->attr('href'); $url ||= '';
+			$url = decode_url($url);
+			$url =~ s|/?\\|/|g;
+			$url =~ s/\.PDF$/.pdf/;
+		}
+		push @list, $lawid, $url, scalar(@lol);
+		grep(s/^[ \t\xA0]*(.*?)[ \t\xA0]*$/$1/g, @list);
+		push @lol, [@list];
+	}
+	$_->delete() for (@trees);
+	return @lol;
+}
+
+
+sub get_secondary_entry {
+	my $page = shift;
+	my $id;
+	my $tree;
+	my (@table, @lol);
+	my @entry;
+	
+	$page = "$secondary_prefix=$page" unless ($page =~ /^https?:/);
+	
+	# print "Reading HTML file $page...\n";
+	$tree = HTML::TreeBuilder::XPath->new_from_url($page);
+	
+	my $law_name = $tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]');
+	$law_name =~ s/^[ \n]*(.*?)[ \n]*$/$1/;
+	$law_name =~ s/, ([א-ת"]*-)?\d{4}//;
+	$law_name =~ s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
+	# print "Law $id \"$law_name\"\n";
+	
+	@table = $tree->findnodes('//table[@id = "tblMainProp"]//td');
+	
+	my $url = $table[7]->findnodes('a')->[0];
+	$url &&= $url->attr('href'); $url ||= '';
+	$url = decode_url($url);
+	$url =~ s|/?\\|/|g;
+	$url =~ s/\.PDF$/.pdf/;
+	
+	$entry[0] = trim($law_name);
+	$entry[1] = trim($table[4]->findvalue('div[1]/div[2]'));
+	$entry[2] = trim($table[5]->findvalue('div[1]/div[2]'));
+	$entry[3] = trim($table[6]->findvalue('div[1]/div[2]'));
+	$entry[4] = trim($table[3]->findvalue('div[1]/div[2]'));
+	$entry[5] = $url;
+#	print STDERR "Entry is " . print_line(@entry);
+	
+	grep(s/^[ \t\xA0]*(.*?)[ \t\xA0]*$/$1/, @entry);
+	$tree->delete();
+	return @entry;
 }

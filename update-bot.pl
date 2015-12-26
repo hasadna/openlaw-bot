@@ -15,9 +15,14 @@ use IO::HTML;
 use Storable;
 
 use constant { true => 1, false => 0 };
+use constant { recent_count => 3 };
 
 binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
+
+
+my $primary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawPrimary.aspx?lawitemid';
+my $secondary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid';
 
 my $page;
 my @pages = ();
@@ -30,7 +35,7 @@ $dryrun = 1;
 my @list;
 my $law_name;
 my %processed;
-my $count = 10;
+my $count = recent_count;
 
 my @global_todo;
 
@@ -45,6 +50,11 @@ GetOptions(
 	"help|?" => \&HelpMessage,
 ) or die("Error in command line arguments\n");
 
+print "Note: Verbose mode (-v).\n" if $verbose;
+print "Note: Using stored files (-s) if exist.\n" if $dump;
+print "Note: Dryrun (-d), use (-w) to write wiki.\n" if $dryrun;
+print "Note: Writing changes to wiki (-w).\n" unless $dryrun;
+
 my %credentials = load_credentials('wiki_botconf.txt');
 my $host = ( $credentials{host} || 'he.wikisource.org' );
 print "HOST $host USER $credentials{username}\n";
@@ -56,11 +66,6 @@ my $bot = MediaWiki::Bot->new({
 	protocol   => 'https',
 	debug      => ($verbose?2:0),
 }) or die "Error login...\n";
-
-
-print "Note: Using stored files (-s) if exist.\n" if $dump;
-print "Note: Dryrun (-d), use (-w) to write wiki.\n" if $dryrun;
-print "Note: Writing changes to wiki (-w).\n" unless $dryrun;
 
 @list = grep /\#?\d+/, @ARGV;
 
@@ -81,6 +86,7 @@ if (scalar(@list)) {
 		store \@list, "main.dump" if ($dump);
 	}
 	@pages = map {$_->[5]} @list;
+	
 	$recent = true;
 }
 
@@ -97,7 +103,7 @@ while (my $id = shift @pages) {
 			@list = @{$tt->{list}};
 			$law_name = $tt->{name};
 		} else {
-			$page = "http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid=$id";
+			$page = "$secondary_prefix=$id";
 			@list = get_secondary_page($page);
 			my %tt = ('list' => \@list, 'name' => $law_name);
 			store \%tt, "$id.dump" if ($dump);
@@ -124,7 +130,7 @@ while (my $id = shift @pages) {
 		}
 	}
 	# print_line(@$_) for @list;
-	$count++ if $any_change;
+	$count = recent_count if $any_change;
 }
 
 unless ($noglobaltodo) {
@@ -204,6 +210,20 @@ EOP
 
 #-------------------------------------------------------------------------------
 
+sub trim {
+	my $_ = shift // '';
+	s/^[ \t\xA0\n]*(.*?)[ \t\xA0\n]*$/$1/s;
+	return $_;
+}
+
+sub decode_url {
+	my $_ = shift;
+	s/%([0-9A-Fa-f]{2})/pack('H2',$1)/ge;
+	return $_;
+}
+
+
+#-------------------------------------------------------------------------------
 sub compare_law {
 	my ($a, $b) = @_;
 	my $a_date = $a->[4] =~ s/.*?(\d{1,2})(.)(\d{1,2})\2(\d{4}).*?/sprintf("%04d%02d%02d",$4,$3,$1)/re;
@@ -232,6 +252,8 @@ sub get_primary_page {
 	my $id;
 	my ($tree, @trees);
 	my (@table, @lol);
+	
+	$page = "$primary_prefix=$page" unless ($page =~ /^https?:/);
 	
 	while ($page && $count>0) {
 		# print "Reading HTML file...\n";
@@ -280,12 +302,17 @@ sub get_primary_page {
 		my $lawid = $list[0]->findnodes('a')->[0];
 		$lawid &&= $lawid->attr('href'); $lawid ||= '';
 		$lawid = $1 if ($lawid =~ m/lawitemid=(\d+)/);
-		map { $_ = $_->as_text(); } @list;
-		$url = $url->findnodes('a')->[0];
-		$url &&= $url->attr('href'); $url ||= '';
-		$url = decode_url($url);
-		$url =~ s|/?\\|/|g;
-		$url =~ s/\.PDF$/.pdf/;
+		map { $_ = trim($_->as_text()); } @list;
+		if (!$list[3] || $list[1] eq 'דיני מדינת ישראל') {
+			@list = get_secondary_entry($lawid);
+			$url = pop @list;
+		} else {
+			$url = $url->findnodes('a')->[0];
+			$url &&= $url->attr('href'); $url ||= '';
+			$url = decode_url($url);
+			$url =~ s|/?\\|/|g;
+			$url =~ s/\.PDF$/.pdf/;
+		}
 		push @list, $lawid, $url, scalar(@lol);
 		grep(s/^[ \t\xA0]*(.*?)[ \t\xA0]*$/$1/g, @list);
 		push @lol, [@list];
@@ -301,8 +328,10 @@ sub get_secondary_page {
 	my ($tree, @trees);
 	my (@table, @lol);
 	
+	$page = "$secondary_prefix=$page" unless ($page =~ /^https?:/);
+	
 	while ($page) {
-		# print "Reading HTML file...\n";
+		# print "Reading HTML file $page...\n";
 		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 		push @trees, $tree;
 		
@@ -354,6 +383,46 @@ sub get_secondary_page {
 	return @lol;
 }
 
+sub get_secondary_entry {
+	my $page = shift;
+	my $id;
+	my $tree;
+	my (@table, @lol);
+	my @entry;
+	
+	$page = "$secondary_prefix=$page" unless ($page =~ /^https?:/);
+	
+	# print "Reading HTML file $page...\n";
+	$tree = HTML::TreeBuilder::XPath->new_from_url($page);
+	
+	my $law_name = $tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]');
+	$law_name =~ s/^[ \n]*(.*?)[ \n]*$/$1/;
+	$law_name =~ s/, ([א-ת"]*-)?\d{4}//;
+	$law_name =~ s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
+	# print "Law $id \"$law_name\"\n";
+	
+	@table = $tree->findnodes('//table[@id = "tblMainProp"]//td');
+	
+	my $url = $table[7]->findnodes('a')->[0];
+	$url &&= $url->attr('href'); $url ||= '';
+	$url = decode_url($url);
+	$url =~ s|/?\\|/|g;
+	$url =~ s/\.PDF$/.pdf/;
+	
+	$entry[0] = trim($law_name);
+	$entry[1] = trim($table[4]->findvalue('div[1]/div[2]'));
+	$entry[2] = trim($table[5]->findvalue('div[1]/div[2]'));
+	$entry[3] = trim($table[6]->findvalue('div[1]/div[2]'));
+	$entry[4] = trim($table[3]->findvalue('div[1]/div[2]'));
+	$entry[5] = $url;
+	# print join('|',@entry) . "\n";
+	
+	grep(s/^[ \t\xA0]*(.*?)[ \t\xA0]*$/$1/, @entry);
+	$tree->delete();
+	return @entry;
+}
+
+
 
 sub print_line {
 	pop @_;
@@ -371,7 +440,7 @@ sub print_fix {
 	my $str = '';
 	
 	return if (!defined($name));
-	return if ($lawid ne '' && $last_id && $lawid eq $last_id);
+#	return if ($lawid ne '' && $last_id && $lawid eq $last_id);
 	$last_id = $lawid if ($lawid);
 	
 	$type =~ s/ה?(.)\S+ ?/$1/g; $type =~ s/(?=.$)/"/;
@@ -397,6 +466,7 @@ sub print_fix {
 	$name =~ s/ {2,}/ /g;
 	
 	$url =~ s/.*?\/(\d+)_lsr_(\d+).pdf/$1:$2/;
+	$url =~ s/.*?\/(\d+)_lsnv_(\d+).pdf/nv:$1:$2/;
 	$url ||= $booklet if ($name ne 'ת"ט');
 	
 	if ($last_type && $type eq $last_type) { $type = ''; } else { $last_type = $type; }
@@ -442,13 +512,6 @@ sub poorman_hebrewyear {
 	return $year;
 }
 
-sub decode_url {
-	my $_ = shift;
-	s/%([0-9A-Fa-f]{2})/pack('H2',$1)/ge;
-	return $_;
-}
-
-
 #-----------------------------------------------------------------------------------------
 
 sub process_law {
@@ -480,7 +543,7 @@ sub process_law {
 			print "\tPage '$law_name' not found.\n";
 			return 0;
 		}
-		if ($text =~ /#(?:הפניה|Redirect) \[\[(.*?)\]\]/) {
+		if ($text =~ /#(?:הפניה|Redirect) \[\[(?:מקור:|)(.*?)\]\]/) {
 			print "\tRedirection '$law_name' to '$1'.\n";
 			$law_name = $1;
 		} else {
@@ -493,6 +556,12 @@ sub process_law {
 			print "\tPage '$src_page' not found.\n";
 			return 0;
 		}
+	}
+	if ($text =~ /#(?:הפניה|Redirect) \[\[(?:מקור:|)(.*?)\]\]/) {
+		print "\tRedirection '$law_name' to '$1'.\n";
+		$law_name = $1;
+		$src_page = "מקור:$law_name";
+		$text = $bot->get_text($src_page);
 	}
 	
 	my $text_org = $text;
@@ -614,9 +683,11 @@ sub update_makor {
 	my (@uuu, $u);
 	my $text2;
 	my $str2 = $old.$new;
+	my $text_org = $text;
 	
 	my @urls;
-	while ($str2 =~ /\(\(([^|]*?)\|([^|]*?)\|?(\d+:\d+)?\)\)([.,;]?)/g) {
+	while ($str2 =~ /\(\(([^|]*)\|([^|]*?)\|?(\d[\d:_]+|)\)\)([.,;]?)/g) {
+		# print "\t\tDecode, got (($1|$2|$3)).\n" if ($verbose);
 		push @urls, [$1, $2, $3, $4];
 	}
 	
@@ -674,7 +745,7 @@ sub update_makor {
 	
 	$text =~ m/\G[ .,;]*/gc;
 	
-	$text =~ m/(.{0,10})\G(.{0,10})/;
+	$text =~ m/(.{0,20})\G(.{0,20})/;
 	print "\t\tPOS is " . pos($text) . "; Now at ... $1 <-G-> $2 ...\n";
 	
 	($text2) = ($text =~ /^(.*)\G/s);
@@ -689,8 +760,10 @@ sub update_makor {
 	
 	$str2 = makor_to_todo($str2);
 	
-	print "\t\$text is \n$text\n" if $dryrun && $verbose;
-	print "\t\$str2 is \n$str2" if $dryrun && $verbose;
+	if ($dryrun && $verbose && $text ne $text_org) {
+		print "\t\$text is \n$text\n";
+		print "\t\$str2 is \n$str2";
+	}
 	return ($text, $str2);
 }
 
@@ -698,7 +771,9 @@ sub makor_to_todo {
 	my $todo = shift;  # input str
 	my $count = shift; # maximal number of items
 	my @todo = ($todo =~ /(\(\(.*?\)\))/g);
-	map s/\(\(([^|]*)\|([^|]*)\|(\d+):(\d+)\)\)/* {{חוק-תיקון|$2|http:\/\/fs.knesset.gov.il\/$3\/law\/$3_lsr_$4.pdf}}\n/ || s/.*//, @todo;
+	map s/\(\(([^|]*)\|([^|]*)\|(\d+):(\d+)\)\)/* {{חוק-תיקון|$2|http:\/\/fs.knesset.gov.il\/$3\/law\/$3_lsr_$4.pdf}}\n/ || 
+		s/\(\(([^|]*)\|([^|]*)\|?(.*?)\)\)/* {{חוק-תיקון|$2}}\n/ || 
+		s/.*//, @todo;
 	splice(@todo, 0, -$count) if defined($count);
 	$todo = join('', @todo);
 	return $todo;
