@@ -248,6 +248,7 @@ sub parse_remark {
 		if ($url) {
 			$url =~ s/^ *(.*?) *$/$1/;
 			$url = "http://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
+			$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$2.pdf" if ($url =~ /^([a-z]+):(\d+):(\d+)$/);
 			$url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
 			$url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
 			$tip .= "|$url";
