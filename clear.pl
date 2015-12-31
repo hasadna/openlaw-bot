@@ -9,14 +9,16 @@ use utf8;
 use Data::Dumper;
 use Getopt::Long;
 
-our ($variant, $debug);
+our ($variant, $debug, $raw);
 $variant = 1;
 $debug = 0;
+$raw = 0;
 
 GetOptions(
 	"type=i" => \$variant, 
 	"debug" => \$debug,
 	"verbose" => \$debug,
+	"raw" => \$raw,
 #	"help|?" => \&HelpMessage,
 ) or die("Error in command line arguments\n");
 
@@ -35,7 +37,7 @@ if ($#ARGV>=0) {
 	binmode STDIN, "utf8";
 	binmode STDOUT, "utf8";
 	binmode STDERR, "utf8";
-	$_ = join("\n", <STDIN>);
+	$_ = join('', <STDIN>);
 }
 
 my $LRE = "\x{202A}";
@@ -51,6 +53,8 @@ tr/״”“„‟″‶/"/;      # Convert typographic double quotes
 tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
 tr/;/;/;            # Convert wrong OCRed semicolon
 
+s/\n{2,}/\n/g;
+
 # Try to fix RLE/PDF (usually dumb bidi in PDF files)
 # s/ ?([\x{202A}\x{202B}](.|(?1))\x{202C}) (?=[\x{202A}\x{202B}])/$1/g;
    # Place lines with [RLE][PDF] inside [LRE][PDF] context
@@ -64,14 +68,24 @@ if (/[\x{202A}-\x{202C}]/) {
 
 tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d; # Throw away BIDI characters
 
-while (s/\n(.*)\n("?\(.{1,2}\)|\*|[0-9]|[1-9].?\.)\n/\n$2 $1\n/g) {}
-
 my $t1 = () = (/\).\(/g);
 my $t2 = () = (/\(.\)/g);
 # print STDERR "got $t1 and $t2.\n";
 if ($t1 > $t2) {
 	tr/([{<>}])/)]}><{[(/;
 }
+
+$t1 = () = (/^[45T]+$/mg);
+$t2 = () = (/\n/mg);
+if ($t1>$t2/100) {
+	s/^\d? ?([TPF]\d?)+ ?\d?$//mg;
+}
+
+s/^\.(\d[\d\-]*)$/$1./gm;
+s/^(\d)\n+\.\n/$1\.\n/gm;
+
+
+while (s/\n(.*)\n("?\(.{1,2}\)|\*|[0-9]|[1-9].?\.)\n/\n$2 $1\n/g) {}
 
 # Clean HTML markups
 s/<style.*?<\/style>//gs;
@@ -93,7 +107,7 @@ s/^ *=+ *(.*?) *=+ *$/$1/gm;
 # s/^[:;]+-? *//gm;
 
 tr/\r\f//d;        # Romove CR, FF
-s/[\t\xA0]/ /g;    # Tab and hardspace are whitespaces
+tr/\t\xA0/ /;      # Tab and hardspace are whitespaces
 s/^[ ]+//mg;       # Remove redundant whitespaces
 s/[ ]+$//mg;       # Remove redundant whitespaces
 s/[ ]{2,}/ /g;     # Pack  long spaces
@@ -121,9 +135,6 @@ s/^([:]++-?)(?=\S)/$1 /gm;
 s/%([\d.]*\d)/$1%/g;
 
 s/^לתחילת העמוד$//gm;
-
-# my @lines = split(/\n/);
-# s/^(.{50,65}[^;.])\n
 
 print $_;
 exit;

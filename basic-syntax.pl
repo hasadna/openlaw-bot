@@ -7,18 +7,25 @@ no strict 'refs';
 use utf8;
 use English;
 use Encode;
-
+use Getopt::Long;
 use IPC::Run 'run';
 
 binmode STDIN, "utf8";
 binmode STDOUT, "utf8";
 binmode STDERR, "utf8";
 
+my $raw = 0;
+my $brackets = 1;
+
+GetOptions(
+	"raw" => \$raw,
+	"brackets" => sub { $brackets = 0; },
+) or die("Error in command line arguments\n");
+
 local $/;
 $_ = <>;
 $_ = cleanup($_);
 
-my $brackets = 1;
 
 my $fix_sig = 'תי?קו(?:ן|ים)';
 my $num_sig = '\d(?:[^ ,.:;"\n\[\]()]+|\([^ ,.:;"\n\[\]()]+\))*+';
@@ -38,9 +45,11 @@ s/^("?חלק ($num_sig|$ext_sig) *([:,-].*|))$/\n= $1 =\n/gm;
 s/^("?(פרק|תוספת) ($num_sig|$ext_sig) *([:,-].*|))$/\n== $1 ==\n/gm;
 s/^("?סימן ($num_sig|$ext_sig) *([:,-].|)*)$/\n=== $1 ===\n/gm;
 
-s/^(.+)\n(\d+|\*)\n/$2 $1\n/gm;
-# s/^(\d+[,;.]?)\n($law_sig.*)/$2 $1/gm;
-s/^(\d+[,;.]?.*?)\n(.*?\d{4}( \[.*?\])?)$/$2 $1/gm;
+if ($raw) {
+	s/^(.+)\n(\d+|\*)\n/$2 $1\n/gm;
+	# s/^(\d+[,;.]?)\n($law_sig.*)/$2 $1/gm;
+	s/^(\d+[,;.]?.*?)\n(.*?\d{4}( \[.*?\])?)$/$2 $1/gm;
+}
 
 # Should swap chapter title and numeral
 s/^(.+)\n("?\(\S{1,4}?\))\n/$2 $1\n/gm;
@@ -54,7 +63,9 @@ s/^(?:\n?@ *|)(\d[^. \n]*\.)(\D.*)$/"\n@ $1 " . fix_description($2)/gme;
 s/^("?\([^)]{1,4}\))/: $1/gm;
 s/^(@.*?)\n([^:]+)$/$1\n: $2/gm;
 
-while (s/^(.{5,20}?[^"=.;\n)])\n{2,3}(@ \d.*?\.) /\n\n$2 $1 /gm) {}
+if ($raw) {
+	while (s/^(.{5,20}?[^"=.;\n)])\n{2,3}(@ \d.*?\.) /\n\n$2 $1 /gm) {}
+}
 
 s/^(:+) *(\([^)\n]*\)[.;])$/$1 (($2))/gm;
 s/^(:+ \([^ )\n]+\)) (\([^)\n]*\)[.;])$/$1 (($2))/gm;
@@ -96,7 +107,7 @@ if ($brackets) {
 
 if (/^\[*(חוק|פקודת|תקנות)\b/s) {
 	s/^(?:\<שם\>|) *(.*)\n/"<שם> ". remove_brakets($1) . "\n"/se;
-	s/^(.*?\n)/$1\n<מקור>\n...\n/s if (!/<מקור>/);
+	s/^(.*?\n)/$1\n<מקור> ...\n/s if (!/<מקור>/);
 }
 
 s/\n*(.*?)\n*$/$1\n/s;
