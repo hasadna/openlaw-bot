@@ -568,7 +568,7 @@ sub canonic_name {
 
 sub dump_hash {
 	my $h = shift;
-	return join('; ', map("$_ => '$h->{$_}'", keys($h)));
+	return join('; ', map("$_ => '" . ($h->{$_} // "[undef]") . "'", keys($h)));
 }
 
 
@@ -896,8 +896,6 @@ sub findHREF {
 		$ext = findExtRef($1);
 	}
 	
-	# $_ = $glob{href}{ditto} if (/^(אות[וה] ה?(סעיף|תקנה)|$pre_sig(סעיף|תקנה) האמורה?)$/);
-	
 	s/\(\((.*?)\)\)/$1/g;
 	
 	if (/דברי?[- ]ה?מלך/ and /(סימן|סימנים) \d/) {
@@ -967,9 +965,21 @@ sub findHREF {
 				}
 				$elm{supl} = $glob{supl} if ($glob{supl} && !defined($elm{supl}));
 			}
-			when (/^(אות[והםן]|הה[וי]א|הה[םן])/) {
+			when (/^(אות[והםן]|הה[וי]א|הה[םן]|האמור)/) {
 				$elm{$class} = $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
 				$ext = $glob{href}{ditto}{ext};
+				given ($class) {
+					when (/subs/) {
+						$elm{sect} = $glob{href}{ditto}{sect} unless defined $elm{sect};
+						$elm{part} = $glob{href}{ditto}{part} unless defined $elm{part};
+					}
+					when (/subsub/) {
+						$elm{subs} = $glob{href}{ditto}{subs} unless defined $elm{subs};
+						$elm{sect} = $glob{href}{ditto}{sect} unless defined $elm{sect};
+						$elm{part} = $glob{href}{ditto}{part} unless defined $elm{part};
+					}
+				}
+				# $elm{supl} = $glob{href}{ditto}{supl} unless defined $elm{supl};
 				# print STDERR "DITTO \"$class\"\n";
 				# print STDERR "\t\$ditto: " . dump_hash($glob{href}{ditto}) . "\n";
 				# print STDERR "\t\$elm:   " . dump_hash(\%elm) . "\n";
