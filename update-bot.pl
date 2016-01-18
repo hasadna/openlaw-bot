@@ -15,7 +15,7 @@ use IO::HTML;
 use Storable;
 
 use constant { true => 1, false => 0 };
-use constant { recent_count => 3 };
+use constant { recent_count => 5 };
 
 binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
@@ -303,12 +303,12 @@ sub get_primary_page {
 		$lawid &&= $lawid->attr('href'); $lawid ||= '';
 		$lawid = $1 if ($lawid =~ m/lawitemid=(\d+)/);
 		map { $_ = trim($_->as_text()); } @list;
-		if (!$list[3] || $list[1] eq 'דיני מדינת ישראל') {
+		$url = $url->findnodes('a')->[0];
+		$url &&= $url->attr('href'); $url ||= '';
+		if (!$list[3] || $list[1] eq 'דיני מדינת ישראל' || $url eq '') {
 			@list = get_secondary_entry($lawid);
 			$url = pop @list;
 		} else {
-			$url = $url->findnodes('a')->[0];
-			$url &&= $url->attr('href'); $url ||= '';
 			$url = decode_url($url);
 			$url =~ s|/?\\|/|g;
 			$url =~ s/\.PDF$/.pdf/;
@@ -467,6 +467,7 @@ sub print_fix {
 	
 	$url =~ s/.*?\/(\d+)_lsr_(\d+).pdf/$1:$2/;
 	$url =~ s/.*?\/(\d+)_lsnv_(\d+).pdf/nv:$1:$2/;
+	$url =~ s/.*?\/(\d+)_lsr_ec_(\d+).pdf/ec:$1:$2/;
 	$url ||= $booklet if ($name ne 'ת"ט');
 	
 	if ($last_type && $type eq $last_type) { $type = ''; } else { $last_type = $type; }

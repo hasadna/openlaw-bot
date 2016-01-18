@@ -131,6 +131,7 @@ sub print_fix {
 	if ($url) {
 		$url =~ s/.*?\/(\d+)_lsr_(\d+).pdf/$1:$2/;
 		$url =~ s/.*?\/(\d+)_lsnv_(\d+).pdf/nv:$1:$2/;
+		$url =~ s/.*?\/(\d+)_lsr_ec_(\d+).pdf/ec:$1:$2/;
 		$url ||= $booklet if ($name ne 'ת"ט');
 	}
 	
@@ -245,12 +246,12 @@ sub get_primary_page {
 		$lawid &&= $lawid->attr('href'); $lawid ||= '';
 		$lawid = $1 if ($lawid =~ m/lawitemid=(\d+)/);
 		map { $_ = trim($_->as_text()); } @list;
-		if (!$list[3] || $list[1] eq 'דיני מדינת ישראל') {
+		$url = $url->findnodes('a')->[0];
+		$url &&= $url->attr('href'); $url ||= '';
+		if (!$list[3] || $list[1] eq 'דיני מדינת ישראל' || $url eq '') {
 			@list = get_secondary_entry($lawid);
 			$url = pop @list;
 		} else {
-			$url = $url->findnodes('a')->[0];
-			$url &&= $url->attr('href'); $url ||= '';
 			$url = decode_url($url);
 			$url =~ s|/?\\|/|g;
 			$url =~ s/\.PDF$/.pdf/;
