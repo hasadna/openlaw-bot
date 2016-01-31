@@ -852,6 +852,8 @@ sub process_HREF {
 		if ($found) {
 			(undef,$ext) = findHREF($helper);
 			$ext = $helper if ($ext eq '');
+		} elsif (defined $glob{href}{marks}{$helper}) {
+			$ext = $glob{href}{marks}{$helper};
 		} else {
 			($int,$ext) = findHREF($helper);
 		}
@@ -889,7 +891,7 @@ sub findHREF {
 	my $ext = '';
 	
 	if (/^([ws]:|https?:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/) {
-		return ('',$_);
+		return ('', $_);
 	}
 	
 	if (/^(.*?)#(.*)$/) {
