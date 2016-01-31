@@ -76,7 +76,7 @@ sub compare_law {
 		$res ||= ($a_date || 0) <=> ($b_date || 0);
 	}
 	
-	$res ||= ($a->[3] =~ /^\d+$/ <=> $b->[3] =~ /^\d+$/) || $a->[3] <=> $b->[3];
+	$res ||= $a->[3] <=> $b->[3] if ($a->[3] =~ /^\d+$/ and $b->[3] =~ /^\d+$/);
 	$res ||= $a->[0] cmp $b->[0];
 	return $res;
 }
@@ -88,7 +88,7 @@ my ($last_type, $last_year, $last_id);
 my $first_run;
 
 sub print_line {
-	pop @_;
+#	pop @_;
 	return join('|',@_) . "\n";
 }
 
@@ -193,14 +193,17 @@ sub decode_url {
 
 sub get_primary_page {
 	my $page = shift;
+	my $count = 0;
 #	my $id;
 	my ($tree, @trees);
 	my (@table, @lol);
 	
 	$page = "$primary_prefix=$page" unless ($page =~ /^https?:/);
 	
+	print STDERR "Reading pages... ";
 	while ($page) {
-		print STDERR "Reading HTML file...\n";
+		print STDERR "+";
+		$count++;
 		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 		push @trees, $tree;
 		
@@ -224,9 +227,9 @@ sub get_primary_page {
 		shift @loc_table;
 		@table = (@table, @loc_table);
 	}
-	
+	print STDERR "\n";
 	if (!scalar(@table)) {
-		print "No data.\n";
+		print STDERR "No data.\n";
 		$_->delete() for (@trees);
 		return [];
 	}
@@ -237,7 +240,9 @@ sub get_primary_page {
 	$law_name =~ s/ \[ה?תש.?".\]//;
 	$law_name =~ s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
 	# print "Law $id \"$law_name\"\n";
-
+	
+	my $count2 = 0;
+	
 	foreach my $node (@table) {
 		my @list = $node->findnodes('td');
 		shift @list;
@@ -246,20 +251,29 @@ sub get_primary_page {
 		$lawid &&= $lawid->attr('href'); $lawid ||= '';
 		$lawid = $1 if ($lawid =~ m/lawitemid=(\d+)/);
 		map { $_ = trim($_->as_text()); } @list;
+		
 		$url = $url->findnodes('a')->[0];
 		$url &&= $url->attr('href'); $url ||= '';
+		$url = decode_url($url);
+		$url =~ s|/?\\|/|g;
+		$url =~ s/\.PDF$/.pdf/;
+		
 		if (!$list[3] || $list[1] eq 'דיני מדינת ישראל' || $url eq '') {
-			@list = get_secondary_entry($lawid);
-			$url = pop @list;
-		} else {
-			$url = decode_url($url);
-			$url =~ s|/?\\|/|g;
-			$url =~ s/\.PDF$/.pdf/;
+			print STDERR "Additional...    " unless($count2);
+			print STDERR "+"; $count2++;
+			my @list2 = get_secondary_entry($lawid);
+			if ($list2[3]) {
+				$url = pop @list2;
+				@list = @list2;
+			}
 		}
-		push @list, $lawid, $url, scalar(@lol);
+		
+		push @list, $lawid, $url; #, scalar(@lol);
 		grep(s/^[ \t\xA0]*(.*?)[ \t\xA0]*$/$1/g, @list);
 		push @lol, [@list];
 	}
+	
+	print STDERR "\n" if ($count2>0);
 	$_->delete() for (@trees);
 	return @lol;
 }
