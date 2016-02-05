@@ -191,7 +191,14 @@ foreach my $page_dst (@pages) {
 	$locforce = 0;
 	
 	$text = $bot->get_text($page_src, $revid_s);
-	$text = RunParsers($text);
+	eval {
+		$text = RunParsers($text);
+		1;
+	} or do {
+		print "FAILED!\n";
+		next;
+	};
+	
 	$comment = ( $comment ? "[$revid_s] $comment" : "[$revid_s]" );
 	
 	print STDOUT "$text\n" if ($print || $dryrun);

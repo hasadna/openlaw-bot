@@ -16,12 +16,13 @@ use English;
 use utf8;
 
 use Data::Dumper;
+$Data::Dumper::Useperl = 1;
 
 use constant { true => 1, false => 0 };
 
 our $pre_sig = "ו?כ?ש?[בהלמ]?";
 our $extref_sig = "\\b$pre_sig(חוק|פקוד[הת]|תקנות|צו|החלטה|תקנון|הוראו?ת|הודעה|מנשר|כללים?|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)\\b";
-our $type_sig = "חלק|פרק|סימן( משנה)?|לוח(ות)? השוואה|נספח|תוספת|טופס|לוח|טבל[הא]";
+our $type_sig = "\\b$pre_sig(סעי(?:ף|פים)|תקנ(?:ה|ות)|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])";
 
 sub main() {
 	if ($#ARGV>=0) {
@@ -110,7 +111,7 @@ sub convert {
 	s/^(:+) *(\([^( ]+\)) *(\([^( ]{1,2}\)) *(\([^( ]{1,2}\))/$1 $2\n$1: $3\n$1:: $4/gm;
 	s/^(:+) *(\([^( ]+\)) *(\([^( ]{1,2}\))/$1 $2\n$1: $3/gm;
 #	s/^(:+) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(?| +(.*?)|([-–].*?)|())\n/&parse_line(length($1),$2,$3)/egm;
-	s/^(:+)([-–]?) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|[א-י]\d?\.|)(.*?)\n/&parse_line(length($1),$3,"$2$4")/egm;
+	s/^(:+)([-–]?) *("?\([^( ]+\)|\[[^[ ]+\]|\d+(?:\.\d+)+|\d[^ .]*\.|[א-י]\d?\.|)(.*?)\n/&parse_line(length($1),$3,"$2$4")/egm;
 
 	
 	# Parse file linearly, constructing all ankors and links
@@ -173,7 +174,7 @@ sub parse_section {
 	
 	$type = $_;
 	$type =~ s/\(\(.*?\)\)//g;
-	$type = ($type =~ /\bה?($type_sig)\b/ ? $1 : '');
+	$type = ($type =~ /$type_sig\b/ ? $1 : '');
 	$type = 'משנה' if ($type =~ /סימ(ן|ני) משנה/);
 	$type = 'לוחהשוואה' if ($type =~ /השוואה/);
 	
@@ -250,6 +251,7 @@ sub parse_remark {
 		if ($url) {
 			$url =~ s/^ *(.*?) *$/$1/;
 			$url = "http://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
+			$url = "http://fs.knesset.gov.il/$2/law/$2_lsr_$1_$3.pdf" if ($url =~ /^(ec):(\d+):(\d+)$/);
 			$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^([a-z]+):(\d+):(\d+)$/);
 			$url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
 			$url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
@@ -565,6 +567,11 @@ sub canonic_name {
 	return $_;
 }
 
+sub dump_hash {
+	my $h = shift;
+	return join('; ', map("$_ => '" . ($h->{$_} // "[undef]") . "'", keys($h)));
+}
+
 
 #---------------------------------------------------------------------
 
@@ -845,6 +852,8 @@ sub process_HREF {
 		if ($found) {
 			(undef,$ext) = findHREF($helper);
 			$ext = $helper if ($ext eq '');
+		} elsif (defined $glob{href}{marks}{$helper}) {
+			$ext = $glob{href}{marks}{$helper};
 		} else {
 			($int,$ext) = findHREF($helper);
 		}
@@ -870,7 +879,7 @@ sub process_HREF {
 	} else {
 		$text = $int;
 	}
-	$glob{href}{ditto} = $text;
+	# $glob{href}{ditto} = $text;
 	
 	return "$type $text";
 }
@@ -882,15 +891,13 @@ sub findHREF {
 	my $ext = '';
 	
 	if (/^([ws]:|https?:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/) {
-		return ('',$_);
+		return ('', $_);
 	}
 	
 	if (/^(.*?)#(.*)$/) {
 		$_ = $2;
 		$ext = findExtRef($1);
 	}
-	
-	$_ = $glob{href}{ditto} if (/^(אות[וה] ה?(סעיף|תקנה)|$pre_sig(סעיף|תקנה) האמורה?)$/);
 	
 	s/\(\((.*?)\)\)/$1/g;
 	
@@ -916,6 +923,7 @@ sub findHREF {
 	s/^ *(.*?) *$/$1/;
 	s/לוח השוואה/לוחהשוואה/;
 	s/סימ(ן|ני) משנה/משנה/;
+	s/(אות[והםן]) $type_sig/$2 $1/g;
 	
 	my $href = $_;
 	my @parts = split /[ ,.\-\)]+/;
@@ -960,6 +968,25 @@ sub findHREF {
 				}
 				$elm{supl} = $glob{supl} if ($glob{supl} && !defined($elm{supl}));
 			}
+			when (/^(אות[והםן]|הה[וי]א|הה[םן]|האמור)/) {
+				$elm{$class} = $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
+				$ext = $glob{href}{ditto}{ext};
+				given ($class) {
+					when (/subs/) {
+						$elm{sect} = $glob{href}{ditto}{sect} unless defined $elm{sect};
+						$elm{part} = $glob{href}{ditto}{part} unless defined $elm{part};
+					}
+					when (/subsub/) {
+						$elm{subs} = $glob{href}{ditto}{subs} unless defined $elm{subs};
+						$elm{sect} = $glob{href}{ditto}{sect} unless defined $elm{sect};
+						$elm{part} = $glob{href}{ditto}{part} unless defined $elm{part};
+					}
+				}
+				# $elm{supl} = $glob{href}{ditto}{supl} unless defined $elm{supl};
+				# print STDERR "DITTO \"$class\"\n";
+				# print STDERR "\t\$ditto: " . dump_hash($glob{href}{ditto}) . "\n";
+				# print STDERR "\t\$elm:   " . dump_hash(\%elm) . "\n";
+			}
 			default {
 				$num = get_numeral($_);
 				$class = "chap_" if ($num ne '' && $class eq '');
@@ -973,6 +1000,15 @@ sub findHREF {
 	}
 	
 	$elm{chap} = $elm{chap_} if (defined $elm{chap_} and !defined $elm{chap});
+	$elm{ext} = $ext // '';
+	
+	if (defined $glob{href}{ditto}{ext} and defined $elm{ext} and $glob{href}{ditto}{ext} eq $elm{ext}) {
+		foreach my $key (keys(%elm)) {
+			$glob{href}{ditto}{$key} = $elm{$key};
+		}
+	} else {
+		$glob{href}{ditto} = \%elm;
+	}
 	
 	$href = '';
 	if (defined $elm{comptable}) {
@@ -1033,9 +1069,10 @@ sub findHREF {
 	$href =~ s/  / /g;
 	$href =~ s/^ *(.*?) *$/$1/;
 	
-	# print STDERR "$_ => $elm{$_}; " for (keys %elm);
-	# print STDERR "\n";
-	# print STDERR "GOT |$href|$ext|\n";
+	if (0) {
+		print STDERR "\$elm: " . dump_hash(\%elm) . "\n";
+		print STDERR "GOT |$href|$ext|\n";
+	}
 	return ($href,$ext);
 }	
 

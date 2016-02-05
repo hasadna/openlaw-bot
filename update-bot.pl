@@ -15,10 +15,13 @@ use IO::HTML;
 use Storable;
 
 use constant { true => 1, false => 0 };
-use constant { recent_count => 3 };
+use constant { recent_count => 5 };
 
 binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
+
+sub max ($$) { $_[$_[0] < $_[1]] }
+sub min ($$) { $_[$_[0] > $_[1]] }
 
 
 my $primary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawPrimary.aspx?lawitemid';
@@ -26,7 +29,7 @@ my $secondary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pag
 
 my $page;
 my @pages = ();
-my ($verbose, $dryrun, $dump, $interactive, $recent, $noglobaltodo, $list_arg);
+my ($verbose, $dryrun, $dump, $interactive, $recent, $noglobaltodo, $history, $list_arg);
 my $outfile;
 
 $interactive = 1;
@@ -40,13 +43,14 @@ my $count = recent_count;
 my @global_todo;
 
 GetOptions(
+	"count=i" => \$count,
 	"dryrun" => \$dryrun,
-	"write" => sub { $dryrun = 0; },
+	"full" => \$history,
+	"noglobal" => \$noglobaltodo,
+	"recent=i" => \$count,
 	"save" => \$dump,
 	"verbose" => \$verbose,
-	"recent=i" => \$count,
-	"count=i" => \$count,
-	"noglobal" => \$noglobaltodo,
+	"write" => sub { $dryrun = 0; },
 	"help|?" => \&HelpMessage,
 ) or die("Error in command line arguments\n");
 
@@ -81,7 +85,7 @@ if (scalar(@list)) {
 		@list = @{retrieve("main.dump")};
 	} else {
 		$page = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawReshumot.aspx?t=LawReshumot&st=LawReshumot';
-		# $page .= '&pn=10';
+		# $page .= '&pn=2';
 		@list = get_primary_page($page,1);
 		store \@list, "main.dump" if ($dump);
 	}
@@ -130,12 +134,11 @@ while (my $id = shift @pages) {
 		}
 	}
 	# print_line(@$_) for @list;
-	$count = recent_count if $any_change;
+	$count = max(recent_count,$count) if $any_change;
 }
 
 unless ($noglobaltodo) {
 	update_global_todo();
-	$bot->purge_page('ויקיטקסט:ספר החוקים הפתוח');
 }
 
 $bot->logout();
@@ -238,7 +241,7 @@ sub compare_law {
 		$res ||= ($a_date || 0) <=> ($b_date || 0);
 	}
 	
-	$res ||= ($a->[3] =~ /^\d+$/ <=> $b->[3] =~ /^\d+$/) || $a->[3] <=> $b->[3];
+	$res ||= $a->[3] <=> $b->[3] if ($a->[3] =~ /^\d+$/ and $b->[3] =~ /^\d+$/);
 	$res ||= $a->[0] cmp $b->[0];
 	return $res;
 }
@@ -248,7 +251,7 @@ sub compare_law {
 
 sub get_primary_page {
 	my $page = shift;
-	my $count = shift // 2;
+	my $count = shift // ($history ? 10 : 2);
 	my $id;
 	my ($tree, @trees);
 	my (@table, @lol);
@@ -303,20 +306,25 @@ sub get_primary_page {
 		$lawid &&= $lawid->attr('href'); $lawid ||= '';
 		$lawid = $1 if ($lawid =~ m/lawitemid=(\d+)/);
 		map { $_ = trim($_->as_text()); } @list;
-		if (!$list[3] || $list[1] eq 'דיני מדינת ישראל') {
-			@list = get_secondary_entry($lawid);
-			$url = pop @list;
-		} else {
-			$url = $url->findnodes('a')->[0];
-			$url &&= $url->attr('href'); $url ||= '';
-			$url = decode_url($url);
-			$url =~ s|/?\\|/|g;
-			$url =~ s/\.PDF$/.pdf/;
+		
+		$url = $url->findnodes('a')->[0];
+		$url &&= $url->attr('href'); $url ||= '';
+		$url = decode_url($url);
+		$url =~ s|/?\\|/|g;
+		$url =~ s/\.PDF$/.pdf/;
+		
+		if (!$list[3] || $list[1] eq 'דיני מדינת ישראל' || $url eq '') {
+			my @list2 = get_secondary_entry($lawid);
+			if ($list2[3]) {
+				$url = pop @list2;
+				@list = @list2;
+			}
 		}
 		push @list, $lawid, $url, scalar(@lol);
 		grep(s/^[ \t\xA0]*(.*?)[ \t\xA0]*$/$1/g, @list);
 		push @lol, [@list];
 	}
+	
 	$_->delete() for (@trees);
 	return @lol;
 }
@@ -422,10 +430,7 @@ sub get_secondary_entry {
 	return @entry;
 }
 
-
-
 sub print_line {
-	pop @_;
 	print join('|',@_) . "\n";
 }
 
@@ -467,7 +472,8 @@ sub print_fix {
 	
 	$url =~ s/.*?\/(\d+)_lsr_(\d+).pdf/$1:$2/;
 	$url =~ s/.*?\/(\d+)_lsnv_(\d+).pdf/nv:$1:$2/;
-	$url ||= $booklet if ($name ne 'ת"ט');
+	$url =~ s/.*?\/(\d+)_lsr_ec_(\d+).pdf/ec:$1:$2/;
+	# $url ||= $booklet if ($name ne 'ת"ט');
 	
 	if ($last_type && $type eq $last_type) { $type = ''; } else { $last_type = $type; }
 	if ($last_year && $year eq $last_year) { $year = '' if (!$type); } else { $last_year = $year; }
@@ -595,7 +601,7 @@ sub process_law {
 	
 	for ($i=0, $partial = $prev = ''; $i<@list; $i++) {
 		$partial .= print_fix(@{$list[$i]}) // '';
-		$prev = $partial and $partial = '' if ($list[$i]->[5] eq $last);
+		$prev .= $partial and $partial = '' if ($list[$i]->[5] eq $last);
 	}
 	$i = $list[-1][5];
 	if ($partial) {
@@ -606,7 +612,7 @@ sub process_law {
 	if ($text =~ /^(.*?)\n+(<מקור>.*?)\n\n(.*?)$/s) {
 		# Decompose and recompose text.
 		my $pre = $1; my $post = $3; $text = $2;
-		while ($post =~ s/^(\(\(.*?)\n\n//) { $text .= "\n\n$1"; }
+		while ($post =~ s/^([^\n]{0,20}\(\(.*?)\n\n//) { $text .= "\n\n$1"; }
 		($text, $todo) = update_makor($text, $prev, $partial);
 		$text = "$pre\n\n$text\n\n$post";
 	} else {
@@ -643,7 +649,7 @@ sub process_law {
 		bot => 1, minor => 1,
 	}) if !$dryrun;
 	
-	return if ($count==0);
+	return 1 if ($count==0);
 	
 	$text = $bot->get_text($todo_page);
 	if ($text) {
@@ -686,7 +692,8 @@ sub update_makor {
 	my $text_org = $text;
 	
 	my @urls;
-	while ($str2 =~ /\(\(([^|]*)\|([^|]*?)\|?(\d[\d:_]+|)\)\)([.,;]?)/g) {
+	
+	while ($str2 =~ /\(\(([^|]*)\|([^|]*?)(?|\|([a-z]*:?\d[\d:_]+)|())\)\)([.,;]?)/g) {
 		# print "\t\tDecode, got (($1|$2|$3)).\n" if ($verbose);
 		push @urls, [$1, $2, $3, $4];
 	}
@@ -695,23 +702,68 @@ sub update_makor {
 		return ($text, '');
 	}
 	
+	my $trynext = 0;
+	
+	if ($history) {
+		for ($i = 0; $i < @urls; $i++) {
+			$u = $urls[$i][2] // '';
+			if ($text =~ /\|$u\)\)/) {
+				pos($text) = $+[0]; # $text =~ m/\|$u\)\)/g;
+				while ($str2 =~ s/^.*?\|$u\)\)//s) {};
+				$trynext = 0;
+				next;
+			}
+			$text =~ m/\G[^\n]*?(\(\(.*?\)\))(?!\))/gc || next;
+			my $lastpos = $-[1];
+			my $text2 = $1;
+			$text2 =~ /^\(\(([^|]*)\|([^|]*)\|?([^)|]*)\)\)$/ || next;
+			print "\t\tGot (($urls[$i][0]|$urls[$i][1]|$urls[$i][2])) and $text2.\n" if ($verbose);
+			if ($1 eq $urls[$i][0] || $2 eq $urls[$i][1]) {
+				$trynext = 0;
+				if (!$u) {
+					# print "\t\tNo URL, next please.\n" if ($verbose);
+					$str2 =~ s/^.*?\)\)//s;
+					next;
+				}
+				$text2 = "(($1|$2|$u))";
+				print "\t\tReplacing '$3' with '$u'\n";
+				$str2 =~ s/^.*?\|$u\)\)//s;
+				pos($text) = $lastpos;
+				$text =~ s/\G(\(\(.*?\)\))(?!\))/$text2/;
+				# Rewind and find next:
+				pos($text) = $lastpos; $text =~ m/\(\(.*?\)\)(?!\))/g;
+			} else {
+				if (!$trynext) {
+					# Retry next position
+					$trynext = $lastpos;
+					$i--;
+				} else {
+					# We already tried next position, and failed.
+					pos($text) = $trynext; $text =~ m/\(\(.*?\)\)(?!\))/g;
+				}
+			}
+		}
+		# restore str2
+		$str2 = $old.$new;
+	}
+	
 	for ($i = @urls-1; $i>=0; $i--) {
 		$u = $urls[$i][2] || next;
 		if ($text =~ /\|$u\)\)/) {
 			pos($text) = $+[0]; # $text =~ m/\|$u\)\)/g;
-			$str2 =~ s/^.*?\|$u\)\)//s;
+			while ($str2 =~ s/^.*?\|$u\)\)//s) {};
 			last;
 		}
 	}
-	$i++;
-	my $trynext = 0;
+	
+	$i++; $trynext = 0;
 	for (; $i < @urls; $i++) {
 		$u = $urls[$i][2];
 		$text =~ m/\G[^\n]*?(\(\(.*?\)\))(?!\))/gc || last;
 		my $lastpos = $-[1];
 		my $text2 = $1;
 		$text2 =~ /^\(\(([^|]*)\|([^|]*)\|?([^)|]*)\)\)$/ || last;
-		print "\t\tGot $text2 and (($urls[$i][0]|$urls[$i][1])).\n" if ($verbose);
+		print "\t\tGot (($urls[$i][0]|$urls[$i][1])) and $text2.\n" if ($verbose);
 		if ($1 eq $urls[$i][0] || $2 eq $urls[$i][1]) {
 			$trynext = 0;
 			if (!$u) {
@@ -746,7 +798,7 @@ sub update_makor {
 	$text =~ m/\G[ .,;]*/gc;
 	
 	$text =~ m/(.{0,20})\G(.{0,20})/;
-	print "\t\tPOS is " . pos($text) . "; Now at ... $1 <-G-> $2 ...\n";
+	print "\t\tPOS is " . pos($text) . "; Now at ... $1<-G->$2 ...\n";
 	
 	($text2) = ($text =~ /^(.*)\G/s);
 	
@@ -760,7 +812,7 @@ sub update_makor {
 	
 	$str2 = makor_to_todo($str2);
 	
-	if ($dryrun && $verbose && $text ne $text_org) {
+	if (false && $dryrun && $verbose && $text ne $text_org) {
 		print "\t\$text is \n$text\n";
 		print "\t\$str2 is \n$str2";
 	}
@@ -818,6 +870,7 @@ sub update_global_todo {
 			bot => 1, minor => 1,
 		});
 		$bot->purge_page($page);
+		$bot->purge_page('ויקיטקסט:ספר החוקים הפתוח');
 	}
 }
 
