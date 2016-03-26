@@ -15,9 +15,10 @@ use Getopt::Long;
 use SyntaxLaw;
 
 binmode STDOUT, ":utf8";
+binmode STDERR, ":utf8";
 
 my @pages = ();
-my ($verbose, $dryrun, $force, $editnotice, $print, $onlycheck, $interactive, $recent, $select);
+my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $select);
 my $botpage;
 my $locforce = 0;
 my $outfile;
@@ -25,13 +26,10 @@ my $outfile;
 my %processed;
 my ($page, $id, $text);
 
-$editnotice = 1;
-
 GetOptions(
 	"force" => \$force, 
 	"check" => \$onlycheck,
 	"dryrun" => \$dryrun,
-	"editnotice" => \$editnotice,
 	"verbose" => \$verbose,
 #	"OUTPUT=s" => sub { $print = 1; open(STDOUT, ">_[1]"); },
 	"output" => \$print,
@@ -73,7 +71,7 @@ unless (@pages) {
 	if (defined $select) {
 		$select = convert_regexp(decode_utf8($select));
 		@pages = grep { /^$select/ } @pages;
-		print scalar(@pages) . " pages math selector \'$select\'. \n";
+		print "Found " . scalar(@pages) . " pages with selector '$select'.\n";
 	}
 }
 
@@ -89,24 +87,41 @@ if ($recent) {
 }
 
 if ($recent) {
-	# Check for additional pages at משתמש:OpenLawBot/הוספה
+	# Check additional actions at משתמש:OpenLawBot/הוספה
 	$page = decode_utf8("משתמש:OpenLawBot/הוספה");
 	$text = $bot->get_text($page) // "";
+	my @actions = parse_actions($text);
+	my @text = split(/\n/, $text);
+	my $res;
 	
-	my @new_pages = ($text =~ /\[\[(.*?)(?:\|.*?)?\]\]/g);
-	if (scalar(@new_pages)>0) {
-		map {s/^\s*(?:מקור:|)\s*(.*?)\s*$/-f $1/} @new_pages;
-		print "ADDING " . scalar(@new_pages) . " new pages: " . join(", ", @new_pages) . "\n";
-		$bot->edit( {
-			page      => $page,
-			text      => decode_utf8("רשימת דפים להוספה על ידי הבוט\n* ...\n"),
-			summary   => decode_utf8("תודה"),
-			bot       => 1,
-			minor     => 0,
-			assertion => 'bot',
-		}) unless ($onlycheck || $dryrun);
-		@pages = (@new_pages, @pages);
+	foreach my $cmd (@actions) {
+		my $line = $cmd->{line};
+		if ($cmd->{action} eq 'add') {
+			$res = process_law("-f $cmd->{what}");
+		} elsif ($cmd->{action} eq 'move') {
+			$res = move_page($cmd->{what}->[0], $cmd->{what}->[1]);
+		} else {
+			next;
+		}
+		my $status = ($res =~ s/^([vx]) *//) ? $1 : " ";
+		next if ($status eq ' ');
+		$res = $text[$line] . ($res ? " – $res" : "");
+		$res =~ s/^([:*]+) */$1 {{$status}} /;
+		$text[$line] = $res;
 	}
+	
+	$text = join("\n", @text);
+	$text .= "\n";
+	$text =~ s/\n{2,}/\n/g;
+	
+	$bot->edit( {
+		page      => $page,
+		text      => $text,
+		summary   => decode_utf8("תודה"),
+		bot       => 1,
+		minor     => 0,
+		assertion => 'bot',
+	}) unless ($onlycheck || $dryrun);
 }
 
 if ($onlycheck and $force) {
@@ -128,13 +143,34 @@ foreach my $page_dst (@pages) {
 		push(@pages, '-');
 	}
 	
+	process_law($page_dst);
+	
+	last if ($recent and $recent > 10);
+	
+}
+
+$page = 'ויקיטקסט:ספר החוקים הפתוח';
+$bot->purge_page($page);
+
+$bot->logout();
+
+exit 0;
+1;
+
+#-------------------------------------------------------------------------------
+
+sub process_law {
+	my $page_dst = shift;
+	my $res = '';
+	
 	$locforce = ($page_dst =~ s/^-f //);
 	$page_dst =~ s/^ *(.*?) *$/$1/;
-	$page_dst =~ s/ /_/g;
+	# $page_dst =~ s/ /_/g;
+	$page_dst =~ s/_/ /g;
 	my $page_src = decode_utf8("מקור:") . $page_dst;
 	
 	if ($recent) {
-		next if defined $processed{$page_dst};
+		return "" if defined $processed{$page_dst};
 		$processed{$page_dst} = '';
 	}
 	
@@ -150,6 +186,7 @@ foreach my $page_dst (@pages) {
 	print "ID $revid_s " . ($update?'>':'=') . " $revid_t";
 	if (!$src_ok) {
 		print ", Source not exist.\n";
+		$res = "x [[$page_src|דף מקור]] לא קיים";
 		$done = 1;
 	} elsif (!$dst_ok) {
 		print ", Target not exist.\n";
@@ -173,13 +210,13 @@ foreach my $page_dst (@pages) {
 	if ($recent and $recent>0 and $src_ok and !$update) {
 		if (++$recent > 10) { # No more recent updated, early exit
 			print "Consecutive not-modified in recent changes; done for now.\n";
-			last;
+			return $res;
 		}
 	} elsif ($recent and $recent>0 and $update) {
 		$recent = 1;
 	}
 	
-	next if ($done);
+	return $res if ($done);
 	
 	$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *// || $comment =~ s/ \[.*/.../ if ($comment =~ /העבירה? את הדף/);
 	if ($comment =~ /^יצירת דף עם התוכן "/) {
@@ -195,8 +232,10 @@ foreach my $page_dst (@pages) {
 		1;
 	} or do {
 		print "FAILED!\n";
-		next;
+		return "x בעיה בהמרה";
 	};
+	
+	$res = "v [[$page_dst]] " . ($dst_ok ? "עודכן" : "נוצר");
 	
 	$comment = ( $comment ? "[$revid_s] $comment" : "[$revid_s]" );
 	
@@ -207,8 +246,6 @@ foreach my $page_dst (@pages) {
 			bot => 1, minor => 0, assertion => 'bot'});
 		# $bot->protect($page, $reason, $editlvl, $movelvl, $time, $cascade);
 	}
-	
-	next unless $editnotice;
 	
 	# Check editnotice and update if neccessary
 	$page = "Mediawiki:Editnotice-0-$page_dst";
@@ -240,7 +277,7 @@ foreach my $page_dst (@pages) {
 	if (!defined $id && !$dryrun) {
 		$bot->edit({
 			page => $page, text => decode_utf8("#הפניה [[שיחה:$page_dst]]"),
-			summary => decode_utf8("הפנייה"), minor => 1,
+			summary => "הפניה", minor => 1,
 		});
 	}
 	$page = "שיחה:$page_dst";
@@ -252,15 +289,37 @@ foreach my $page_dst (@pages) {
 		});
 	}
 	
+	$text = "#הפניה [[$page_dst]]";
+	$page = $page_dst =~ s/־/-/gr;
+	unless ($bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+	$page = $page_dst =~ s/(?<=a[א-ת])-(?=[א-ת])/ /gr;
+	unless ($bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+	$page = $page_dst =~ s/ – / - /gr;
+	unless ($bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+	
+	return $res;
 }
 
-$page = 'ויקיטקסט:ספר החוקים הפתוח';
-$bot->purge_page($page);
-
-$bot->logout();
-
-exit 0;
-1;
+sub move_page {
+	my $src = shift;
+	my $dst = shift;
+	return "x לא ניתן להעביר דף אל עצמו" if ($src eq $dst);
+	return "x הדף [[$src]] לא קיים" unless $bot->get_id($src);
+	return "x הדף [[מקור:$src]] לא קיים" unless $bot->get_id("מקור:$src");
+	return "x דף היעד [[מקור:$dst]] קיים" if $bot->get_id("מקור:$dst");
+	print "MOVE '$src' to '$dst'.\n";
+	unless ($dryrun) {
+		$bot->move("מקור:$src", "מקור:$dst", "העברה", {movetalk => 1, noredirect => 1, movesubpages => 1});
+		$bot->move($src, $dst, "העברה", {movetalk => 1, movesubpages => 1});
+		$bot->edit({
+			page => "שיחת מקור:$dst", text => "#הפניה [[שיחה:$dst]]",
+			summary => "הפניה", minor => 1
+		});
+		$bot->move("Mediawiki:Editnotice-0-$src", "Mediawiki:Editnotice-0-$dst", "העברה", {noredirect => 1});
+		$bot->move("Mediawiki:Editnotice-116-$src", "Mediawiki:Editnotice-116-$dst", "העברה", {noredirect => 1});
+	}
+	return "v";
+}
 
 
 sub RunParsers {
@@ -276,6 +335,7 @@ sub RunParsers {
 	$str3 .= decode_utf8("\n[[קטגוריה:בוט חוקים]]\n");
 	return $str3;
 }
+
 
 sub load_credentials {
 	my %obj;
@@ -315,6 +375,36 @@ sub get_revid {
 	
 	return ($revid_s,$revid_t,$comment);
 }
+
+
+sub parse_actions {
+	my @_ = split(/\n/, shift);
+	my @actions;
+	my $line = -1;
+	foreach my $_ (@_) {
+		$line++;
+		next if !(/^ *\*/) || /{{v}}/ || /{{x}}/;
+		if (/\[\[(.*?)\]\].*?\[\[(.*?)\]\]/) {
+			# print STDERR "MOVE '$1' to '$2'\n";
+			push @actions, { line => $line, action => 'move', what => [clean_name($1), clean_name($2)] };
+		} elsif (/\[\[(.*?)\]\]/) {
+			# print STDERR "ADD '$1'\n";
+			push @actions, { line => $line, action => 'add', what => clean_name($1) };
+		}
+	}
+	return @actions;
+}
+
+sub clean_name {
+	my $_ = shift;
+	s/\[\[(.*?)\|?.*?\]\]/$1/;
+	s/^ *(.*?) *$/$1/;
+	s/^מקור: *//;
+	s/, ה?תש.?".?-\d{4}$//;
+	s/ {2,}/ /g;
+	return $_;
+}
+
 
 sub convert_regexp {
 	my $_ = shift;
