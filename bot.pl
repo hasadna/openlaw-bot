@@ -25,6 +25,7 @@ my $outfile;
 
 my %processed;
 my ($page, $id, $text);
+my $bot_page = decode_utf8("משתמש:OpenLawBot/הוספה");
 
 GetOptions(
 	"force" => \$force, 
@@ -87,9 +88,8 @@ if ($recent) {
 }
 
 if ($recent) {
-	# Check additional actions at משתמש:OpenLawBot/הוספה
-	$page = decode_utf8("משתמש:OpenLawBot/הוספה");
-	$text = $bot->get_text($page) // "";
+	# Check additional actions at משתמש:OpenLawBot/הוספה	
+	$text = $bot->get_text($bot_page) // "";
 	my @actions = parse_actions($text);
 	my @text = split(/\n/, $text);
 	my $res;
@@ -115,7 +115,7 @@ if ($recent) {
 	$text =~ s/\n{2,}/\n/g;
 	
 	$bot->edit( {
-		page      => $page,
+		page      => $bot_page,
 		text      => $text,
 		summary   => decode_utf8("תודה"),
 		bot       => 1,
