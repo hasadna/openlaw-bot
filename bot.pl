@@ -105,8 +105,9 @@ if ($recent) {
 		}
 		my $status = ($res =~ s/^([vx]) *//) ? $1 : " ";
 		next if ($status eq ' ');
-		$res = $text[$line] . ($res ? " – $res" : "");
-		$res =~ s/^([:*]+) */$1 {{$status}} /;
+		# $res = $text[$line] . ($res ? " – $res" : "");
+		$text[$line] =~ /^([:*]+)/;
+		$res = "$1 {{$status}} $res";
 		$text[$line] = $res;
 	}
 	
