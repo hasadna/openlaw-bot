@@ -845,21 +845,20 @@ sub update_global_todo {
 		my $count = shift @global_todo;
 		$total += $count;
 		$laws++;
-		if ($text =~ /^[ *]*\[\[שיחה:$name(?:\|[^\[\]]*|)\]\](?: {{מוקטן\|(\d+)}})/g) {
+		if ($text =~ /^[ *]*\[\[שיחה:$name(?:\|[^\[\]]*|)\]\] {{מוקטן\|(\d+)}}/mg) {
 			pos($text) = $-[0];
-			$count += $2 // 0;
-			$text =~ s/\G.*/* [[שיחה:$name|]] {{מוקטן|$count}}\n/m;
+			$count += $1 // 0;
+			$text =~ s/\G.*\n?/* [[שיחה:$name|]] {{מוקטן|$count}}\n/m;
 		} else {
 			$text .= "* [[שיחה:$name|]] {{מוקטן|$count}}\n";
 		}
 	}
+	$text =~ s/\n\n/\n/g;
 	$text .= "</div>\n";
 	
 	return if ($laws == 0 || $total == 0);
 	
-	my $summary = "הוספת ";
-	$summary .= ($total>1 ? "$total עדכונים" : "עדכון אחד");
-	$summary .= ($laws>1 ? " ב-$laws חוקים" : " בחוק אחד");
+	my $summary = "הוספת " . ($total>1 ? "$total עדכונים" : "עדכון אחד") . ($laws>1 ? " ב-$laws חוקים" : " בחוק אחד");
 	
 	if ($dryrun) {
 		print "Global todo list ($summary).\n";

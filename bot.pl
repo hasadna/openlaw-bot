@@ -236,7 +236,7 @@ sub process_law {
 		return "x בעיה בהמרה";
 	};
 	
-	$res = "v [[$page_dst]] " . ($dst_ok ? "עודכן" : "נוצר");
+	$res = "v " . ($dst_ok ? "עודכן" : "נוצר") ." [[$page_dst]]";
 	
 	$comment = ( $comment ? "[$revid_s] $comment" : "[$revid_s]" );
 	
@@ -293,7 +293,7 @@ sub process_law {
 	$text = "#הפניה [[$page_dst]]";
 	$page = $page_dst =~ s/־/-/gr;
 	unless ($bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-	$page = $page_dst =~ s/(?<=a[א-ת])-(?=[א-ת])/ /gr;
+	$page = $page_dst =~ s/(?<=[א-ת])-(?=[א-ת])/ /gr;
 	unless ($bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
 	$page = $page_dst =~ s/ – / - /gr;
 	unless ($bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
