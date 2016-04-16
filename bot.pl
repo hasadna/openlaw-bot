@@ -66,11 +66,11 @@ if (@pages and $recent) {
 
 unless (@pages) {
 	# Get category list
-	my $cat = decode_utf8('קטגוריה:בוט חוקים');
+	my $cat = "קטגוריה:בוט חוקים";
 	@pages = $bot->get_pages_in_category($cat);
 	print "CATEGORY contains " . scalar(@pages) . " pages.\n";
 	if (defined $select) {
-		$select = convert_regexp(decode_utf8($select));
+		$select = convert_regexp($select);
 		@pages = grep { /^$select/ } @pages;
 		print "Found " . scalar(@pages) . " pages with selector '$select'.\n";
 	}
@@ -105,7 +105,6 @@ if ($recent) {
 		}
 		my $status = ($res =~ s/^([vx]) *//) ? $1 : " ";
 		next if ($status eq ' ');
-		# $res = $text[$line] . ($res ? " – $res" : "");
 		$text[$line] =~ /^([:*]+)/;
 		$res = "$1 {{$status}} $res";
 		$text[$line] = $res;
@@ -116,12 +115,8 @@ if ($recent) {
 	$text =~ s/\n{2,}/\n/g;
 	
 	$bot->edit( {
-		page      => $bot_page,
-		text      => $text,
-		summary   => decode_utf8("תודה"),
-		bot       => 1,
-		minor     => 0,
-		assertion => 'bot',
+		page => $bot_page, text => $text, summary => "תודה",
+		bot => 1, minor => 0, assertion => 'bot',
 	}) unless ($onlycheck || $dryrun);
 }
 
@@ -168,7 +163,7 @@ sub process_law {
 	$page_dst =~ s/^ *(.*?) *$/$1/;
 	# $page_dst =~ s/ /_/g;
 	$page_dst =~ s/_/ /g;
-	my $page_src = decode_utf8("מקור:") . $page_dst;
+	my $page_src = "מקור:$page_dst";
 	
 	if ($recent) {
 		return "" if defined $processed{$page_dst};
@@ -180,7 +175,18 @@ sub process_law {
 	my $dst_ok = ($revid_t>0);
 	
 	print "PAGE \x{202B}\"$page_dst\"\x{202C}:\t";
-	
+	if (!$src_ok && $bot->get_id($page_dst)) {
+		$text = $bot->get_text($page_dst);
+		if ($text =~ /#(?:הפניה|Redirect) \[\[(?:מקור:|)(.*?)\]\]/) {
+			print "redirection to \"$1\".\n";
+			$page_dst = $1;
+			$page_src = "מקור:$page_dst";
+			($revid_s, $revid_t, $comment) = get_revid($bot, $page_dst);
+			$src_ok = ($revid_s>0);
+			$dst_ok = ($revid_t>0);
+			print "PAGE \x{202B}\"$page_dst\"\x{202C}:\t";
+		}
+	}
 	my $update = ($revid_t<$revid_s);
 	my $done = 0;
 	
@@ -257,7 +263,7 @@ sub process_law {
 		} else {
 			print "Creating editnotice '$page_dst'.\n";
 			$bot->edit({
-				page => $page, text => decode_utf8("{{הודעת עריכה חוקים}}"),
+				page => $page, text => "{{הודעת עריכה חוקים}}",
 				summary => "editnotice", minor => 1,
 			});
 		}
@@ -267,7 +273,7 @@ sub process_law {
 	$id = $bot->get_id($page);
 	if (!defined $id && !$dryrun) {
 		$bot->edit({
-			page    => $page, text => decode_utf8("{{הודעת עריכה חוקים}}"),
+			page    => $page, text => "{{הודעת עריכה חוקים}}",
 			summary => "editnotice", minor => 1,
 		});
 	}
@@ -277,7 +283,7 @@ sub process_law {
 	$id = $bot->get_id($page);
 	if (!defined $id && !$dryrun) {
 		$bot->edit({
-			page => $page, text => decode_utf8("#הפניה [[שיחה:$page_dst]]"),
+			page => $page, text => "#הפניה [[שיחה:$page_dst]]",
 			summary => "הפניה", minor => 1,
 		});
 	}
@@ -308,6 +314,7 @@ sub move_page {
 	return "x הדף [[$src]] לא קיים" unless $bot->get_id($src);
 	return "x הדף [[מקור:$src]] לא קיים" unless $bot->get_id("מקור:$src");
 	return "x דף היעד [[מקור:$dst]] קיים" if $bot->get_id("מקור:$dst");
+	return "x לא ניתן להעביר את [[$src]] אל [[$dst]]" unless $bot->get_id("Mediawiki:Editnotice-0-$src");
 	print "MOVE '$src' to '$dst'.\n";
 	unless ($dryrun) {
 		$bot->move("מקור:$src", "מקור:$dst", "העברה", {movetalk => 1, noredirect => 1, movesubpages => 1});
@@ -319,7 +326,7 @@ sub move_page {
 		$bot->move("Mediawiki:Editnotice-0-$src", "Mediawiki:Editnotice-0-$dst", "העברה", {noredirect => 1});
 		$bot->move("Mediawiki:Editnotice-116-$src", "Mediawiki:Editnotice-116-$dst", "העברה", {noredirect => 1});
 	}
-	return "v";
+	return "v דף [[$src]] הועבר לדף [[$dst]]";
 }
 
 
