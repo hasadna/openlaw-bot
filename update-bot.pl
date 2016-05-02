@@ -133,7 +133,6 @@ while (my $id = shift @pages) {
 			$processed{$id2} = $law_name;
 		}
 	}
-	# print_line(@$_) for @list;
 	$count = max(recent_count,$count) if $any_change;
 }
 
@@ -227,6 +226,7 @@ sub decode_url {
 
 
 #-------------------------------------------------------------------------------
+
 sub compare_law {
 	my ($a, $b) = @_;
 	my $a_date = $a->[4] =~ s/.*?(\d{1,2})(.)(\d{1,2})\2(\d{4}).*?/sprintf("%04d%02d%02d",$4,$3,$1)/re;
@@ -248,6 +248,14 @@ sub compare_law {
 
 #-------------------------------------------------------------------------------
 
+sub law_name {
+	my $_ = shift;
+	s/^[ \n]*(.*?)[ \n]*$/$1/;
+	s/, (ה?תש.?".[-–])?\d{4}//;
+	s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
+	# print "Law is \"$law_name\"\n";
+	return $_;
+}
 
 sub get_primary_page {
 	my $page = shift;
@@ -291,13 +299,8 @@ sub get_primary_page {
 		return [];
 	}
 
-	$law_name = $tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]');
-	$law_name =~ s/^[ \n]*(.*?)[ \n]*$/$1/;
-	$law_name =~ s/, ([א-ת"]*-)?\d{4}//;
-	$law_name =~ s/ \[ה?תש.?".\]//;
-	$law_name =~ s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
-	# print "Law $id \"$law_name\"\n";
-
+	$law_name = law_name($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
+	
 	foreach my $node (@table) {
 		my @list = $node->findnodes('td');
 		shift @list;
@@ -368,10 +371,7 @@ sub get_secondary_page {
 		return ();
 	}
 	
-	$law_name = $tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]');
-	$law_name =~ s/^[ \n]*(.*?)[ \n]*$/$1/;
-	$law_name =~ s/, ([א-ת"]*-)?\d{4}//;
-	$law_name =~ s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
+	$law_name = law_name($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
 	# print "Law $id \"$law_name\"\n";
 	
 	foreach my $node (@table) {
@@ -403,10 +403,7 @@ sub get_secondary_entry {
 	# print "Reading HTML file $page...\n";
 	$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 	
-	my $law_name = $tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]');
-	$law_name =~ s/^[ \n]*(.*?)[ \n]*$/$1/;
-	$law_name =~ s/, ([א-ת"]*-)?\d{4}//;
-	$law_name =~ s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
+	my $law_name = law_name($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
 	# print "Law $id \"$law_name\"\n";
 	
 	@table = $tree->findnodes('//table[@id = "tblMainProp"]//td');
@@ -429,6 +426,8 @@ sub get_secondary_entry {
 	$tree->delete();
 	return @entry;
 }
+
+#-------------------------------------------------------------------------------
 
 sub print_line {
 	print join('|',@_) . "\n";
@@ -846,21 +845,20 @@ sub update_global_todo {
 		my $count = shift @global_todo;
 		$total += $count;
 		$laws++;
-		if ($text =~ /^[ *]*\[\[שיחה:$name(?:\|[^\[\]]*|)\]\](?: {{מוקטן\|(\d+)}})/g) {
+		if ($text =~ /^[ *]*\[\[שיחה:$name(?:\|[^\[\]]*|)\]\] {{מוקטן\|(\d+)}}/mg) {
 			pos($text) = $-[0];
-			$count += $2 // 0;
-			$text =~ s/\G.*/* [[שיחה:$name|]] {{מוקטן|$count}}\n/m;
+			$count += $1 // 0;
+			$text =~ s/\G.*\n?/* [[שיחה:$name|]] {{מוקטן|$count}}\n/m;
 		} else {
 			$text .= "* [[שיחה:$name|]] {{מוקטן|$count}}\n";
 		}
 	}
+	$text =~ s/\n\n/\n/g;
 	$text .= "</div>\n";
 	
 	return if ($laws == 0 || $total == 0);
 	
-	my $summary = "הוספת ";
-	$summary .= ($total>1 ? "$total עדכונים" : "עדכון אחד");
-	$summary .= ($laws>1 ? " ב-$laws חוקים" : " בחוק אחד");
+	my $summary = "הוספת " . ($total>1 ? "$total עדכונים" : "עדכון אחד") . ($laws>1 ? " ב-$laws חוקים" : " בחוק אחד");
 	
 	if ($dryrun) {
 		print "Global todo list ($summary).\n";
