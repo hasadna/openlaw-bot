@@ -24,16 +24,16 @@ sub max ($$) { $_[$_[0] < $_[1]] }
 sub min ($$) { $_[$_[0] > $_[1]] }
 
 
-my $primary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawPrimary.aspx?lawitemid';
-my $secondary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid';
+my $primary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawPrimary.aspx?lawitemid=';
+my $secondary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid=';
 
 my $page;
 my @pages = ();
 my ($verbose, $dryrun, $dump, $interactive, $recent, $noglobaltodo, $history, $list_arg);
 my $outfile;
 
-$interactive = 1;
-$dryrun = 1;
+$interactive = true;
+$dryrun = true;
 
 my @list;
 my $law_name;
@@ -50,7 +50,7 @@ GetOptions(
 	"recent=i" => \$count,
 	"save" => \$dump,
 	"verbose" => \$verbose,
-	"write" => sub { $dryrun = 0; },
+	"write" => sub { $dryrun = false; },
 	"help|?" => \&HelpMessage,
 ) or die("Error in command line arguments\n");
 
@@ -79,6 +79,7 @@ if (scalar(@list)) {
 	map s/#//, @list;
 	@pages = @list;
 	$recent = false;
+	$history = true;
 } else {
 	print "Reading update list.\n";
 	if (0 and $dump and -f "main.dump") {
@@ -107,7 +108,7 @@ while (my $id = shift @pages) {
 			@list = @{$tt->{list}};
 			$law_name = $tt->{name};
 		} else {
-			$page = "$secondary_prefix=$id";
+			$page = $secondary_prefix.$id;
 			@list = get_secondary_page($page);
 			my %tt = ('list' => \@list, 'name' => $law_name);
 			store \%tt, "$id.dump" if ($dump);
@@ -264,7 +265,7 @@ sub get_primary_page {
 	my ($tree, @trees);
 	my (@table, @lol);
 	
-	$page = "$primary_prefix=$page" unless ($page =~ /^https?:/);
+	$page = $primary_prefix.$page unless ($page =~ /^https?:/);
 	
 	while ($page && $count>0) {
 		# print "Reading HTML file...\n";
@@ -339,7 +340,7 @@ sub get_secondary_page {
 	my ($tree, @trees);
 	my (@table, @lol);
 	
-	$page = "$secondary_prefix=$page" unless ($page =~ /^https?:/);
+	$page = $secondary_prefix.$page unless ($page =~ /^https?:/);
 	
 	while ($page) {
 		# print "Reading HTML file $page...\n";
@@ -398,7 +399,7 @@ sub get_secondary_entry {
 	my (@table, @lol);
 	my @entry;
 	
-	$page = "$secondary_prefix=$page" unless ($page =~ /^https?:/);
+	$page = $secondary_prefix.$page unless ($page =~ /^https?:/);
 	
 	# print "Reading HTML file $page...\n";
 	$tree = HTML::TreeBuilder::XPath->new_from_url($page);
@@ -522,7 +523,9 @@ sub poorman_hebrewyear {
 sub process_law {
 	my $id = shift;
 	my $last = 0;
-	my $page = "http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawPrimary.aspx?lawitemid=$id";
+	my $page = $primary_prefix.$id;
+	my $new = 0;
+	
 	my ($src_page, $text, $todo);
 	
 	my @list;
@@ -544,21 +547,26 @@ sub process_law {
 	$text = $bot->get_text($src_page);
 	if (!$text) {
 		$text = $bot->get_text($law_name);
-		if (!$text) {
+		if (!$text && scalar(@list)==1) {
+			print "\tPage '$law_name' not found, new law.\n";
+			$text = "";
+			$new = 1;
+		}
+		elsif (!$text) {
 			print "\tPage '$law_name' not found.\n";
 			return 0;
 		}
-		if ($text =~ /#(?:הפניה|Redirect) \[\[(?:מקור:|)(.*?)\]\]/) {
+		elsif ($text =~ /#(?:הפניה|Redirect) \[\[(?:מקור:|)(.*?)\]\]/) {
 			print "\tRedirection '$law_name' to '$1'.\n";
 			$law_name = $1;
+			$src_page = "מקור:$law_name";
+			$text = $bot->get_text($src_page);
+			if (!$text) {
+				print "\tPage '$src_page' not found.\n";
+				return 0;
+			}
 		} else {
 			print "\tPage '$law_name' found, but page '$src_page' does not exist.\n";
-			return 0;
-		}
-		$src_page = "מקור:$law_name";
-		$text = $bot->get_text($src_page);
-		if (!$text) {
-			print "\tPage '$src_page' not found.\n";
 			return 0;
 		}
 	}
@@ -571,14 +579,19 @@ sub process_law {
 	
 	my $text_org = $text;
 	
-	print "\tPage '$src_page' found, size " . length($text) . ".\n";
+	print "\tPage '$src_page' found, size " . length($text) . ".\n" unless ($new);
 	
 	$text =~ s/^ +//s;
 	$text =~ s/^= *([^\n]*?) *= *\n/<שם> $1\n/s;
 	$text =~ s/^<שם>[ \n]+(.*?) *\n/<שם> $1\n/s;
 	
 	print "\tChecking page: ";
-	if ($text !~ /<מאגר[ א-ת]* (\d+)(?: *(?|תי?קון|עדכון) *(\d+)|) *>/ || !defined $1) {
+	if ($new) {
+		$last = 0;
+		$text = "<שם> $law_name\n\n";
+		$text .= "<מאגר $id תיקון 0>\n\n";
+		$text .= "<מקור> \n\n";
+	} elsif ($text !~ /<מאגר[ א-ת]* (\d+)(?: *(?|תי?קון|עדכון) *(\d+)|) *>/ || !defined $1) {
 		print "\tID is $id; no last update [0].\n";
 		$last = 0;
 		$text =~ /<שם>.+?\n+/g;
@@ -633,6 +646,8 @@ sub process_law {
 	
 	print "\tLast update: <מאגר $id תיקון $i>\n";
 	
+	print "SOURCE TEXT: >>>>\n$text<<<<\n" if ($dryrun && $verbose);
+	
 	my $count = () = ($todo =~ /^\*+ /mg);
 	
 	# Page was modified, update WIKI
@@ -642,6 +657,7 @@ sub process_law {
 	
 	my $summary = ($count==1 ? "בוט: עדכון לחוק" : "בוט: $count עדכונים לחוק");
 	$summary = 'בוט: קישורים' if $count==0;
+	$summary = 'בוט: חוק חדש' if $new;
 	print "\tUpdating page with summary \"$summary\"\n";
 	$bot->edit({
 		page => $src_page, text => $text, summary => $summary,
@@ -650,6 +666,8 @@ sub process_law {
 	
 	return 1 if ($count==0);
 	
+	$todo .= "* הוספת חוק חדש [[משתמש:OpenLawBot/הוספה|לבוט]]\n" if $new;
+	
 	$text = $bot->get_text($todo_page);
 	if ($text) {
 		$text =~ s/\n+$//s;
@@ -657,6 +675,8 @@ sub process_law {
 	} else {
 		$text = "<noinclude>{{מטלות}}</noinclude>\n$todo";
 	}
+	
+	print "TODO TEXT: >>>>\n$text<<<<\n" if ($dryrun && $verbose);
 	
 	unless ($dryrun) {
 		$bot->edit({
