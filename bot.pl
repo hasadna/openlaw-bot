@@ -193,7 +193,7 @@ sub process_law {
 	print "ID $revid_s " . ($update?'>':'=') . " $revid_t";
 	if (!$src_ok) {
 		print ", Source not exist.\n";
-		$res = "x [[$page_src|דף מקור]] לא קיים";
+		$res = "x דף מקור [[$page_src]] לא קיים";
 		$done = 1;
 	} elsif (!$dst_ok) {
 		print ", Target not exist.\n";

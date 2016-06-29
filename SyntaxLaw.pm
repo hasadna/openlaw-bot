@@ -62,6 +62,7 @@ sub convert {
 		# Throw away BIDI characters if LRE/RLE/PDF exists
 		tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 	}
+	tr/\x{FEFF}//d;    # Unicode marker
 	tr/\x{2000}-\x{200A}\x{205F}/ /; # Convert typographic spaces
 	tr/\x{200B}-\x{200D}//d;         # Remove zero-width spaces
 	tr/־–—‒―/-/;        # Convert typographic dashes
@@ -432,7 +433,7 @@ sub get_fixstr {
 	my $_ = shift;
 	my @fix = ();
 	my $fix_sig = '(?:תיקון|תקון|תיקונים):?';
-	push @fix, unquote($1) while (s/(?| *\($fix_sig *(.*?) *\)| *\[$fix_sig *(.*?) *\])//);
+	push @fix, unquote($1) while (s/(?| *\($fix_sig *(.*?) *\)(?!\))| *\[$fix_sig *(.*?) *\](?!\]))//);
 	s/^ *(.*?) *$/$1/;
 	s/\bה(תש[א-ת"]+)\b/$1/g for (@fix);
 	return ($_, join(', ',@fix));
