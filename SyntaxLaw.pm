@@ -1078,6 +1078,7 @@ sub findHREF {
 				# print STDERR "\t\$elm:   " . dump_hash(\%elm) . "\n";
 			}
 			default {
+				s/^[לב]-(\d.*)/$1/;
 				$num = get_numeral($_);
 				$class = "chap_" if ($num ne '' && $class eq '');
 			}
