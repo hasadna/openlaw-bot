@@ -46,7 +46,7 @@ sub convert {
 	
 	s/^ *(.*?) *$/$1/g;
 
-	s/(<שם>.*<\/שם>)\n?/&parse_title($1)/e;
+	s/(<שם>.*<\/שם>)\n?/&parse_title($1)/se;
 	s/(<מקור>.*<\/מקור>)\n?/&parse_bib($1)/se;
 	s/(<הקדמה>.*<\/הקדמה>)\n?/&parse_preface($1)/se;
 	s/(<חתימות>.*<\/חתימות>)\n?/&parse_signatures($1)/se;
@@ -73,7 +73,7 @@ __PACKAGE__->main() unless (caller);
 
 sub parse_title {
 	my ($str, %attr) = parse_attr(shift);
-	$str =~ s/ *<תיקון>.*?<\/תיקון> *//g;
+	$str =~ s/\s*<תיקון>.*?<\/תיקון>\s*//gs;
 	$str = escape_template($str);
 	$str = "{{ח:כותרת|$str}}\n";
 	return $str;
