@@ -127,7 +127,7 @@ sub convert {
 	s/ *__NOTOC__//g;
 	s/ *__NOSUB__//g;
 	
-	s/(\{\|.*?\n\|\})\s*\n?/&parse_wikitable($1)/egs;
+	s/(\{\|.*?\n\|\}) *\n?/&parse_wikitable($1)/egs;
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<[\\\/](ויקי)?\>)/&unescape_text($1) . "<\/ויקי>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
@@ -452,8 +452,8 @@ sub parse_wikitable {
 		$out .= "</table>\n";
 	}
 	
-	# Remove trailing line-ending (b/c)
-	$out =~ s/\n$//s;
+	# # Remove trailing line-ending (b/c)
+	# $out =~ s/\n$//s;
 	
 	# special case: don't return empty table
 	if ( $out eq "<table>\n<tr><td></td></tr>\n</table>" ) {
