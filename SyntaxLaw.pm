@@ -1058,7 +1058,7 @@ sub findHREF {
 				}
 				$elm{supl} = $glob{supl} if ($glob{supl} && !defined($elm{supl}));
 			}
-			when (/^(אות[והםן]|הה[וי]א|הה[םן]|האמור)/) {
+			when (/^(אות[והםן]|הה[וי]א|הה[םן]|האמור|שב[הו])/) {
 				$elm{$class} = $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
 				$ext = $glob{href}{ditto}{ext};
 				given ($class) {
