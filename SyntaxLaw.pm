@@ -261,7 +261,7 @@ sub parse_link {
 	$txt =~ s/\(\((.*?)\)\)/$1/g;
 	($id,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$id); 
 	$str = "<קישור";
-	$str .= " עוגן=\"$id\"" if ($id);
+	$str .= " $id" if ($id);
 	$str .= ">$txt</קישור>";
 	$str =~ s/([()])\1/$1\x00$1/g unless ($str =~ /\(\(.*\)\)/); # Avoid splitted comments
 	return $str;
@@ -680,8 +680,15 @@ sub linear_parser {
 		$idx++;
 	}
 	
-	$line[$_] = "<קישור $hrefs{$_}>" for (keys %hrefs);
-	$line[$_] =~ s/<(קטע דרגה="\d").*?>/<$1 עוגן="$sections{$_}">/ for (keys %sections);
+	for (keys %hrefs) {
+		$hrefs{$_} =~ /(\d*);(.*)/;
+		my $type = $1;
+		my $href = escape_quote($2);
+		$line[$_] = "<קישור סוג=\"$type\" עוגן=\"$href\">";
+	}
+	for (keys %sections) {
+		$line[$_] =~ s/<(קטע דרגה="\d").*?>/<$1 עוגן="$sections{$_}">/;
+	}
 	
 	return join('',@line);
 }
@@ -709,7 +716,7 @@ sub parse_element {
 		}
 		when (/^קישור/) {
 			$glob{context} = 'href';
-			($params) = ($params =~ /(?|.*עוגן="(.*?)"|())/);
+			# ($params) = ($params =~ /(?|.*עוגן="(.*?)"|()/);
 			# print STDERR "GOT href at $idx with |$params|\n";
 			$glob{href}{helper} = $params || '';
 			$glob{href}{txt} = '';
@@ -951,7 +958,6 @@ sub process_HREF {
 	}
 	
 	## print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
-	$ext = escape_quote($ext);
 	
 	if ($ext) {
 		$helper = $ext =~ s/[-: ]+/ /gr;
@@ -961,7 +967,7 @@ sub process_HREF {
 		if ($type==3 || $update_lookahead) {
 			$glob{href}{last} = $ext;
 			for (@{$glob{href}{ahead}}) {
-				$hrefs{$_} =~ s/עוגן="\+(#.*?|)"/עוגן="$ext$1"/;
+				$hrefs{$_} =~ s/\+(#.*?|)/$ext$1/;
 				# print STDERR "## X |$hrefs{$_}|\n";
 			}
 			$glob{href}{ahead} = [];
@@ -971,7 +977,7 @@ sub process_HREF {
 	}
 	# $glob{href}{ditto} = $text;
 	
-	return "סוג=\"$type\" עוגן=\"$text\"";
+	return "$type;$text";
 }
 
 sub findHREF {
