@@ -109,10 +109,9 @@ sub convert {
 	s/^\n?(:+)([-–]?) *("?\([^( ]+\)|\[[^[ ]+\]|\d+(?:\.\d+)+|\d[^ .]*\.|[א-י]\d?\.|)( +.*?|)\n/&parse_line(length($1),$3,"$2$4")/egm;
 	
 	# Move container tags if needed
-	my $container_tags = "מקור|הקדמה|ת+";
-	my $structure_tags = "<($container_tags|קטע|סעיף|חתימות)|__TOC__";
-	s/(\n?<\/הקדמה>)(.*?)(?=\s*($structure_tags))/$2$1/sg;
-	s/(\n?<\/(?:$container_tags)>)(.*?)(?=\s*(<מפריד.*?>\s*)?($structure_tags))/$2$1/sg;
+	my $structure_tags = "<(מקור|הקדמה|ת+|קטע|סעיף|חתימות)|__TOC__";
+	s/(\n?<\/(?:הקדמה|מקור)>)(.*?)(?=\s*($structure_tags))/$2$1/sg;
+	s/(\n?<\/ת+>)(.*?)(?=\s*(<מפריד.*?>\s*)?($structure_tags))/$2$1/sg;
 	# Add <סעיף> marker after <קטע> if not found
 	s/(<\/קטע.*?>\s*+)(?!<(קטע|סעיף|חתימות))/$1<סעיף><\/סעיף>\n/g;
 	
