@@ -90,7 +90,7 @@ sub convert {
 	s/^<חתימות> *\n?(((\*.*\n)+)|(.*\n))/&parse_signatures($1)/egm;
 	s/^<מקור> *\n?(.*)\n/\n<מקור>\n$1\n<\/מקור>\n/m;
 	s/^<(?:מבוא|הקדמה)> *\n?(.*)\n/<הקדמה>\n$1\n<\/הקדמה>\n\n/m;
-	s/^-{3,}$/<מפריד>/gm;
+	s/^-{3,}$/<מפריד\/>/gm;
 	
 	# Parse structured elements
 	s/^(=+)(.*?)\1\n/&parse_section(length($1),$2)/egm;
@@ -104,6 +104,7 @@ sub convert {
 	s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
 	s/^(:+) *(\([^( ]+\)) *(\([^( ]{1,2}\)) *(\([^( ]{1,2}\))/$1 $2\n$1: $3\n$1:: $4/gm;
 	s/^(:+) *(\([^( ]+\)) *(\([^( ]{1,2}\))/$1 $2\n$1: $3/gm;
+	s/^:+-? *$//gm;
 	# s/^(:+) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(?| +(.*?)|([-–].*?)|())\n/&parse_line(length($1),$2,$3)/egm;
 	s/^\n?(:+)([-–]?) *("?\([^( ]+\)|\[[^[ ]+\]|\d+(?:\.\d+)+|\d[^ .]*\.|[א-י]\d?\.|)( +.*?|)\n/&parse_line(length($1),$3,"$2$4")/egm;
 	
@@ -174,9 +175,9 @@ sub parse_section {
 	
 	if (/^\((.*?)\)$/) {
 		$num = '';
-	} elsif (/^\((.*?)\) */) {
-		$num = $1;
-		$str =~ s/^\((.*?)\) *//;
+	# } elsif (/^\((.*?)\) */) {
+	#	$num = $1;
+	#	$str =~ s/^\((.*?)\) *//;
 	} elsif (/^(.+?)( *:| +[-])/) {
 		$num = get_numeral($1);
 	} elsif (/^((?:[^ (]+( +|$)){2,3})/) {
@@ -200,7 +201,7 @@ sub parse_section {
 	$str .= ">";
 	$str .= "<תיקון>$fix</תיקון>" if ($fix);
 	$str .= "<אחר>[$extra]</אחר>" if ($extra);
-	$str .= "$_";
+	$str .= $_;
 	$str .= "</קטע>\n\n";
 	return $str;
 }
@@ -323,7 +324,7 @@ sub parse_pubdate {
 #---------------------------------------------------------------------
 
 sub parse_wikitable {
-	# Based on [mediawiki/core.git]/includes/parser/Parser.php doTableStuff() function
+	# Based on [mediawiki/core.git]/includes/parser/Parser.php doTableStuff()
 	my @lines = split(/\n/,shift);
 	my $out = '';
 	my ($last_tag, $previous);
