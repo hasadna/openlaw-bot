@@ -122,6 +122,8 @@ sub convert {
 	s/(?<=[^\[])\[\[ *(.*?) *\]\](?=[^\]])/&parse_link('',$1)/egm;
 	s/(?<!\()(\(\((.*?)\)\)([^(]*?\)\))?)(?!\))/&parse_remark($1)/egs;
 	
+	# s/\x00//g; return $_;
+	
 	# Parse file linearly, constructing all ankors and links
 	$_ = linear_parser($_);
 	s/__TOC__/&insert_TOC()/e;
@@ -259,7 +261,7 @@ sub parse_link {
 	my ($id,$txt) = @_;
 	my $str;
 	$id = unquote($id);
-	$txt =~ s/\(\((.*?)\)\)/$1/g;
+	# $txt =~ s/\(\((.*?)\)\)/$1/g;
 	($id,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$id); 
 	$str = "<קישור";
 	$str .= " $id" if ($id);
@@ -725,7 +727,7 @@ sub parse_element {
 			$hrefs{$idx} = '';
 			$params = "#" . $idx;
 		}
-		when (/^\// and $glob{context} eq 'href') {
+		when (/^\/קישור/) {
 			my $href_idx = $glob{href}{idx};
 			$hrefs{$href_idx} = process_HREF();
 			# print STDERR "GOT href at $href_idx = |$hrefs{$href_idx}|\n";
@@ -997,6 +999,7 @@ sub findHREF {
 	}
 	
 	s/\(\((.*?)\)\)/$1/g;
+	s/<הערה>(.*?)<\/הערה>/$1/g;
 	
 	if (/דברי?[- ]ה?מלך/ and /(סימן|סימנים) \d/) {
 		s/(סימן|סימנים)/סעיף/;
