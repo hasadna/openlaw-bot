@@ -241,8 +241,8 @@ sub parse_line {
 		$line = $num.$line;
 		$num = '';
 	}
+	$num =~ s/"/&quot;/g;
 	$id = unparent($num);
-	$num =~ s/"/&quote;/g;
 	$len++ if ($num);
 	$type = "ת" x $len;
 	$line =~ s/^ *(.*?) *$/$1/;
