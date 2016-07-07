@@ -5,7 +5,7 @@ package SyntaxLaw;
 
 use Exporter;
 our @ISA = qw(Exporter);
-our $VERSION = "0.0";
+our $VERSION = "1.0";
 our @EXPORT = qw(convert);
 
 use v5.14;
@@ -628,14 +628,6 @@ sub unescape_text {
 	return $_;
 }
 
-sub bracket_match {
-	my $_ = shift;
-	print STDERR "Bracket = $_ -> ";
-	tr/([{<>}])/)]}><{[(/;
-	print STDERR "$_\n";
-	return $_;
-}
-
 sub canonic_name {
 	my $_ = shift;
 	tr/–־/-/;
@@ -928,14 +920,14 @@ sub process_HREF {
 		$type = 3;
 		$helper = $1;
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
-		(undef,$ext) = findHREF($text);
+		(undef,$ext) = findHREF($text,$helper);
 		$glob{href}{marks}{$helper} = $ext;
 	} elsif ($helper =~ /^(.*?) *= *(.*)/) {
 		$type = 3;
 		$ext = $1; $helper = $2;
 		(undef,$helper) = findHREF($text) if ($2 eq '');
-		(undef,$ext) = findHREF($ext);
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
+		(undef,$ext) = findHREF($ext,$helper);
 		$glob{href}{marks}{$helper} = $ext;
 	} elsif ($helper eq '+' || $ext eq '+') {
 		$type = 2;
@@ -985,6 +977,7 @@ sub process_HREF {
 
 sub findHREF {
 	my $_ = shift;
+	my $helper = shift;
 	if (!$_) { return $_; }
 	
 	my $ext = '';
@@ -1068,7 +1061,7 @@ sub findHREF {
 				}
 				$elm{supl} = $glob{supl} if ($glob{supl} && !defined($elm{supl}));
 			}
-			when (/^(אות[והםן]|הה[וי]א|הה[םן]|האמור|שב[הו])/) {
+			when (/^(אות[והםן]|הה[וי]א|הה[םן]|האמורה?|שב[הו])/) {
 				$elm{$class} = $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
 				$ext = $glob{href}{ditto}{ext};
 				given ($class) {
@@ -1103,12 +1096,17 @@ sub findHREF {
 	$elm{chap} = $elm{chap_} if (defined $elm{chap_} and !defined $elm{chap});
 	$elm{ext} = $ext // '';
 	
-	if (defined $glob{href}{ditto}{ext} and defined $elm{ext} and $glob{href}{ditto}{ext} eq $elm{ext}) {
+	if ($helper && defined $glob{href}{ditto}{ext}) {
+		$glob{href}{ditto}{ext} = $helper;
+		# print STDERR "\t\$ditto set to '$ext'.\n";
+	} elsif (defined $glob{href}{ditto}{ext} and defined $elm{ext} and $glob{href}{ditto}{ext} eq $elm{ext}) {
 		foreach my $key (keys(%elm)) {
 			$glob{href}{ditto}{$key} = $elm{$key};
 		}
+		# print STDERR "\t\$ditto of '$ext' set to: " . dump_hash($glob{href}{ditto}) . "\n";
 	} else {
 		$glob{href}{ditto} = \%elm;
+		# print STDERR "\t\$ditto set to: " . dump_hash($glob{href}{ditto}) . "\n";
 	}
 	
 	$href = '';
@@ -1170,7 +1168,7 @@ sub findHREF {
 	$href =~ s/  / /g;
 	$href =~ s/^ *(.*?) *$/$1/;
 	
-	if (0) {
+	if (false) {
 		print STDERR "\$elm: " . dump_hash(\%elm) . "\n";
 		print STDERR "GOT |$href|$ext|\n";
 	}

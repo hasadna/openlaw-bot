@@ -4,7 +4,7 @@ package SyntaxWiki;
 
 use Exporter;
 our @ISA = qw(Exporter);
-our $VERSION = "0.0";
+our $VERSION = "1.0";
 our @EXPORT = qw(convert);
 
 use v5.14;
