@@ -531,6 +531,7 @@ sub get_numeral {
 	my $token = '';
 	s/&quote;/"/g;
 	s/[.,"']//g;
+	s/([א-ת]{3})(\d)/$1-$2/;
 	$_ = unparent($_);
 	while ($_) {
 		$token = '';
