@@ -116,7 +116,7 @@ sub convert {
 	s/(<\/קטע.*?>\s*+)(?!<(קטע|סעיף|חתימות))/$1<סעיף><\/סעיף>\n/g;
 	
 	# Parse links and remarks
-	s/\[\[(?:קובץ:|תמונה:|[Ff]ile:|[Ii]mage:)(.*?)\]\]/<תמונה $1>/gm;
+	s/\[\[(?:קובץ:|תמונה:|[Ff]ile:|[Ii]mage:)(.*?)\]\]/<תמונה>$1<\/תמונה>/gm;
 	
 	s/(?<=[^\[])\[\[ *([^\]]*?) *\| *(.*?) *\]\](?=[^\]])/&parse_link($1,$2)/egm;
 	s/(?<=[^\[])\[\[ *(.*?) *\]\](?=[^\]])/&parse_link('',$1)/egm;
@@ -1063,7 +1063,7 @@ sub findHREF {
 				$elm{supl} = $glob{supl} if ($glob{supl} && !defined($elm{supl}));
 			}
 			when (/^(אות[והםן]|הה[וי]א|הה[םן]|האמורה?|שב[הו])/) {
-				$elm{$class} = $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
+				$elm{$class} ||= $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
 				$ext = $glob{href}{ditto}{ext};
 				given ($class) {
 					when (/subs/) {
