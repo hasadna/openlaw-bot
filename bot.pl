@@ -19,7 +19,7 @@ binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 
 my @pages = ();
-my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $select);
+my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $select, $start);
 my $botpage;
 my $locforce = 0;
 my $outfile;
@@ -37,6 +37,7 @@ GetOptions(
 	"output" => \$print,
 	"recent" => \$recent,
 	"select=s" => \$select,
+	"start=s" => \$start,
 	"help|?" => \&HelpMessage,
 	"" => \$interactive
 ) or die("Error in command line arguments\n");
@@ -70,6 +71,14 @@ unless (@pages) {
 	my $cat = "קטגוריה:בוט חוקים";
 	@pages = $bot->get_pages_in_category($cat);
 	print "CATEGORY contains " . scalar(@pages) . " pages.\n";
+	if (defined $start) {
+		$start = decode_utf8($start);
+		while (my $str = shift @pages) {
+			last if ($str eq $start);
+		}
+		unshift @pages, $start;
+		print "Starting at '$start', up to " . scalar(@pages) . " pages.\n";
+	}
 	if (defined $select) {
 		$select = convert_regexp($select);
 		@pages = grep { /^$select/ } @pages;
