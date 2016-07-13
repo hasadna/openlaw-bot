@@ -1009,6 +1009,7 @@ sub findHREF {
 		$_ = $1;
 	}
 	
+	s/((?:סעי[פף]|תקנ[הת])\S*) (קטן|קטנים|משנה) (\d[^( ]*?)(\(.*?\))/$1 $3 $2 $4/;
 	s/[\(_]/ ( /g;
 	s/(פרי?ט|פרטים) \(/$1/g;
 	s/[\"\']//g;
@@ -1018,7 +1019,6 @@ sub findHREF {
 	s/לוח השוואה/לוחהשוואה/;
 	s/סימ(ן|ני) משנה/משנה/;
 	s/(אות[והםן]) $type_sig/$2 $1/g;
-	
 	my $href = $_;
 	my @parts = split /[ ,.\-\)]+/;
 	my $class = '';
@@ -1062,7 +1062,7 @@ sub findHREF {
 				}
 				$elm{supl} = $glob{supl} if ($glob{supl} && !defined($elm{supl}));
 			}
-			when (/^(אות[והםן]|הה[וי]א|הה[םן]|האמורה?|שב[הו])/) {
+			when (/^([מל]?אות[והםן]|הה[וי]א|הה[םן]|האמורה?|שב[הו])/) {
 				$elm{$class} ||= $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
 				$ext = $glob{href}{ditto}{ext};
 				given ($class) {
