@@ -890,6 +890,8 @@ sub process_HREF {
 	$text = canonic_name($text);
 	$helper = canonic_name($helper);
 	
+	$helper =~ s/\$/ $text /;
+	
 	my ($int,$ext) = findHREF($text);
 	my $marker = '';
 	my $found = false;
