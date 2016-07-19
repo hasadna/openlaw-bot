@@ -942,15 +942,19 @@ sub process_HREF {
 		($int, $ext) = findHREF("+#$text") unless ($found);
 		push @{$glob{href}{ahead}}, $id;
 	} elsif ($helper eq '++' || $ext eq '++') {
-		$type = 2;
+		$type = 3;
 		(undef, $helper) = findHREF("$text");
-		$ext = '+';
+		$ext = "++$helper";
 		push @{$glob{href}{marks_ahead}{$helper}}, $id;
 	} elsif ($helper eq '-' || $ext eq '-') {
 		$type = 2;
 		$ext = $glob{href}{last};
 		($int, undef) = findHREF("-#$text") unless ($found);
 		$update_lookahead = true;
+		if ($ext =~ /\+\+(.*)/) {
+			$helper = $1;
+			push @{$glob{href}{marks_ahead}{$helper}}, $id;
+		}
 	} elsif ($helper) {
 		if ($found) {
 			(undef,$ext) = findHREF($helper);
@@ -977,7 +981,7 @@ sub process_HREF {
 		## print STDERR "$helper is $ext\n";
 		for (@{$glob{href}{marks_ahead}{$helper}}) {
 			## print STDERR "## X replacing |$hrefs{$_}|";
-			$hrefs{$_} =~ s/\+(#.*?|)/$ext$1/;
+			$hrefs{$_} =~ s/\+[^#]*(.*)/$ext$1/;
 			## print STDERR " with |$hrefs{$_}|\n";
 		}
 		$glob{href}{marks_ahead}{$helper} = [];
@@ -989,9 +993,14 @@ sub process_HREF {
 		
 		if ($type==3 || $update_lookahead) {
 			$glob{href}{last} = $ext;
-			for (@{$glob{href}{ahead}}) {
-				$hrefs{$_} =~ s/\+(#.*?|)/$ext$1/;
-				# print STDERR "## X |$hrefs{$_}|\n";
+			if ($ext =~ /\+\+(.*)/) {
+				$helper = $1;
+				push @{$glob{href}{marks_ahead}{$helper}}, @{$glob{href}{ahead}};
+			} else {
+				for (@{$glob{href}{ahead}}) {
+					$hrefs{$_} =~ s/\+[^#]*(.*)/$ext$1/;
+					# print STDERR "## X |$hrefs{$_}|\n";
+				}
 			}
 			$glob{href}{ahead} = [];
 		}
