@@ -897,6 +897,7 @@ sub process_HREF {
 	my $found = false;
 	my $hash = false;
 	my $update_lookahead = false;
+	my $update_mark = false;
 	
 	my $type = ($ext) ? 3 : 1;
 	
@@ -928,18 +929,23 @@ sub process_HREF {
 		$helper = $1;
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
 		(undef,$ext) = findHREF($text,$helper);
-		$glob{href}{marks}{$helper} = $ext;
+		$update_mark = true;
 	} elsif ($helper =~ /^(.*?) *= *(.*)/) {
 		$type = 3;
 		$ext = $1; $helper = $2;
 		(undef,$helper) = findHREF($text) if ($2 eq '');
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
 		(undef,$ext) = findHREF($ext,$helper);
-		$glob{href}{marks}{$helper} = $ext;
+		$update_mark = true;
 	} elsif ($helper eq '+' || $ext eq '+') {
 		$type = 2;
 		($int, $ext) = findHREF("+#$text") unless ($found);
 		push @{$glob{href}{ahead}}, $id;
+	} elsif ($helper eq '++' || $ext eq '++') {
+		$type = 2;
+		(undef, $helper) = findHREF("$text");
+		$ext = '+';
+		push @{$glob{href}{marks_ahead}{$helper}}, $id;
 	} elsif ($helper eq '-' || $ext eq '-') {
 		$type = 2;
 		$ext = $glob{href}{last};
@@ -961,6 +967,21 @@ sub process_HREF {
 	
 	## print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
+	if ($update_mark) {
+		$glob{href}{marks}{$helper} = $ext;
+		unless ($helper =~ /$extref_sig/) {
+			$glob{href}{all_marks} .= "|$helper";
+			$glob{href}{all_marks} =~ s/^\|//;
+			# print STDERR "adding '$helper' to all_marks = '$glob{href}{all_marks}'\n";
+		}
+		## print STDERR "$helper is $ext\n";
+		for (@{$glob{href}{marks_ahead}{$helper}}) {
+			## print STDERR "## X replacing |$hrefs{$_}|";
+			$hrefs{$_} =~ s/\+(#.*?|)/$ext$1/;
+			## print STDERR " with |$hrefs{$_}|\n";
+		}
+		$glob{href}{marks_ahead}{$helper} = [];
+	}
 	if ($ext) {
 		$helper = $ext =~ s/[-: ]+/ /gr;
 		$ext = $glob{href}{marks}{$helper} if ($glob{href}{marks}{$helper});
@@ -1011,6 +1032,9 @@ sub findHREF {
 		$_ = $1;
 		$ext = findExtRef($2) unless ($ext);
 	} elsif (/^(.*?) *$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
+		$ext = "$2$3";
+		$_ = $1;
+	} elsif ($glob{href}{all_marks} and /^(.*?) *\b$pre_sig($glob{href}{all_marks})(.*?)$/) {
 		$ext = "$2$3";
 		$_ = $1;
 	}
