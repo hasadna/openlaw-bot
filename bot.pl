@@ -80,6 +80,7 @@ unless (@pages) {
 		print "Starting at '$start', up to " . scalar(@pages) . " pages.\n";
 	}
 	if (defined $select) {
+		$select = decode_utf8($select);
 		$select = convert_regexp($select);
 		@pages = grep { /^$select/ } @pages;
 		print "Found " . scalar(@pages) . " pages with selector '$select'.\n";
@@ -445,7 +446,8 @@ Process law-source files to wiki-source.
 Optional arguments:
   TITLE                 Wiki titles to fetch by the bot
   -                     Enter interacitve mode
-  [-s|--select] rule    Select titles using basic regexp rule
+  --select rule         Select titles using basic regexp rule
+  --start title         Start processing at specifig title
 
 Optional flags:
   -h, -?, --help        Show this help message and exit
