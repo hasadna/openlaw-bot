@@ -12,13 +12,14 @@ use MediaWiki::Bot;
 use IPC::Run 'run';
 use Getopt::Long;
 
-use SyntaxLaw;
+use SyntaxLaw();
+use SyntaxWiki();
 
 binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 
 my @pages = ();
-my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $select);
+my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $select, $start);
 my $botpage;
 my $locforce = 0;
 my $outfile;
@@ -36,6 +37,7 @@ GetOptions(
 	"output" => \$print,
 	"recent" => \$recent,
 	"select=s" => \$select,
+	"start=s" => \$start,
 	"help|?" => \&HelpMessage,
 	"" => \$interactive
 ) or die("Error in command line arguments\n");
@@ -69,7 +71,16 @@ unless (@pages) {
 	my $cat = "קטגוריה:בוט חוקים";
 	@pages = $bot->get_pages_in_category($cat);
 	print "CATEGORY contains " . scalar(@pages) . " pages.\n";
+	if (defined $start) {
+		$start = decode_utf8($start);
+		while (my $str = shift @pages) {
+			last if ($str eq $start);
+		}
+		unshift @pages, $start;
+		print "Starting at '$start', up to " . scalar(@pages) . " pages.\n";
+	}
 	if (defined $select) {
+		$select = decode_utf8($select);
 		$select = convert_regexp($select);
 		@pages = grep { /^$select/ } @pages;
 		print "Found " . scalar(@pages) . " pages with selector '$select'.\n";
@@ -193,7 +204,7 @@ sub process_law {
 	print "ID $revid_s " . ($update?'>':'=') . " $revid_t";
 	if (!$src_ok) {
 		print ", Source not exist.\n";
-		$res = "x [[$page_src|דף מקור]] לא קיים";
+		$res = "x דף מקור [[$page_src]] לא קיים";
 		$done = 1;
 	} elsif (!$dst_ok) {
 		print ", Target not exist.\n";
@@ -338,7 +349,8 @@ sub RunParsers {
 	
 	# run \@cmd1, \$str1, \$str2, *STDERR;
 	$str2 = SyntaxLaw::convert($str1);
-	run \@cmd2, \$str2, \$str3, *STDERR;
+	# run \@cmd2, \$str2, \$str3, *STDERR;
+	$str3 = SyntaxWiki::convert($str2);
 	$str3 = decode_utf8($str3);
 	$str3 .= decode_utf8("\n[[קטגוריה:בוט חוקים]]\n");
 	return $str3;
@@ -408,7 +420,7 @@ sub clean_name {
 	s/\[\[(.*?)\|?.*?\]\]/$1/;
 	s/^ *(.*?) *$/$1/;
 	s/^מקור: *//;
-	s/, ה?תש.?".?-\d{4}$//;
+	s/, (ה?תש.?".?-)?\d{4}$//;
 	s/ {2,}/ /g;
 	return $_;
 }
@@ -434,7 +446,8 @@ Process law-source files to wiki-source.
 Optional arguments:
   TITLE                 Wiki titles to fetch by the bot
   -                     Enter interacitve mode
-  [-s|--select] rule    Select titles using basic regexp rule
+  --select rule         Select titles using basic regexp rule
+  --start title         Start processing at specifig title
 
 Optional flags:
   -h, -?, --help        Show this help message and exit
