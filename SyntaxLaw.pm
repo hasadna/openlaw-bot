@@ -72,7 +72,7 @@ sub convert {
 	tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
 	tr/;/;/;            # Convert wrong OCRed semicolon
 	s/[ ]{2,}/ /g;      # Pack  long spaces
-	s/ -- / — /g;
+	s/ -{2,4} / — /g;
 	
 	s/\[\[קטגוריה:.*?\]\] *\n?//g;  # Ignore categories (for now)
 	
