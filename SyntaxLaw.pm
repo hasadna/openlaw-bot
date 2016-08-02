@@ -20,9 +20,9 @@ $Data::Dumper::Useperl = 1;
 
 use constant { true => 1, false => 0 };
 
-our $pre_sig = "ו?כ?ש?מ?[בהל]?";
-our $extref_sig = "\\b$pre_sig(חוק|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודעה|מנשר|כללים?|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)\\b";
-our $type_sig = "\\b$pre_sig(סעי(?:ף|פים)|תקנ(?:ה|ות)|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])";
+our $pre_sig = '\bו?כ?ש?מ?[בהל]?';
+our $extref_sig = $pre_sig . '(חוק|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודעה|מנשר|כללים?|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)\b';
+our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
 our $chp_sig = '\d+(?:[^ ,.:;"\n\[\]()]{0,3}?\.|(?:\.\d+)+\.?)';
 
 sub main() {
@@ -1057,7 +1057,7 @@ sub findHREF {
 	s/^ *(.*?) *$/$1/;
 	s/לוח השוואה/לוחהשוואה/;
 	s/סימ(ן|ני) משנה/משנה/;
-	s/(אות[והםן]) $type_sig/$2 $1/g;
+	s/$pre_sig(אות[והםן]) $type_sig/$2 $1/g;
 	my $href = $_;
 	my @parts = split /[ ,.\-\)]+/;
 	my $class = '';
@@ -1167,9 +1167,10 @@ sub findHREF {
 		$href = "טופס $elm{form}" if defined $elm{form};
 		$href = "לוח $elm{tabl}" if defined $elm{tabl};
 		$href = "טבלה $elm{tabl2}" if defined $elm{tabl2};
-		$href = "$href חלק $elm{part}" if (defined $elm{part});
-		$href = "$href פרק $elm{sect}" if (defined $elm{sect});
-		$href = "$href סימן $elm{subs}" if (defined $elm{subs});
+		$href .= " חלק $elm{part}" if (defined $elm{part});
+		$href .= " פרק $elm{sect}" if (defined $elm{sect});
+		$href .= " סימן $elm{subs}" if (defined $elm{subs});
+		$href .= " פרט $elm{supchap}" if (defined $elm{supchap});
 	} elsif (defined $elm{part}) {
 		$href = "חלק $elm{part}";
 		$href .= " פרק $elm{sect}" if (defined $elm{sect});
