@@ -56,6 +56,8 @@ tr/״”“„‟″‶/"/;      # Convert typographic double quotes
 tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
 tr/;/;/;            # Convert wrong OCRed semicolon
 
+tr/\x{FEFF}\x{FFFC}-\x{FFFF}//d;    # Unicode placeholders and junk
+
 # Hebrew ligatures and alternative forms
 tr/ﬠﬡﬢﬣﬤﬥﬦﬧﬨ/עאדהכלםרת/;
 # Keep hebrew plus sign - tr/﬩/+/;
