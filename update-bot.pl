@@ -23,7 +23,7 @@ binmode STDERR, ":utf8";
 sub max ($$) { $_[$_[0] < $_[1]] }
 sub min ($$) { $_[$_[0] > $_[1]] }
 
-
+my $recent_page = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawReshumot.aspx?t=LawReshumot&st=LawReshumot';
 my $primary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawPrimary.aspx?lawitemid=';
 my $secondary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid=';
 
@@ -85,7 +85,7 @@ if (scalar(@list)) {
 	if (0 and $dump and -f "main.dump") {
 		@list = @{retrieve("main.dump")};
 	} else {
-		$page = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawReshumot.aspx?t=LawReshumot&st=LawReshumot';
+		$page = $recent_page;
 		# $page .= '&pn=2';
 		@list = get_primary_page($page,1);
 		store \@list, "main.dump" if ($dump);
@@ -228,7 +228,7 @@ sub decode_url {
 
 #-------------------------------------------------------------------------------
 
-sub compare_law {
+sub sort_laws {
 	my ($a, $b) = @_;
 	my $a_date = $a->[4] =~ s/.*?(\d{1,2})(.)(\d{1,2})\2(\d{4}).*?/sprintf("%04d%02d%02d",$4,$3,$1)/re;
 	my $b_date = $b->[4] =~ s/.*?(\d{1,2})(.)(\d{1,2})\2(\d{4}).*?/sprintf("%04d%02d%02d",$4,$3,$1)/re;
@@ -609,7 +609,7 @@ sub process_law {
 	my ($partial, $prev) = '';
 	
 	@list = reverse @list;
-	@list = sort { compare_law($a,$b) } @list;
+	@list = sort { sort_laws($a,$b) } @list;
 	
 	for ($i=0, $partial = $prev = ''; $i<@list; $i++) {
 		$partial .= print_fix(@{$list[$i]}) // '';
@@ -693,6 +693,7 @@ sub process_law {
 			});
 		}
 		$bot->purge_page($todo_page);
+		$bot->purge_page($talk_page);
 	}
 	
 	# Push [$lawname,$count] at front
