@@ -244,9 +244,9 @@ sub process_law {
 	
 	$locforce = 0;
 	
-	$text = $bot->get_text($page_src, $revid_s);
+	my $src_text = $bot->get_text($page_src, $revid_s);
 	eval {
-		$text = RunParsers($text);
+		$text = RunParsers($src_text);
 		1;
 	} or do {
 		print "FAILED!\n";
@@ -308,13 +308,19 @@ sub process_law {
 	}
 	
 	$text = "#הפניה [[$page_dst]]";
-	$page = $page_dst =~ s/־/-/gr;
-	unless ($bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-	$page = $page_dst =~ s/(?<=[א-ת])-(?=[א-ת])/ /gr;
-	unless ($bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-	$page = $page_dst =~ s/ – / - /gr;
-	unless ($bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-	
+	while ($src_text =~ /^<שם(?: קודם|)> *(.*?) *$/gm) {
+		$page_dst = $1;
+		$page_dst =~ s/ *\(תיקון:.*?\)$//;
+		$page_dst =~ s/, *(ה?תש.?["״].[\-־–])?\d{4}$//;
+		print STDERR "Check redirection of '$page_dst'.\n" if $dryrun;
+		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+		$page = $page_dst =~ s/־/-/gr;
+		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+		$page = $page_dst =~ s/(?<=[א-ת])[\-־](?=[א-ת])/ /gr;
+		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+		$page = $page_dst =~ s/ – / - /gr;
+		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+	}
 	return $res;
 }
 
