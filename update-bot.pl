@@ -584,6 +584,7 @@ sub process_law {
 	
 	$alt_names = join('|', $text =~ /^<שם(?: קודם)?>[ \n]+(.*?), *(?:ה?תש.?["״].[\-־–])?\d{4} *(?:\(תיקון:.*?\) *)?$/mg);
 	print "\tLaw name(s) is '$alt_names'\n";
+	$alt_names =~ s/([()])/\\$1/g;
 	
 	$text =~ s/^ +//s;
 	$text =~ s/^= *([^\n]*?) *= *\n/<שם> $1\n/s;
