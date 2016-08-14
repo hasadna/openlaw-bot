@@ -37,6 +37,7 @@ $dryrun = true;
 
 my @list;
 my $law_name;
+my $alt_names;
 my %processed;
 my $count = recent_count;
 
@@ -99,7 +100,7 @@ if (scalar(@list)) {
 while (my $id = shift @pages) {
 	last if $recent and $count-- <= 0;
 	my $any_change = 0;
-	if ($id>2000000 && !$recent) {
+	if ($id>2000000 && $id<2002000 && !$recent) {
 		@list = ($id);
 	} else {
 		print "Reading secondary #$id ";
@@ -460,13 +461,13 @@ sub print_fix {
 	# $law_name = ($name =~ s/ *\[.*?\]//gr) if ($first_run);
 	
 	$name =~ s/\bמס\. $/מס' /;
-	$name =~ s/ (ב|של |)$law_name$//;
+	$name =~ s/ (ב|של |)(?:$law_name|$alt_names)$//;
 	$name =~ s/^תיקון טעות.*/ת"ט/;
 	$name =~ s/\((מס' \d\S*?)\)/(תיקון $1)/;
 	$name =~ s/^(?:חוק לתיקון |)$law_name \((.*?)\)/ $1/;
 	$name =~ s/חוק לתיקון פקודת/תיקון לפקודת/;
 	$name =~ s/^(?:חוק לתיקון |תיקון ל|)(\S.*?) \((תי?קון .*?)\)(.*)/$2 $3 ל$1/;
-	$name =~ s/ *ל$law_name//;
+	$name =~ s/ *(?:$law_name|$alt_names)//;
 	$name =~ s/ *(.*?) */$1/;
 	$name =~ s/ {2,}/ /g;
 	
@@ -580,6 +581,9 @@ sub process_law {
 	my $text_org = $text;
 	
 	print "\tPage '$src_page' found, size " . length($text) . ".\n" unless ($new);
+	
+	$alt_names = join('|', $text =~ /^<שם(?: קודם)?>[ \n]+(.*?), *(?:ה?תש.?["״].[\-־–])?\d{4} *(?:\(תיקון:.*?\) *)?$/mg);
+	print "\tLaw name(s) is '$alt_names'\n";
 	
 	$text =~ s/^ +//s;
 	$text =~ s/^= *([^\n]*?) *= *\n/<שם> $1\n/s;
