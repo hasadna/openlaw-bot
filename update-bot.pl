@@ -36,8 +36,7 @@ $interactive = true;
 $dryrun = true;
 
 my @list;
-my $law_name;
-my $alt_names;
+my ($law_name, $alt_names, $full_name);
 my %processed;
 my $count = recent_count;
 
@@ -300,8 +299,9 @@ sub get_primary_page {
 		$_->delete() for (@trees);
 		return [];
 	}
-
-	$law_name = law_name($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
+	
+	$full_name = trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
+	$law_name = law_name($full_name);
 	
 	foreach my $node (@table) {
 		my @list = $node->findnodes('td');
@@ -322,6 +322,8 @@ sub get_primary_page {
 			my @list2 = get_secondary_entry($lawid);
 			if ($list2[3]) {
 				$url = pop @list2;
+				$url ||= '0:0' if $list2[2] eq '2582'; ####
+				$list2[3] = $list[3] if ($list[3]);
 				@list = @list2;
 			}
 		}
@@ -456,18 +458,22 @@ sub print_fix {
 	$name =~ s/,? *ה?(תש.?".)[-–]\d{4}// and $year = $1;
 	$year = poorman_hebrewyear($date,$page);
 	
+	my $law_re = $law_name;
+	$law_re .= "|$alt_names" if ($alt_names);
+	$law_re =~ s/\\?([()\\])/\\$1/g;
+	$law_re = "(?:$law_re)";
+	
 	$name =~ s/ {2,}/ /g;
 	$name =~ s/ *\(חוק מקורי\)//;
 	# $law_name = ($name =~ s/ *\[.*?\]//gr) if ($first_run);
-	
 	$name =~ s/\bמס\. $/מס' /;
-	$name =~ s/ (ב|של |)(?:$law_name|$alt_names)$//;
-	$name =~ s/^תיקון טעות.*/ת"ט/;
+	$name =~ s/ (ב|של |)$law_re$//;
+	$name =~ s/^תיקו(ן|ני) טעו(יו|)ת.*/ת"ט/;
 	$name =~ s/\((מס' \d\S*?)\)/(תיקון $1)/;
-	$name =~ s/^(?:חוק לתיקון |)$law_name \((.*?)\)/ $1/;
+	$name =~ s/^(?:חוק לתיקון )?$law_re \((.*?)\)/ $1/;
 	$name =~ s/חוק לתיקון פקודת/תיקון לפקודת/;
 	$name =~ s/^(?:חוק לתיקון |תיקון ל|)(\S.*?) \((תי?קון .*?)\)(.*)/$2 $3 ל$1/;
-	$name =~ s/ *(?:$law_name|$alt_names)//;
+	$name =~ s/^(\S+) +$law_re/$1/;
 	$name =~ s/ *(.*?) */$1/;
 	$name =~ s/ {2,}/ /g;
 	
@@ -541,7 +547,7 @@ sub process_law {
 		store \%tt, "$id.dump" if ($dump);
 	}
 	
-	print "    Got primary #$id '$law_name'.\n";
+	print "    Got primary #$id '$full_name'.\n";
 	
 	$src_page = "מקור:$law_name";
 	# $src_page =~ s/ /_/g;
@@ -582,7 +588,7 @@ sub process_law {
 	
 	print "\tPage '$src_page' found, size " . length($text) . ".\n" unless ($new);
 	
-	$alt_names = join('|', $text =~ /^<שם(?: קודם)?>[ \n]+(.*?), *(?:ה?תש.?["״].[\-־–])?\d{4} *(?:\(תיקון:.*?\) *)?$/mg);
+	$alt_names = join('|', $text =~ /^<שם(?: קודם)?>[ \n]+(.*?)(?:, *(?:ה?תש.?["״].[\-־–])?\d{4})? *(?:\(תיקון:.*?\) *)?$/mg);
 	print "\tLaw name(s) is '$alt_names'\n";
 	$alt_names =~ s/([()])/\\$1/g;
 	
@@ -593,9 +599,9 @@ sub process_law {
 	print "\tChecking page: ";
 	if ($new) {
 		$last = 0;
-		$text = "<שם> $law_name\n\n";
+		$text = "<שם> $full_name\n\n";
 		$text .= "<מאגר $id תיקון 0>\n\n";
-		$text .= "<מקור> \n\n";
+		$text .= "<מקור> <!-- חוק חדש -->\n\n";
 	} elsif ($text !~ /<מאגר[ א-ת]* (\d+)(?: *(?|תי?קון|עדכון) *(\d+)|) *>/ || !defined $1) {
 		print "\tID is $id; no last update [0].\n";
 		$last = 0;
@@ -651,12 +657,15 @@ sub process_law {
 	
 	print "\tLast update: <מאגר $id תיקון $i>\n";
 	
-	print "SOURCE TEXT: >>>>\n$text<<<<\n" if ($dryrun && $verbose);
+	if ($dryrun && $verbose) {
+		$text =~ /^(.{0,1000})/s;
+		print "SOURCE TEXT: >>>>\n$1<<<<\n";
+	}
 	
 	my $count = () = ($todo =~ /^\*+ /mg);
 	
 	# Page was modified, update WIKI
-	$src_page = "מקור:$law_name";
+	#  $src_page = "מקור:$law_name";
 	my $talk_page = "שיחה:$law_name";
 	my $todo_page = "שיחה:$law_name/מטלות";
 	
@@ -668,9 +677,7 @@ sub process_law {
 		page => $src_page, text => $text, summary => $summary,
 		bot => 1, minor => 1,
 	}) if !$dryrun;
-	
-	return 1 if ($count==0);
-	
+		
 	$todo .= "* הוספת חוק חדש [[משתמש:OpenLawBot/הוספה|לבוט]]\n" if $new;
 	
 	$text = $bot->get_text($todo_page);
@@ -680,6 +687,9 @@ sub process_law {
 	} else {
 		$text = "<noinclude>{{מטלות}}</noinclude>\n$todo";
 	}
+	
+	# return 1 if ($count==0);
+	
 	
 	print "TODO TEXT: >>>>\n$text<<<<\n" if ($dryrun && $verbose);
 	
@@ -711,7 +721,7 @@ sub process_law {
 sub update_makor {
 	my ($text, $old, $new) = @_;
 	my $i = 0;
-	my (@uuu, $u);
+	my (@uuu, $u, $p, $n);
 	my $text2;
 	my $str2 = $old.$new;
 	my $text_org = $text;
@@ -731,7 +741,7 @@ sub update_makor {
 	
 	if ($history) {
 		for ($i = 0; $i < @urls; $i++) {
-			$u = $urls[$i][2] // '';
+			$p = $urls[$i][0]; $n = $urls[$i][1]; $u = $urls[$i][2] // '';
 			if ($text =~ /\|$u\)\)/) {
 				pos($text) = $+[0]; # $text =~ m/\|$u\)\)/g;
 				while ($str2 =~ s/^.*?\|$u\)\)//s) {};
@@ -742,16 +752,22 @@ sub update_makor {
 			my $lastpos = $-[1];
 			my $text2 = $1;
 			$text2 =~ /^\(\(([^|]*)\|([^|]*)\|?([^)|]*)\)\)$/ || next;
-			print "\t\tGot (($urls[$i][0]|$urls[$i][1]|$urls[$i][2])) and $text2.\n" if ($verbose);
-			if ($1 eq $urls[$i][0] || $2 eq $urls[$i][1]) {
+			# print "\t\tGot (($p|$n|$u)) and $text2.\n" if ($verbose);
+			if ($1 eq $p || $2 eq $n) {
 				$trynext = 0;
 				if (!$u) {
 					# print "\t\tNo URL, next please.\n" if ($verbose);
 					$str2 =~ s/^.*?\)\)//s;
 					next;
 				}
-				$text2 = "(($1|$2|$u))";
-				print "\t\tReplacing '$3' with '$u'\n";
+				$text2 = "(($p|$2|$u))";
+				if ($1 eq $p) {
+					print "\t\tReplacing '$3' with '$u'\n";
+				} else {
+					print "\t\tReplacing '$1' with '$p' and '$3' with '$u'\n";
+				}
+				# $text2 = "(($1|$2|$u))";
+				# print "\t\tReplacing '$3' with '$u'\n";
 				$str2 =~ s/^.*?\|$u\)\)//s;
 				pos($text) = $lastpos;
 				$text =~ s/\G(\(\(.*?\)\))(?!\))/$text2/;
@@ -783,30 +799,34 @@ sub update_makor {
 	
 	$i++; $trynext = 0;
 	for (; $i < @urls; $i++) {
-		$u = $urls[$i][2];
+		$p = $urls[$i][0]; $n = $urls[$i][1]; $u = $urls[$i][2] // '';
 		$text =~ m/\G[^\n]*?(\(\(.*?\)\))(?!\))/gc || last;
 		my $lastpos = $-[1];
 		my $text2 = $1;
 		$text2 =~ /^\(\(([^|]*)\|([^|]*)\|?([^)|]*)\)\)$/ || last;
-		print "\t\tGot (($urls[$i][0]|$urls[$i][1])) and $text2.\n" if ($verbose);
-		if ($1 eq $urls[$i][0] || $2 eq $urls[$i][1]) {
+		print "\t\tGot (($p|$n)) and $text2.\n" if ($verbose);
+		if ($1 eq $p || $2 eq $n) {
 			$trynext = 0;
 			if (!$u) {
 				print "\t\tNo URL, next please.\n" if ($verbose);
 				$str2 =~ s/^.*?\)\)//s;
 				next;
 			}
-			$text2 = "(($1|$2|$u))";
-			print "\t\tReplacing '$3' with '$u'\n";
+			$text2 = "(($p|$2|$u))";
+			if ($1 eq $p) {
+				print "\t\tReplacing '$3' with '$u'\n";
+			} else {
+				print "\t\tReplacing '$1' with $p and '$3' with '$u'\n";
+			}
 			$str2 =~ s/^.*?\|$u\)\)//s;
-			#	$text =~ m/(.{10})\G(.{0,10})/;
-			#	print "\t\tPOS is " . pos($text) . "; Now at ... $1 <-G-> $2 ...\n";
+			# $text =~ m/(.{10})\G(.{0,10})/;
+			# print "\t\tPOS is " . pos($text) . "; Now at ... $1 <-G-> $2 ...\n";
 			pos($text) = $lastpos;
 			$text =~ s/\G(\(\(.*?\)\))(?!\))/$text2/;
 			# Rewind and find next:
 			pos($text) = $lastpos; $text =~ m/\(\(.*?\)\)(?!\))/g;
-			#	$text =~ m/(.{10})\G(.{0,10})/;
-			#	print "\t\tPOS is " . pos($text) . "; Now at ... $1 <-G-> $2 ...\n";
+			# $text =~ m/(.{10})\G(.{0,10})/;
+			# print "\t\tPOS is " . pos($text) . "; Now at ... $1 <-G-> $2 ...\n";
 		} else {
 			if (!$trynext) {
 				# Retry next position
