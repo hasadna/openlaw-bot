@@ -322,7 +322,6 @@ sub get_primary_page {
 			my @list2 = get_secondary_entry($lawid);
 			if ($list2[3]) {
 				$url = pop @list2;
-				$url ||= '0:0' if $list2[2] eq '2582'; ####
 				$list2[3] = $list[3] if ($list[3]);
 				@list = @list2;
 			}
