@@ -466,7 +466,7 @@ sub print_fix {
 	$name =~ s/ *\(חוק מקורי\)//;
 	# $law_name = ($name =~ s/ *\[.*?\]//gr) if ($first_run);
 	$name =~ s/\bמס\. $/מס' /;
-	$name =~ s/ (ב|של |)$law_re$//;
+	$name =~ s/ (ב|של |ל)$law_re$//;
 	$name =~ s/^תיקו(ן|ני) טעו(יו|)ת.*/ת"ט/;
 	$name =~ s/\((מס' \d\S*?)\)/(תיקון $1)/;
 	$name =~ s/^(?:חוק לתיקון )?$law_re \((.*?)\)/ $1/;
@@ -631,7 +631,7 @@ sub process_law {
 		print "\t\tPartial string: $partial\n";
 	}
 	
-	if ($text =~ /^(.*?)\n+(<מקור>.*?)\n\n(.*?)$/s) {
+	if ($text =~ /^(.*?)\n+(<מקור>.*?)\n\n(.*?)$/s || $text =~ /^(.*?)\n+(<מקור>.*?)\n*()$/s) {
 		# Decompose and recompose text.
 		my $pre = $1; my $post = $3; $text = $2;
 		while ($post =~ s/^([^\n]{0,20}\(\(.*?)\n\n//) { $text .= "\n\n$1"; }
@@ -688,7 +688,6 @@ sub process_law {
 	}
 	
 	# return 1 if ($count==0);
-	
 	
 	print "TODO TEXT: >>>>\n$text<<<<\n" if ($dryrun && $verbose);
 	
@@ -795,7 +794,7 @@ sub update_makor {
 			last;
 		}
 	}
-	
+	$text =~ m/<מקור>[ \n]*/g if ($i<0); # No URL match found, start from zero.
 	$i++; $trynext = 0;
 	for (; $i < @urls; $i++) {
 		$p = $urls[$i][0]; $n = $urls[$i][1]; $u = $urls[$i][2] // '';
@@ -852,6 +851,7 @@ sub update_makor {
 	if ($str2 =~ /\(\(/) {
 		$str2 = "<!-- $str2 -->" unless $comment;
 		$text =~ s/ *\G */ $str2 /;
+		$text =~ s/ +$//gm;
 	}
 	
 	$str2 = makor_to_todo($str2);
