@@ -284,7 +284,7 @@ sub process_law {
 	$id = $bot->get_id($page);
 	if (!defined $id && !$dryrun) {
 		$bot->edit({
-			page    => $page, text => "{{הודעת עריכה חוקים}}",
+			page => $page, text => "{{הודעת עריכה חוקים}}",
 			summary => "editnotice", minor => 1,
 		});
 	}
@@ -292,18 +292,20 @@ sub process_law {
 	# Check talkpage and add redirection if neccessary
 	$page = "שיחת מקור:$page_dst";
 	$id = $bot->get_id($page);
-	if (!defined $id && !$dryrun) {
+	if ($dryrun) {
+		# Do nothing
+	} elsif (!defined $id) {
 		$bot->edit({
 			page => $page, text => "#הפניה [[שיחה:$page_dst]]",
 			summary => "הפניה", minor => 1,
 		});
-	}
-	$page = "שיחה:$page_dst";
-	$id = $bot->get_id($page);
-	if (!defined $id && !$dryrun) {
+	} elsif ($id>0 && !($bot->get_id("שיחה:$page_dst")) {
+		# Discussion at source talk page, move to main talk page
+		$bot->move($page, "שיחה:$page_dst", "העברה", { movetalk => 1, noredirect => 0, movesubpages => 1 });
+	} elsif (!($bot->get_id("שיחה:$page_dst"))) {
 		$bot->edit({
-			page => $page, text => "", summary => "דף ריק",
-			minor => 1,
+			page => "שיחה:$page_dst", text => "",
+			summary => "דף ריק", minor => 1,
 		});
 	}
 	
@@ -349,13 +351,8 @@ sub move_page {
 
 sub RunParsers {
 	my ( $str1, $str2, $str3 );
-	my @cmd1 = ('./SyntaxLaw.pm');
-	my @cmd2 = ('./format-wiki.pl');
 	$str1 = shift;
-	
-	# run \@cmd1, \$str1, \$str2, *STDERR;
 	$str2 = SyntaxLaw::convert($str1);
-	# run \@cmd2, \$str2, \$str3, *STDERR;
 	$str3 = SyntaxWiki::convert($str2);
 	$str3 = decode_utf8($str3);
 	$str3 .= decode_utf8("\n[[קטגוריה:בוט חוקים]]\n");
