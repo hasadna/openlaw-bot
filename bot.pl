@@ -267,7 +267,7 @@ sub process_law {
 			bot => 1, minor => 0, assertion => 'bot'});
 		# unless ($bot->get_protection($page_dst)) {
 		#	$bot->protect($page_dst, 'הגנה בפני עריכה בשגגה', 'sysop', 'sysop', 'infinite', 0);
-		}
+		# }
 	}
 	
 	# Check editnotice and update if neccessary
@@ -319,7 +319,6 @@ sub process_law {
 		$page_dst = $1;
 		$page_dst =~ s/ *\(תיקון:.*?\)$//;
 		$page_dst =~ s/, *(ה?תש.?["״].[\-־–])?\d{4}$//;
-		print STDERR "Check redirection of '$page_dst'.\n" if $dryrun;
 		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
 		$page = $page_dst =~ s/־/-/gr;
 		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
