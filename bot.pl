@@ -6,6 +6,7 @@ no if ($]>=5.018), warnings => 'experimental';
 use English;
 use Encode;
 use utf8;
+use POSIX 'strftime';
 # use Array::Utils;
 use Data::Dumper;
 use MediaWiki::Bot;
@@ -44,6 +45,8 @@ GetOptions(
 
 @pages = map {decode_utf8($_)} @ARGV;
 
+print "=== [RUNNING bot.pl @ ", POSIX::strftime("%F %T", localtime), "] ===\n";
+
 my %credentials = load_credentials('wiki_botconf.txt');
 my $host = ( $credentials{host} || 'he.wikisource.org' );
 print "HOST $host USER $credentials{username}\n";
@@ -70,20 +73,20 @@ unless (@pages) {
 	# Get category list
 	my $cat = "קטגוריה:בוט חוקים";
 	@pages = $bot->get_pages_in_category($cat);
-	print "CATEGORY contains " . scalar(@pages) . " pages.\n";
+	print "CATEGORY contains ", scalar(@pages), " pages.\n";
 	if (defined $start) {
 		$start = decode_utf8($start);
 		while (my $str = shift @pages) {
 			last if ($str eq $start);
 		}
 		unshift @pages, $start;
-		print "Starting at '$start', up to " . scalar(@pages) . " pages.\n";
+		print "Starting at '$start', up to ", scalar(@pages), " pages.\n";
 	}
 	if (defined $select) {
 		$select = decode_utf8($select);
 		$select = convert_regexp($select);
 		@pages = grep { /^$select/ } @pages;
-		print "Found " . scalar(@pages) . " pages with selector '$select'.\n";
+		print "Found ", scalar(@pages), " pages with selector '$select'.\n";
 	}
 }
 
@@ -201,7 +204,7 @@ sub process_law {
 	my $update = ($revid_t<$revid_s);
 	my $done = 0;
 	
-	print "ID $revid_s " . ($update?'>':'=') . " $revid_t";
+	print "ID $revid_s ", ($update ? '>' : '='), " $revid_t";
 	if (!$src_ok) {
 		print ", Source not exist.\n";
 		$res = "x דף מקור [[$page_src]] לא קיים";
@@ -257,12 +260,14 @@ sub process_law {
 	
 	$comment = ( $comment ? "[$revid_s] $comment" : "[$revid_s]" );
 	
-	print STDOUT "$text\n" if ($print || $dryrun);
+	# print STDOUT "$text\n" if ($print || $dryrun);
 	unless ($dryrun) {
 		$bot->edit( {
 			page => $page_dst, text => $text, summary => $comment,
 			bot => 1, minor => 0, assertion => 'bot'});
-		# $bot->protect($page, $reason, $editlvl, $movelvl, $time, $cascade);
+		# unless ($bot->get_protection($page_dst)) {
+		#	$bot->protect($page_dst, 'הגנה בפני עריכה בשגגה', 'sysop', 'sysop', 'infinite', 0);
+		}
 	}
 	
 	# Check editnotice and update if neccessary
@@ -299,7 +304,7 @@ sub process_law {
 			page => $page, text => "#הפניה [[שיחה:$page_dst]]",
 			summary => "הפניה", minor => 1,
 		});
-	} elsif ($id>0 && !($bot->get_id("שיחה:$page_dst")) {
+	} elsif ($id>0 && !($bot->get_id("שיחה:$page_dst"))) {
 		# Discussion at source talk page, move to main talk page
 		$bot->move($page, "שיחה:$page_dst", "העברה", { movetalk => 1, noredirect => 0, movesubpages => 1 });
 	} elsif (!($bot->get_id("שיחה:$page_dst"))) {
@@ -381,7 +386,7 @@ sub get_revid {
 	$page =~ s/^\s*(?:מקור:)?(.*?)\s*$/$1/s;
 	$page =~ s/ /_/g;
 	
-	my @hist_s = $bot->get_history(decode_utf8("מקור:") . $page);
+	my @hist_s = $bot->get_history("מקור:$page");
 	my @hist_t = $bot->get_history($page);
 	
 	return (0,0,undef) unless (scalar(@hist_s));
@@ -391,12 +396,13 @@ sub get_revid {
 	my $comment = $hist_s[0]->{comment};
 	
 	foreach my $rec (@hist_t) {
-		last if ($revid_t);
-		$revid_t = $rec->{comment};
-		$revid_t =~ s/^ *(?:\[(\d+)\]|(\d+)).*/$1/ || ( $revid_t = 0 );
+		if ($rec->{user} eq 'OpenLawBot' && $rec->{comment} =~ /^ *\[(\d+)\]/) {
+			$revid_t = $1;
+			last;
+		}
 	}
 	
-	return ($revid_s,$revid_t,$comment);
+	return ($revid_s, $revid_t, $comment);
 }
 
 
