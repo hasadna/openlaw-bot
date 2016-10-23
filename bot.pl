@@ -304,12 +304,16 @@ sub process_law {
 			page => $page, text => "#הפניה [[שיחה:$page_dst]]",
 			summary => "הפניה", minor => 1,
 		});
-	} elsif ($id>0 && !($bot->get_id("שיחה:$page_dst"))) {
+	} elsif ($id>0 && !($bot->get_id("שיחה:$page_dst")) && ($bot->get_text($page) !~ /^\s*#(הפניה|redirect)/si)) {
 		# Discussion at source talk page, move to main talk page
 		$bot->move($page, "שיחה:$page_dst", "העברה", { movetalk => 1, noredirect => 0, movesubpages => 1 });
-	} elsif (!($bot->get_id("שיחה:$page_dst"))) {
+	}
+	
+	$page = "שיחה:$page_dst";
+	$id = $bot->get_id($page);
+	if (!defined $id) {
 		$bot->edit({
-			page => "שיחה:$page_dst", text => "",
+			page => $page, text => "",
 			summary => "דף ריק", minor => 1,
 		});
 	}
