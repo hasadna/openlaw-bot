@@ -326,6 +326,8 @@ sub process_law {
 		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
 		$page = $page_dst =~ s/־/-/gr;
 		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+		$page =~ tr/“”״„’‘׳/"""'''/;
+		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
 		$page = $page_dst =~ s/(?<=[א-ת])[\-־](?=[א-ת])/ /gr;
 		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
 		$page = $page_dst =~ s/ – / - /gr;
