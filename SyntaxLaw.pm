@@ -66,13 +66,13 @@ sub convert {
 	tr/\x{FEFF}//d;    # Unicode marker
 	tr/\x{2000}-\x{200A}\x{205F}/ /; # Convert typographic spaces
 	tr/\x{200B}-\x{200D}//d;         # Remove zero-width spaces
-	tr/־–—‒―/-/;        # Convert typographic dashes
-	tr/\xAD\x96\x97/-/; # Convert more typographic dashes
-	tr/״”“„‟″‶/"/;      # Convert typographic double quotes
-	tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
-	tr/;/;/;            # Convert wrong OCRed semicolon
+	tr/־–—‒―/-/;        # typographic dashes
+	tr/\xAD\x96\x97/-/; # more typographic dashes
+	tr/״”“„‟″‶/"/;      # typographic double quotes
+	tr/`׳’‘‚‛′‵/'/;     # typographic single quotes
+	tr/;/;/;            # wrong OCRed semicolon
 	s/[ ]{2,}/ /g;      # Pack  long spaces
-	s/ -{2,4} / — /g;
+	s/ -{2,4} / — /g;   # em-dash
 	
 	s/\[\[קטגוריה:.*?\]\] *\n?//g;  # Ignore categories (for now)
 	
@@ -117,6 +117,8 @@ sub convert {
 	s/(\n?<\/ת+>)(.*?)(?=\s*(<מפריד.*?>\s*)?($structure_tags))/$2$1/sg;
 	# Add <סעיף> marker after <קטע> if not found
 	s/(<\/קטע.*?>\s*+)(?!<(קטע|סעיף|חתימות))/$1<סעיף><\/סעיף>\n/g;
+	
+	# s/(<(qq|ins|del)>.*?<\/\2>)/&parse_spans($2,$1)/egs;
 	
 	# Parse links and remarks
 	s/\[\[(?:קובץ:|תמונה:|[Ff]ile:|[Ii]mage:)(.*?)\]\]/<תמונה>$1<\/תמונה>/gm;
@@ -945,7 +947,7 @@ sub process_HREF {
 		$type = 3;
 		(undef, $helper) = findHREF("$text");
 		$ext = "++$helper";
-		push @{$glob{href}{marks_ahead}{$helper}}, $id;
+		# push @{$glob{href}{marks_ahead}{$helper}}, $id;
 	} elsif ($helper eq '-' || $ext eq '-') {
 		$type = 2;
 		$ext = $glob{href}{last};
@@ -995,7 +997,9 @@ sub process_HREF {
 			$glob{href}{last} = $ext;
 			if ($ext =~ /\+\+(.*)/) {
 				$helper = $1;
-				push @{$glob{href}{marks_ahead}{$helper}}, @{$glob{href}{ahead}};
+				$glob{href}{marks}{$helper} = $ext;
+				push @{$glob{href}{marks_ahead}{$helper}}, $id;
+				push @{$glob{href}{marks_ahead}{$helper}}, @{$glob{href}{ahead}} if ($glob{href}{ahead});
 			} else {
 				for (@{$glob{href}{ahead}}) {
 					$hrefs{$_} =~ s/\+[^#]*(.*)/$ext$1/;
