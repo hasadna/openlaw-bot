@@ -139,7 +139,8 @@ sub convert {
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<[\\\/](ויקי)?\>)/&unescape_text($1) . "<\/ויקי>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
-	s/<לוח_השוואה>\s*(.*?)<\/(לוח_השוואה|)>\n?/parse_comparetable($1)/egs;
+	s/<לוח_השוואה>\s*(.*?)<\/(לוח_השוואה|)>\n?/&parse_comparetable($1)/egs;
+	s/(?<=\<math\>)(.*?)(?=\<[\\\/]math\>)/&fix_math($1)/egs;
 	
 	s/\x00//g; # Remove nulls
 	s/\n{3,}/\n\n/g;
@@ -640,6 +641,12 @@ sub canonic_name {
 	tr/–־/-/;
 	tr/״”“/"/;
 	tr/׳‘’/'/;
+	return $_;
+}
+
+sub fix_math {
+	my $_ = shift;
+	tr/–/-/;
 	return $_;
 }
 
