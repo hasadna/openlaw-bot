@@ -270,28 +270,44 @@ sub process_law {
 		# }
 	}
 	
-	# Check editnotice and update if neccessary
-	$page = "Mediawiki:Editnotice-0-$page_dst";
-	$id = $bot->get_id($page);
-	if (!defined $id) {
-		if ($dryrun) {
-			print "Editnotice for '$page_dst' does not exist.\n";
-		} else {
-			print "Creating editnotice '$page_dst'.\n";
-			$bot->edit({
-				page => $page, text => "{{הודעת עריכה חוקים}}",
-				summary => "editnotice", minor => 1,
-			});
-		}
-	}
+#	# Check editnotice and update if neccessary
+#	$page = "Mediawiki:Editnotice-0-$page_dst";
+#	$id = $bot->get_id($page);
+#	if (!defined $id) {
+#		if ($dryrun) {
+#			print "Editnotice for '$page_dst' does not exist.\n";
+#		} else {
+#			print "Creating editnotice '$page_dst'.\n";
+#			$bot->edit({
+#				page => $page, text => "{{הודעת עריכה חוקים}}",
+#				summary => "editnotice", minor => 1,
+#			});
+#		}
+#	}
 	
-	$page = "Mediawiki:Editnotice-116-$page_dst";
-	$id = $bot->get_id($page);
-	if (!defined $id && !$dryrun) {
-		$bot->edit({
-			page => $page, text => "{{הודעת עריכה חוקים}}",
-			summary => "editnotice", minor => 1,
-		});
+#	$page = "Mediawiki:Editnotice-116-$page_dst";
+#	$id = $bot->get_id($page);
+#	if (!defined $id && !$dryrun) {
+#		$bot->edit({
+#			page => $page, text => "{{הודעת עריכה חוקים}}",
+#			summary => "editnotice", minor => 1,
+#		});
+#	}
+	
+	$text = "#הפניה [[$page_dst]]";
+	while ($src_text =~ /^<שם(?: קודם|)> *(.*?) *$/gm) {
+		$page_dst = $1;
+		$page_dst =~ s/ *\(תיקון:.*?\)$//;
+		$page_dst =~ s/, *(ה?תש.?["״].[\-־–])?\d{4}$//;
+		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+		$page = $page_dst =~ s/־/-/gr;
+		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+		$page =~ tr/“”״„’‘׳/"""'''/;
+		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+		$page = $page_dst =~ s/(?<=[א-ת])[\-־](?=[א-ת])/ /gr;
+		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+		$page = $page_dst =~ s/ – / - /gr;
+		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
 	}
 	
 	# Check talkpage and add redirection if neccessary
@@ -318,21 +334,6 @@ sub process_law {
 		});
 	}
 	
-	$text = "#הפניה [[$page_dst]]";
-	while ($src_text =~ /^<שם(?: קודם|)> *(.*?) *$/gm) {
-		$page_dst = $1;
-		$page_dst =~ s/ *\(תיקון:.*?\)$//;
-		$page_dst =~ s/, *(ה?תש.?["״].[\-־–])?\d{4}$//;
-		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-		$page = $page_dst =~ s/־/-/gr;
-		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-		$page =~ tr/“”״„’‘׳/"""'''/;
-		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-		$page = $page_dst =~ s/(?<=[א-ת])[\-־](?=[א-ת])/ /gr;
-		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-		$page = $page_dst =~ s/ – / - /gr;
-		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-	}
 	return $res;
 }
 
@@ -343,7 +344,7 @@ sub move_page {
 	return "x הדף [[$src]] לא קיים" unless $bot->get_id($src);
 	return "x הדף [[מקור:$src]] לא קיים" unless $bot->get_id("מקור:$src");
 	return "x דף היעד [[מקור:$dst]] קיים" if $bot->get_id("מקור:$dst");
-	return "x לא ניתן להעביר את [[$src]] אל [[$dst]]" unless $bot->get_id("Mediawiki:Editnotice-0-$src");
+	# return "x לא ניתן להעביר את [[$src]] אל [[$dst]]" unless $bot->get_id("Mediawiki:Editnotice-0-$src");
 	print "MOVE '$src' to '$dst'.\n";
 	unless ($dryrun) {
 		$bot->move("מקור:$src", "מקור:$dst", "העברה", {movetalk => 1, noredirect => 1, movesubpages => 1});
@@ -352,8 +353,8 @@ sub move_page {
 			page => "שיחת מקור:$dst", text => "#הפניה [[שיחה:$dst]]",
 			summary => "הפניה", minor => 1
 		});
-		$bot->move("Mediawiki:Editnotice-0-$src", "Mediawiki:Editnotice-0-$dst", "העברה", {noredirect => 1});
-		$bot->move("Mediawiki:Editnotice-116-$src", "Mediawiki:Editnotice-116-$dst", "העברה", {noredirect => 1});
+		# $bot->move("Mediawiki:Editnotice-0-$src", "Mediawiki:Editnotice-0-$dst", "העברה", {noredirect => 1});
+		# $bot->move("Mediawiki:Editnotice-116-$src", "Mediawiki:Editnotice-116-$dst", "העברה", {noredirect => 1});
 	}
 	return "v דף [[$src]] הועבר לדף [[$dst]]";
 }
