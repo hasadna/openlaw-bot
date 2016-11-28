@@ -296,17 +296,24 @@ sub process_law {
 	
 	$text = "#הפניה [[$page_dst]]";
 	while ($src_text =~ /^<שם(?: קודם|)> *(.*?) *$/gm) {
-		$page_dst = $1;
-		$page_dst =~ s/ *\(תיקון:.*?\)$//;
-		$page_dst =~ s/, *(ה?תש.?["״].[\-־–])?\d{4}$//;
+		my $page2 = $1;
+		$page2 =~ s/ *\(תיקון:.*?\)$//;
+		$page2 =~ s/ *\[נוסח חדש\]//;
+		$page2 =~ s/, *(ה?תש.?["”״].[\-־–])?\d{4}$//;
+		$page = $page2;
+		print "REDITECT '$page'\n";
 		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-		$page = $page_dst =~ s/־/-/gr;
+		$page = $page2 =~ s/[–־]/-/gr;
+		print "REDITECT '$page'\n";
 		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
 		$page =~ tr/“”״„’‘׳/"""'''/;
+		print "REDITECT '$page'\n";
 		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-		$page = $page_dst =~ s/(?<=[א-ת])[\-־](?=[א-ת])/ /gr;
+		$page = $page2 =~ s/(?<=[א-ת])[\-־](?=[א-ת])/ /gr;
+		print "REDITECT '$page'\n";
 		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-		$page = $page_dst =~ s/ – / - /gr;
+		$page = $page2 =~ s/ – / - /gr;
+		print "REDITECT '$page'\n";
 		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
 	}
 	

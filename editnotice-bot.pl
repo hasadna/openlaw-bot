@@ -12,8 +12,6 @@ binmode STDOUT, ":utf8";
 
 my %credentials = load_credentials('wiki_botconf.txt');
 
-print Dumper(\%credentials);
-
 my $host = ( $credentials{host} // 'he.wikisource.org' );
 print "HOST $host USER $credentials{username}\n";
 my $bot = MediaWiki::Bot->new({
