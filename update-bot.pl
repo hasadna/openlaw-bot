@@ -386,7 +386,7 @@ sub get_secondary_page {
 	}
 	
 	$law_name = trim($tree->findvalue('//div[@class="LawBillTitleDiv"]//h2[@class="LawDarkBrownTitleH2"]')) || 
-		$trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
+		trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
 	$law_name = law_name($law_name);
 	# print "Law $id \"$law_name\"\n";
 	
