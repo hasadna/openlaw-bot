@@ -270,7 +270,10 @@ sub get_primary_page {
 	my (@table, @lol);
 	
 	$page = $primary_prefix.$page unless ($page =~ /^https?:/);
+	$id = $1 if ($page =~ /lawitemid=(\d+)$/);
 	my $law_list = ($page =~ /LawReshumot/);
+	
+	# $page = "$id.html" if ($id);
 	
 	while ($page && $count>0) {
 		# print "Reading HTML file $page...\n";
@@ -338,6 +341,7 @@ sub get_primary_page {
 		}
 		push @list, $lawid, $url, scalar(@lol);
 		grep(s/^[ \t\xA0]*(.*?)[ \t\xA0]*$/$1/g, @list);
+		# print "GOT |" . join('|', @list) . "|\n";
 		push @lol, [@list];
 	}
 	
@@ -697,36 +701,37 @@ sub process_law {
 		bot => 1, minor => 1,
 	}) if !$dryrun;
 		
-	$todo .= "* הוספת חוק חדש [[משתמש:OpenLawBot/הוספה|לבוט]]\n" if $new;
-	
-	$text = $bot->get_text($todo_page);
-	if ($text) {
-		$text =~ s/\n+$//s;
-		$text .= "\n$todo";
-	} else {
-		$text = "<noinclude>{{מטלות}}</noinclude>\n$todo";
+	if ($new) {
+		$todo .= "* הוספת חוק חדש [[משתמש:OpenLawBot/הוספה|לבוט]]\n";
+		$count++;
 	}
 	
-	# return 1 if ($count==0);
-	
-	print "TODO TEXT: >>>>\n$text<<<<\n" if ($dryrun && $verbose);
-	
-	unless ($dryrun) {
-		$bot->edit({
-			page => $todo_page, text => $text, summary => $summary,
-			bot => 1, minor => 1,
-		});
-		
-		$text = $bot->get_text($talk_page) // "";
-		unless ($text && $text =~ /{{(מטלות|משימות)}}/) {
-			$text = "{{מטלות}}\n\n$text";
+	if ($count>0) {
+		$text = $bot->get_text($todo_page);
+		if ($text) {
+			$text =~ s/\n+$//s;
+			$text .= "\n$todo";
+		} else {
+			$text = "<noinclude>{{מטלות}}</noinclude>\n$todo";
+		}
+		print "TODO TEXT: >>>>\n$text<<<<\n" if ($dryrun && $verbose);
+		unless ($dryrun) {
 			$bot->edit({
-				page => $talk_page, text => $text, summary => "תבנית מטלות",
+				page => $todo_page, text => $text, summary => $summary,
 				bot => 1, minor => 1,
 			});
+			
+			$text = $bot->get_text($talk_page) // "";
+			unless ($text && $text =~ /{{(מטלות|משימות)}}/) {
+				$text = "{{מטלות}}\n\n$text";
+				$bot->edit({
+					page => $talk_page, text => $text, summary => "תבנית מטלות",
+					bot => 1, minor => 1,
+				});
+			}
+			$bot->purge_page($todo_page);
+			$bot->purge_page($talk_page);
 		}
-		$bot->purge_page($todo_page);
-		$bot->purge_page($talk_page);
 	}
 	
 	# Push [$lawname,$count] at front
