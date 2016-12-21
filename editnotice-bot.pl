@@ -4,54 +4,50 @@ use strict;
 no strict 'refs';
 use English;
 use Encode;
-use MediaWiki::Bot;
-# use IPC::Run 'run','new_chunker';
-use IPC::Open2;
 use utf8;
+use MediaWiki::Bot;
+use Data::Dumper;
 
 binmode STDOUT, ":utf8";
 
-# INCLUDE = {{הודעת עריכה חוקים}}
-
-# my %credentials = load_credentials('wiki_credentials.txt');
 my %credentials = load_credentials('wiki_botconf.txt');
-my $bot = MediaWiki::Bot->new({
-	host       => 'he.wikisource.org',
-	login_data => \%credentials,
-	debug      => 1,
-});
 
-my $cat = decode_utf8('קטגוריה:בוט חוקים');
+my $host = ( $credentials{host} // 'he.wikisource.org' );
+print "HOST $host USER $credentials{username}\n";
+my $bot = MediaWiki::Bot->new({
+	host       => $host,
+	agent      => sprintf('PerlWikiBot/%s',MediaWiki::Bot->VERSION),
+	login_data => \%credentials,
+	assert     => 'bot',
+	protocol   => 'https',
+	debug      => 2,
+}) or die "Error login...\n";
+
+my $cat = 'קטגוריה:בוט חוקים';
 my @pages = $bot->get_pages_in_category($cat); 
-my ($noticepage, $text);
+my ($noticepage, $text, $id);
 
 foreach my $page (@pages) {
 	next if ($page =~ /^משתמש:/);
 	
 	$noticepage = "Mediawiki:Editnotice-0-$page";
+	$id = $bot->get_id($noticepage);
 	$text = $bot->get_text($noticepage);
 	print "PAGE '$page': ";
-	if ($text) {
-		print "OK, ";
+	if ($id) {
+		print "DEL, ";
+		$bot->delete($noticepage, 'מיותר');
 	} else {
-		print "adding, ";
-		$bot->edit({
-			page    => $noticepage,
-			text    => decode_utf8("{{הודעת עריכה חוקים}}"),
-			summary => "editnotice",
-		});
+		print "NONE, ";
 	}
 	$noticepage = "Mediawiki:Editnotice-116-$page";
+	$id = $bot->get_id($noticepage);
 	$text = $bot->get_text($noticepage);
-	if ($text) {
-		print "OK.\n";
+	if ($id) {
+		print "DEL.\n";
+		$bot->delete($noticepage, 'מיותר');
 	} else {
-		print "adding.\n";
-		$bot->edit({
-			page    => $noticepage,
-			text    => decode_utf8("{{הודעת עריכה חוקים}}"),
-			summary => "editnotice",
-		});
+		print "NONE.\n";
 	}
 }
 
@@ -61,13 +57,13 @@ exit 0;
 
 sub load_credentials {
 	my %obj;
-	$_ = shift;
-	open(my $FIN,$_) || die "Cannot open file \"$_\"!\n";
- 	while (<$FIN>) {
- 		if (m/\s*(\w+)\s*=\s*(\w+)\s*/) {
- 			$obj{$1} = $2;
- 		}
- 	}
- 	close($FIN);
- 	return %obj;
+	my $_ = shift;
+	open( my $FIN, $_ ) || die "Cannot open file \"$_\"!\n";
+	while (<$FIN>) {
+		if (m/^ *(.*?) *= *(.*?) *$/) {
+			$obj{$1} = $2;
+		}
+	}
+	close($FIN);
+	return %obj;
 }

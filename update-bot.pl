@@ -65,6 +65,7 @@ print "Note: Writing changes to wiki (-w).\n" unless $dryrun;
 my %credentials = load_credentials('wiki_botconf.txt');
 my $host = ( $credentials{host} || 'he.wikisource.org' );
 print "HOST $host USER $credentials{username}\n";
+
 my $bot = MediaWiki::Bot->new({
 	host       => $host,
 	agent      => sprintf('PerlWikiBot/%s',MediaWiki::Bot->VERSION),
@@ -102,7 +103,7 @@ if (scalar(@list)) {
 while (my $id = shift @pages) {
 	last if $recent and $count-- <= 0;
 	my $any_change = 0;
-	if ($id>2000000 && $id<2002000 && !$recent) {
+	if ($id>2000000 && $id<2010000 && !$recent) {
 		@list = ($id);
 	} else {
 		print "Reading secondary #$id ";
@@ -269,13 +270,18 @@ sub get_primary_page {
 	my (@table, @lol);
 	
 	$page = $primary_prefix.$page unless ($page =~ /^https?:/);
+	$id = $1 if ($page =~ /lawitemid=(\d+)$/);
+	my $law_list = ($page =~ /LawReshumot/);
+	
+	# $page = "$id.html" if ($id);
 	
 	while ($page && $count>0) {
-		# print "Reading HTML file...\n";
+		# print "Reading HTML file $page...\n";
 		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
+		# $tree = HTML::TreeBuilder::XPath->new_from_file(html_file($page));
 		push @trees, $tree;
 		
-		my @loc_table = $tree->findnodes('//table[@class = "rgMasterTable"]//tr');
+		my @loc_table = $tree->findnodes('//table[contains(@class, "rgMasterTable")]//tr');
 		
 		my $loc_id = $tree->findnodes('//form[@id = "aspnetForm"]')->[0];
 		if (defined $loc_id) {
@@ -303,12 +309,16 @@ sub get_primary_page {
 		return ();
 	}
 	
-	$full_name = trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
+	$full_name = trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]')) || 
+		trim($tree->findvalue('//div[@class="LawPrimaryTitleDiv"]/h3'));
 	$law_name = law_name($full_name);
+	# print "Law $id \"$law_name\"\n";
 	
 	foreach my $node (@table) {
 		my @list = $node->findnodes('td');
 		shift @list;
+		shift @list if ($law_list);
+		next unless (scalar(@list)>3);
 		my $url = pop @list;
 		my $lawid = $list[0]->findnodes('a')->[0];
 		$lawid &&= $lawid->attr('href'); $lawid ||= '';
@@ -331,6 +341,7 @@ sub get_primary_page {
 		}
 		push @list, $lawid, $url, scalar(@lol);
 		grep(s/^[ \t\xA0]*(.*?)[ \t\xA0]*$/$1/g, @list);
+		# print "GOT |" . join('|', @list) . "|\n";
 		push @lol, [@list];
 	}
 	
@@ -350,9 +361,10 @@ sub get_secondary_page {
 	while ($page) {
 		# print "Reading HTML file $page...\n";
 		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
+		# $tree = HTML::TreeBuilder::XPath->new_from_file(html_file($page));
 		push @trees, $tree;
 		
-		my @loc_table = $tree->findnodes('//table[@class = "rgMasterTable"]//tr[contains(@id, "rgRulesAmendedLaw")]');
+		my @loc_table = $tree->findnodes('//table[contains(@class, "rgMasterTable")]//tr');
 		
 		my $loc_id = $tree->findnodes('//form[@id = "aspnetForm"]')->[0];
 		if (defined $loc_id) {
@@ -377,17 +389,18 @@ sub get_secondary_page {
 		return ();
 	}
 	
-	$law_name = law_name($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
+	$law_name = trim($tree->findvalue('//div[@class="LawBillTitleDiv"]//h2[@class="LawDarkBrownTitleH2"]')) || 
+		trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
+	$law_name = law_name($law_name);
 	# print "Law $id \"$law_name\"\n";
 	
 	foreach my $node (@table) {
 		my @list = $node->findnodes('td');
-		# shift @list;
+		next unless scalar(@list);
 		my $lawid = $list[0]->findnodes('a')->[0];
 		$lawid &&= $lawid->attr('href'); $lawid ||= '';
-		$lawid =~ m/Law(Primary|Secondary)[.]aspx[?]lawitemid[=](\d+)/;
-		my $type = $1 // '';
-		$lawid = $2 // '';
+		$lawid =~ m/Law(Primary|Secondary)\.aspx\?.*lawitemid[=](\d+)/;
+		my $type = $1 // ''; $lawid = $2 // '';
 		map { $_ = $_->as_text(); } @list;
 		push @list, $lawid, lc(substr($type,0,1)), scalar(@lol);
 		grep(s/^[ \t\xA0]*(.*?)[ \t\xA0]*$/$1/g, @list);
@@ -405,10 +418,9 @@ sub get_secondary_entry {
 	my @entry;
 	
 	$page = $secondary_prefix.$page unless ($page =~ /^https?:/);
-	
-	# print "Reading HTML file $page...\n";
 	$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 	
+	# my $law_name = law_name($tree->findvalue('//div[@class="LawBillTitleDiv"]//h2[@class="LawDarkBrownTitleH2"]'));
 	my $law_name = law_name($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
 	# print "Law $id \"$law_name\"\n";
 	
@@ -689,36 +701,37 @@ sub process_law {
 		bot => 1, minor => 1,
 	}) if !$dryrun;
 		
-	$todo .= "* הוספת חוק חדש [[משתמש:OpenLawBot/הוספה|לבוט]]\n" if $new;
-	
-	$text = $bot->get_text($todo_page);
-	if ($text) {
-		$text =~ s/\n+$//s;
-		$text .= "\n$todo";
-	} else {
-		$text = "<noinclude>{{מטלות}}</noinclude>\n$todo";
+	if ($new) {
+		$todo .= "* הוספת חוק חדש [[משתמש:OpenLawBot/הוספה|לבוט]]\n";
+		$count++;
 	}
 	
-	# return 1 if ($count==0);
-	
-	print "TODO TEXT: >>>>\n$text<<<<\n" if ($dryrun && $verbose);
-	
-	unless ($dryrun) {
-		$bot->edit({
-			page => $todo_page, text => $text, summary => $summary,
-			bot => 1, minor => 1,
-		});
-		
-		$text = $bot->get_text($talk_page) // "";
-		unless ($text && $text =~ /{{(מטלות|משימות)}}/) {
-			$text = "{{מטלות}}\n\n$text";
+	if ($count>0) {
+		$text = $bot->get_text($todo_page);
+		if ($text) {
+			$text =~ s/\n+$//s;
+			$text .= "\n$todo";
+		} else {
+			$text = "<noinclude>{{מטלות}}</noinclude>\n$todo";
+		}
+		print "TODO TEXT: >>>>\n$text<<<<\n" if ($dryrun && $verbose);
+		unless ($dryrun) {
 			$bot->edit({
-				page => $talk_page, text => $text, summary => "תבנית מטלות",
+				page => $todo_page, text => $text, summary => $summary,
 				bot => 1, minor => 1,
 			});
+			
+			$text = $bot->get_text($talk_page) // "";
+			unless ($text && $text =~ /{{(מטלות|משימות)}}/) {
+				$text = "{{מטלות}}\n\n$text";
+				$bot->edit({
+					page => $talk_page, text => $text, summary => "תבנית מטלות",
+					bot => 1, minor => 1,
+				});
+			}
+			$bot->purge_page($todo_page);
+			$bot->purge_page($talk_page);
 		}
-		$bot->purge_page($todo_page);
-		$bot->purge_page($talk_page);
 	}
 	
 	# Push [$lawname,$count] at front
