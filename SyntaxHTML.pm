@@ -74,12 +74,13 @@ sub convert {
 	s/\n(<\/div>)\n?/$1\n/gs;
 	
 	# my $template = "[^{}]*(?>(?>(?'open'{)[^{}]*)+(?>(?'-open'})[^{}]*)+)+(?(open)(?!))";
-	my $template = '(?:\{(?1)\}|[^\{\}])*?';
+	my $template = '(?:{(?1)}|[^{}])*?';
 	
 	s/{{עמודות\|($template)\|($template)}}\n*/<div style="columns: $1; -moz-columns: $1; -webkit-columns: $1;">\n$2\n<\/div>\n/g;
 	s/{{דוכיווני\|($template)\|($template)\|($template)}}\n*/<div style="width: 100%; overflow: hidden; display: table;"><div style="direction: rtl; text-align: right; display: table-cell; *float: right; *width: 49%; padding-left: 5px;">$1<\/div><div style="direction: ltr; text-align: left; display: table-cell; *float: left; *width: 49%; padding-right: 5px;">$2<\/div><\/div>\n<div style="direction: ltr; text-align: center;">$3<\/div>\n/g;
 	s/{{דוכיווני\|($template)\|($template)}}\n*/<div style="width: 100%; overflow: hidden; display: table;"><div style="direction: rtl; text-align: right; display: table-cell; *float: right; *width: 49%; padding-left: 5px;">$1<\/div><div style="direction: ltr; text-align: left; display: table-cell; *float: left; *width: 49%; padding-right: 5px;">$2<\/div><\/div>\n/g;
 	s/{{מוקטן\|($template)}}/<span style="font-size: 90%;">$1<\/span>/g;
+	s/ *{{ש}} */<br>/g;
 	
 	s/<ויקי.*?>(.*?)\n?<\/ויקי>\n?//s;
 	# $_ .= "\n$1\n" while (s/<ויקי.*?>(.*?)\n?<\/ויקי>\n?//s);
