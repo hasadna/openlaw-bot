@@ -671,7 +671,7 @@ sub process_law {
 		$text =~ s/\G/<מקור>\n$prev$partial\n\n/;
 	}
 	
-	$text =~ s/<מאגר.*>[ \n]*/<מאגר $id תיקון $i>\n\n/;
+	$text =~ s/<מאגר.*>\s*/<מאגר $id תיקון $i>\n\n/;
 	
 	if ($text eq $text_org) {
 		print "\tNo change.\n";
