@@ -252,7 +252,6 @@ sub get_primary_page {
 	foreach my $node (@table) {
 		my @list = $node->findnodes('td');
 		shift @list;
-		shift @list if ($law_list);
 		next unless (scalar(@list)>3);
 		my $url = pop @list;
 		my $lawid = $list[0]->findnodes('a')->[0];
