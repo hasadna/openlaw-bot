@@ -26,10 +26,10 @@ my ($tree, @trees);
 my (@table, @lol);
 my $law_name;
 
-my $primary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawPrimary.aspx?lawitemid';
-my $secondary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid';
+my $primary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawPrimary.aspx?lawitemid=';
+my $secondary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid=';
 
-$page = "$primary_prefix=$page" if ($page =~ /^\d+$/);
+$page = $primary_prefix.$page if ($page =~ /^\d+$/);
 
 binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
@@ -190,6 +190,14 @@ sub decode_url {
 	return $_;
 }
 
+sub law_name {
+	my $_ = shift;
+	s/^[ \n]*(.*?)[ \n]*$/$1/;
+	s/, (ה?תש.?".[-–])?\d{4}//;
+	s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
+	# print "Law is \"$law_name\"\n";
+	return $_;
+}
 
 sub get_primary_page {
 	my $page = shift;
@@ -198,7 +206,7 @@ sub get_primary_page {
 	my ($tree, @trees);
 	my (@table, @lol);
 	
-	$page = "$primary_prefix=$page" unless ($page =~ /^https?:/);
+	$page = $primary_prefix.$page unless ($page =~ /^https?:/);
 	
 	print STDERR "Reading pages... ";
 	while ($page) {
@@ -207,7 +215,7 @@ sub get_primary_page {
 		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 		push @trees, $tree;
 		
-		my @loc_table = $tree->findnodes('//table[@class = "rgMasterTable"]//tr');
+		my @loc_table = $tree->findnodes('//table[contains(@class, "rgMasterTable")]//tr');
 		
 		my $loc_id = $tree->findnodes('//form[@id = "aspnetForm"]')->[0];
 		if (defined $loc_id) {
@@ -234,11 +242,9 @@ sub get_primary_page {
 		return [];
 	}
 
-	$law_name = $tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]');
-	$law_name =~ s/^[ \n]*(.*?)[ \n]*$/$1/;
-	$law_name =~ s/, ([א-ת"]*-)?\d{4}//;
-	$law_name =~ s/ \[ה?תש.?".\]//;
-	$law_name =~ s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
+	$full_name = trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]')) ||
+		trim($tree->findvalue('//div[@class="LawPrimaryTitleDiv"]/h3'));
+	$law_name = law_name($full_name);
 	# print "Law $id \"$law_name\"\n";
 	
 	my $count2 = 0;
@@ -246,6 +252,8 @@ sub get_primary_page {
 	foreach my $node (@table) {
 		my @list = $node->findnodes('td');
 		shift @list;
+		shift @list if ($law_list);
+		next unless (scalar(@list)>3);
 		my $url = pop @list;
 		my $lawid = $list[0]->findnodes('a')->[0];
 		$lawid &&= $lawid->attr('href'); $lawid ||= '';
@@ -264,6 +272,7 @@ sub get_primary_page {
 			my @list2 = get_secondary_entry($lawid);
 			if ($list2[3]) {
 				$url = pop @list2;
+				$list2[3] = $list[3] if ($list[3]);
 				@list = @list2;
 			}
 		}
@@ -278,7 +287,6 @@ sub get_primary_page {
 	return @lol;
 }
 
-
 sub get_secondary_entry {
 	my $page = shift;
 	my $id;
@@ -286,12 +294,12 @@ sub get_secondary_entry {
 	my (@table, @lol);
 	my @entry;
 	
-	$page = "$secondary_prefix=$page" unless ($page =~ /^https?:/);
+	$page = $secondary_prefix.$page unless ($page =~ /^https?:/);
 	
 	# print "Reading HTML file $page...\n";
 	$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 	
-	my $law_name = $tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]');
+	my $law_name = law_name($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
 	$law_name =~ s/^[ \n]*(.*?)[ \n]*$/$1/;
 	$law_name =~ s/, ([א-ת"]*-)?\d{4}//;
 	$law_name =~ s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
