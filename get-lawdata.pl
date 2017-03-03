@@ -242,7 +242,7 @@ sub get_primary_page {
 		return [];
 	}
 
-	$full_name = trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]')) ||
+	my $full_name = trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]')) ||
 		trim($tree->findvalue('//div[@class="LawPrimaryTitleDiv"]/h3'));
 	$law_name = law_name($full_name);
 	# print "Law $id \"$law_name\"\n";
