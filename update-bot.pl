@@ -24,9 +24,11 @@ binmode STDERR, ":utf8";
 sub max ($$) { $_[$_[0] < $_[1]] }
 sub min ($$) { $_[$_[0] > $_[1]] }
 
-my $recent_page = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawReshumot.aspx?t=LawReshumot&st=LawReshumot';
-my $primary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawPrimary.aspx?lawitemid=';
-my $secondary_prefix = 'http://main.knesset.gov.il/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid=';
+my $website = 'http://main.knesset.gov.il';
+my $recent_page = $website . '/Activity/Legislation/Laws/Pages/LawReshumot.aspx?t=LawReshumot&st=LawReshumot';
+my $primary_prefix = $website . '/Activity/Legislation/Laws/Pages/LawPrimary.aspx?lawitemid=';
+my $secondary_prefix = $website . '/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid=';
+my $bill_prefix = $website . '/Activity/Legislation/Laws/Pages/LawBill.aspx?lawitemid=';
 
 my $page;
 my @pages = ();
@@ -103,23 +105,23 @@ if (scalar(@list)) {
 while (my $id = shift @pages) {
 	last if $recent and $count-- <= 0;
 	my $any_change = 0;
-	if ($id>2000000 && $id<2010000 && !$recent) {
+	if (false && $id>2000000 && $id<2010000 && !$recent) {
 		@list = ($id);
 	} else {
+# @list = (name, series, booklet, page, date, lawid, url|type, count)
 		print "Reading secondary #$id ";
 		if ($dump and -f "$id.dump") {
 			my $tt = retrieve("$id.dump");
 			@list = @{$tt->{list}};
 			$law_name = $tt->{name};
 		} else {
-			$page = $secondary_prefix.$id;
-			@list = get_secondary_page($page);
+			@list = get_bill_page($id);
 			my %tt = ('list' => \@list, 'name' => $law_name);
 			store \%tt, "$id.dump" if ($dump);
 		}
 		print "'$law_name'\n";
 		foreach (@list) {
-			if ($_->[3] =~ /^[sS]/) {
+			if ($_->[3] =~ /^[sSbB]/) {
 				print "    Adding secondary #$_->[2] '$_->[0]'.\n";
 				unshift(@pages, $_->[2]);
 				$count++;
@@ -152,7 +154,6 @@ exit 0;
 
 
 #-----------------------------------------------------------------------------------------
-
 
 sub load_credentials {
 	my %obj;
@@ -258,10 +259,10 @@ sub law_name {
 	s/^[ \n]*(.*?)[ \n]*$/$1/;
 	s/, (ה?תש.?".[-–])?\d{4}//;
 	s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
-	# print "Law is \"$law_name\"\n";
 	return $_;
 }
 
+# @list = (name, series, booklet, page, date, lawid, url, count)
 sub get_primary_page {
 	my $page = shift;
 	my $count = shift // ($history ? 10 : 2);
@@ -271,14 +272,17 @@ sub get_primary_page {
 	
 	$page = $primary_prefix.$page unless ($page =~ /^https?:/);
 	$id = $1 if ($page =~ /lawitemid=(\d+)$/);
-	my $law_list = ($page =~ /LawReshumot/);
+	my $local = ($dump && -f "$id.html");
 	
-	# $page = "$id.html" if ($id);
+	my $law_list = ($page =~ /LawReshumot/);
 	
 	while ($page && $count>0) {
 		# print "Reading HTML file $page...\n";
-		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
-		# $tree = HTML::TreeBuilder::XPath->new_from_file(html_file($page));
+		if ($local) {
+			$tree = HTML::TreeBuilder::XPath->new_from_file(html_file("$id.html"));
+		} else {
+			$tree = HTML::TreeBuilder::XPath->new_from_url($page);
+		}
 		push @trees, $tree;
 		
 		my @loc_table = $tree->findnodes('//table[contains(@class, "rgMasterTable")]//tr');
@@ -291,7 +295,7 @@ sub get_primary_page {
 		
 		my $nextpage = $tree->findnodes('//td[@class = "LawBottomNav"]/a[contains(@id, "_aNextPage")]')->[0] || '';
 		$nextpage &&= $nextpage->attr('href');
-		if ($nextpage) {
+		if ($nextpage && !$local) {
 			$page = "http://main.knesset.gov.il$nextpage";
 		} else {
 			$page = '';
@@ -303,16 +307,16 @@ sub get_primary_page {
 		$count--;
 	}
 	
+	$full_name = trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]')) || 
+		trim($tree->findvalue('//div[@class="LawPrimaryTitleDiv"]/h3')) || '???';
+	$law_name = law_name($full_name);
+	# print "Law $id \"$law_name\"\n";
+	
 	if (!scalar(@table)) {
-		print "No data.\n";
+		# print "No data.\n";
 		$_->delete() for (@trees);
 		return ();
 	}
-	
-	$full_name = trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]')) || 
-		trim($tree->findvalue('//div[@class="LawPrimaryTitleDiv"]/h3'));
-	$law_name = law_name($full_name);
-	# print "Law $id \"$law_name\"\n";
 	
 	foreach my $node (@table) {
 		my @list = $node->findnodes('td');
@@ -349,7 +353,7 @@ sub get_primary_page {
 	return @lol;
 }
 
-
+# @list = (name, date, lawid, type, count)
 sub get_secondary_page {
 	my $page = shift;
 	my $id;
@@ -357,11 +361,16 @@ sub get_secondary_page {
 	my (@table, @lol);
 	
 	$page = $secondary_prefix.$page unless ($page =~ /^https?:/);
+	$id = $1 if ($page =~ /lawitemid=(\d+)$/);
+	my $local = ($dump && -f "$id.html");
 	
 	while ($page) {
 		# print "Reading HTML file $page...\n";
-		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
-		# $tree = HTML::TreeBuilder::XPath->new_from_file(html_file($page));
+		if ($local) {
+			$tree = HTML::TreeBuilder::XPath->new_from_file(html_file("$id.html"));
+		} else {
+			$tree = HTML::TreeBuilder::XPath->new_from_url($page);
+		}
 		push @trees, $tree;
 		
 		my @loc_table = $tree->findnodes('//table[contains(@class, "rgMasterTable")]//tr');
@@ -383,23 +392,23 @@ sub get_secondary_page {
 		@table = (@table, @loc_table);
 	}
 	
+	$law_name = trim($tree->findvalue('//div[@class="LawBillTitleDiv"]//h2[@class="LawDarkBrownTitleH2"]')) || 
+		trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]')) || '???';
+	$law_name = law_name($law_name);
+	# print "Law $id \"$law_name\"\n";
+	
 	if (!scalar(@table)) {
 		# print "No data.\n";
 		$_->delete() for (@trees);
 		return ();
 	}
 	
-	$law_name = trim($tree->findvalue('//div[@class="LawBillTitleDiv"]//h2[@class="LawDarkBrownTitleH2"]')) || 
-		trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
-	$law_name = law_name($law_name);
-	# print "Law $id \"$law_name\"\n";
-	
 	foreach my $node (@table) {
 		my @list = $node->findnodes('td');
 		next unless scalar(@list);
 		my $lawid = $list[0]->findnodes('a')->[0];
 		$lawid &&= $lawid->attr('href'); $lawid ||= '';
-		$lawid =~ m/Law(Primary|Secondary)\.aspx\?.*lawitemid[=](\d+)/;
+		$lawid =~ m/Law(Primary|Secondary|Bill)\.aspx\?.*lawitemid[=](\d+)/;
 		my $type = $1 // ''; $lawid = $2 // '';
 		map { $_ = $_->as_text(); } @list;
 		push @list, $lawid, lc(substr($type,0,1)), scalar(@lol);
@@ -407,6 +416,59 @@ sub get_secondary_page {
 		push @lol, [@list];
 	}
 	$_->delete() for (@trees);
+	return @lol;
+}
+
+sub get_bill_page {
+	my $page = shift;
+	my $id;
+	my ($tree, @trees);
+	my (@table, @lol);
+	
+	$page = $bill_prefix.$page unless ($page =~ /^https?:/);
+	$id = $1 if ($page =~ /lawitemid=(\d+)$/);
+	my $local = ($dump && -f "$id.html");
+	
+	# print "Reading HTML file $page...\n";
+	if ($local) {
+		$tree = HTML::TreeBuilder::XPath->new_from_file(html_file("$id.html"));
+	} else {
+		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
+	}
+	
+	my @table = $tree->findnodes('//table[contains(@class, "LawBillGridCls")]//tr');
+	
+	my $loc_id = $tree->findnodes('//form[@id = "aspnetForm"]')->[0];
+	if (defined $loc_id) {
+		($loc_id) = ($loc_id->attr('action') =~ m/lawitemid=(\d+)/);
+		$id ||= $loc_id;
+	}
+	
+	$law_name = trim($tree->findvalue('//div[@class="LawBillTitleDiv"]//h2[@class="LawDarkBrownTitleH2"]')) || 
+		trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]')) || '???';
+	$law_name = law_name($law_name);
+	# print "Law $id \"$law_name\"\n";
+	
+	if (!scalar(@table)) {
+		# print "No data.\n";
+		$tree->delete();
+		return ();
+	}
+	
+	foreach my $node (@table) {
+		my @list = $node->findnodes('td');
+		next unless scalar(@list);
+		my $lawid = $list[0]->findnodes('a')->[0];
+		$lawid &&= $lawid->attr('href'); $lawid ||= '';
+		$lawid =~ m/Law(Primary|Secondary|Bill)\.aspx\?.*lawitemid[=](\d+)/;
+		my $type = $1 // ''; $lawid = $2 // '';
+		map { $_ = $_->as_text(); } @list;
+		@list = ( $list[0], $list[2], $lawid, lc(substr($type,0,1)), scalar(@lol));
+		grep(s/^[ \t\xA0]*(.*?)[ \t\xA0]*$/$1/g, @list);
+		push @lol, [@list];
+	}
+	
+	$tree->delete();
 	return @lol;
 }
 
