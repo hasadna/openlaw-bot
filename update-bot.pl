@@ -233,8 +233,8 @@ sub decode_url {
 }
 
 sub comp_str {
-	my $a = shift;
-	my $b = shift;
+	my $a = shift // '';
+	my $b = shift // '';
 	$a =~ tr/־–—‒―\xAD\x96\x97/-/;
 	$a =~ tr/״”“„‟″‶/"/;
 	$a =~ tr/`׳’‘‚‛′‵/'/;
