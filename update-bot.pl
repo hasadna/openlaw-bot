@@ -232,6 +232,17 @@ sub decode_url {
 	return $_;
 }
 
+sub comp_str {
+	my $a = shift;
+	my $b = shift;
+	$a =~ tr/־–—‒―\xAD\x96\x97/-/;
+	$a =~ tr/״”“„‟″‶/"/;
+	$a =~ tr/`׳’‘‚‛′‵/'/;
+	$b =~ tr/־–—‒―\xAD\x96\x97/-/;
+	$b =~ tr/״”“„‟″‶/"/;
+	$b =~ tr/`׳’‘‚‛′‵/'/;
+	return ($a eq $b);
+}
 
 #-------------------------------------------------------------------------------
 
@@ -840,7 +851,7 @@ sub update_makor {
 			my $text2 = $1;
 			$text2 =~ /^\(\(([^|]*)\|([^|]*)\|?([^)|]*)\)\)$/ || next;
 			# print "\t\tGot (($p|$n|$u)) and $text2.\n" if ($verbose);
-			if ($1 eq $p || $2 eq $n) {
+			if (comp_str($1, $p) || comp_str($2, $n)) {
 				$trynext = 0;
 				if (!$u) {
 					# print "\t\tNo URL, next please.\n" if ($verbose);
@@ -848,7 +859,7 @@ sub update_makor {
 					next;
 				}
 				$text2 = "(($p|$2|$u))";
-				if ($1 eq $p) {
+				if (comp_str($1 eq $p)) {
 					print "\t\tReplacing '$3' with '$u'\n";
 				} else {
 					print "\t\tReplacing '$1' with '$p' and '$3' with '$u'\n";
