@@ -7,10 +7,9 @@ use English;
 use Encode;
 use utf8;
 use POSIX 'strftime';
-# use Array::Utils;
 use Data::Dumper;
 use MediaWiki::Bot;
-use IPC::Run 'run';
+# use IPC::Run 'run';
 use Getopt::Long;
 
 use SyntaxLaw();
@@ -295,7 +294,8 @@ sub process_law {
 #	}
 	
 	$text = "#הפניה [[$page_dst]]";
-	while ($src_text =~ /^<שם(?: קודם|)> *(.*?) *$/gm) {
+	$src_text = "<שם דף> $page_dst\n$src_text";
+	while ($src_text =~ /^<שם[^>\n]*> *(.*?) *$/gm) {
 		my $page2 = $1;
 		$page2 =~ s/ *\(תיקון:.*?\)$//;
 		$page2 =~ s/ *\[נוסח חדש\]//;
@@ -329,7 +329,7 @@ sub process_law {
 	
 	$page = "שיחה:$page_dst";
 	$id = $bot->get_id($page);
-	if (!defined $id) {
+	if (!$dryrun && !defined $id) {
 		$bot->edit({
 			page => $page, text => "",
 			summary => "דף ריק", minor => 1,

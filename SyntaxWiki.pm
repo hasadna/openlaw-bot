@@ -200,8 +200,8 @@ sub parse_link {
 	$type = ($type==1 ? "פנימי" : "חיצוני" );
 	my $href = $attr{'עוגן'};
 	return $str unless ($href);
-	$str = escape_template($str);
-	$href = escape_template($href);
+	$str = escape_template($str,2);
+	$href = escape_template($href,1);
 	return "{{ח:$type|$href|$str}}";
 }
 
@@ -216,7 +216,11 @@ sub trim {
 
 sub escape_template {
 	my $_ = shift // '';
-	s/({{==}}|=)(?!"[^"]+")/{{==}}/g;
+	my $id = shift;
+	if (/=/) {
+		# ($id) ? ($_ = "$id=$_") : (s/({{==}}|=)(?!"[^"]+")/{{==}}/g);
+		s/({{==}}|=)(?!"[^"]+")/{{==}}/g;
+	}
 	s/\|/{{!}}/g;
 	s/(?={{[^}\s]+){{!}}/|/g;
 	return $_;
