@@ -187,7 +187,7 @@ sub process_law {
 	my $src_ok = ($revid_s>0);
 	my $dst_ok = ($revid_t>0);
 	
-	print "PAGE \x{202B}\"$page_dst\"\x{202C}:\t";
+	print "PAGE \"$page_dst\":\t";
 	if (!$src_ok && $bot->get_id($page_dst)) {
 		$text = $bot->get_text($page_dst);
 		if ($text =~ /#(?:הפניה|Redirect) \[\[(?:מקור:|)(.*?)\]\]/) {
@@ -197,7 +197,7 @@ sub process_law {
 			($revid_s, $revid_t, $comment) = get_revid($bot, $page_dst);
 			$src_ok = ($revid_s>0);
 			$dst_ok = ($revid_t>0);
-			print "PAGE \x{202B}\"$page_dst\"\x{202C}:\t";
+			print "PAGE \"$page_dst\":\t";
 		}
 	}
 	my $update = ($revid_t<$revid_s);
