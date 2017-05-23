@@ -1080,7 +1080,7 @@ sub findHREF {
 	s/לוח השוואה/לוחהשוואה/;
 	s/סימ(ן|ני) משנה/משנה/;
 	s/$pre_sig(אות[והםן]) $type_sig/$2 $1/g;
-	s/^($pre_sig)($type_sig)$/$2 זה/;
+	s/\b($pre_sig)($type_sig)$/$2 this/;
 	
 	my $href = $_;
 	my @parts = split /[ ,.\-\)]+/;
@@ -1096,20 +1096,20 @@ sub findHREF {
 		$_ = substr($href,$p);
 		$num = undef;
 		given ($_) {
-			when (/לוחהשוואה/) { $class = "comptable"; $num = ""; }
-			when (/^$pre_sig(חלק|חלקים)/) { $class = "part"; }
-			when (/^$pre_sig(פרק|פרקים)/) { $class = "sect"; }
-			when (/^$pre_sig(משנה)/) { $class = "subsub"; }
-			when (/^$pre_sig(סימן|סימנים)/) { $class = "subs"; }
-			when (/^$pre_sig(תוספת|תוספות|נספח|נספחים)/) { $class = "supl"; $num = ""; }
-			when (/^$pre_sig(טופס|טפסים)/) { $class = "form"; }
-			when (/^$pre_sig(לוח|לוחות)/) { $class = "tabl"; }
-			when (/^$pre_sig(טבל[הא]|טבלאות)/) { $class = "tabl2"; }
-			when (/^$pre_sig(סעיף|סעיפים|תקנה|תקנות)/) { $class = "chap"; }
-			when (/^$pre_sig(פריט|פרט)/) { $class = "supchap"; }
-			when (/^$pre_sig(קט[נן]|פי?סקה|פסקאות|משנה|טור)/) { $class = "small"; }
-			when ("(") { $class = "small" unless ($class eq "supchap"); }
-			when (/^ה?(זה|זו|זאת)/) {
+			when (/לוחהשוואה/) { $class = 'comptable'; $num = ""; }
+			when (/^$pre_sig(חלק|חלקים)/) { $class = 'part'; }
+			when (/^$pre_sig(פרק|פרקים)/) { $class = 'sect'; }
+			when (/^$pre_sig(משנה)/) { $class = 'subsub'; }
+			when (/^$pre_sig(סימן|סימנים)/) { $class = 'subs'; }
+			when (/^$pre_sig(תוספת|תוספות|נספח|נספחים)/) { $class = 'supl'; $num = ""; }
+			when (/^$pre_sig(טופס|טפסים)/) { $class = 'form'; }
+			when (/^$pre_sig(לוח|לוחות)/) { $class = 'tabl'; }
+			when (/^$pre_sig(טבל[הא]|טבלאות)/) { $class = 'tabl2'; }
+			when (/^$pre_sig(סעיף|סעיפים|תקנה|תקנות)/) { $class = 'chap'; }
+			when (/^$pre_sig(פריט|פרט)/) { $class = 'supchap'; }
+			when (/^$pre_sig(קט[נן]|פי?סקה|פסקאות|משנה|טור)/) { $class = 'small'; }
+			when ("(") { $class = 'small' unless ($class eq 'supchap'); }
+			when (/^ה?(זה|זו|זאת|this)/) {
 				given ($class) {
 					when (/^(supl|form|tabl|table2)$/) { $num = $glob{$class} || ''; }
 					when (/^(part|sect|form|chap)$/) { $num = $glob{$class}; }
@@ -1129,11 +1129,11 @@ sub findHREF {
 				$elm{$class} ||= $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
 				$ext = $glob{href}{ditto}{ext};
 				given ($class) {
-					when (/subs/) {
+					when (/^subs$/) {
 						$elm{sect} = $glob{href}{ditto}{sect} unless defined $elm{sect};
 						$elm{part} = $glob{href}{ditto}{part} unless defined $elm{part};
 					}
-					when (/subsub/) {
+					when (/^subsub$/) {
 						$elm{subs} = $glob{href}{ditto}{subs} unless defined $elm{subs};
 						$elm{sect} = $glob{href}{ditto}{sect} unless defined $elm{sect};
 						$elm{part} = $glob{href}{ditto}{part} unless defined $elm{part};
@@ -1147,7 +1147,7 @@ sub findHREF {
 			default {
 				s/^[לב]-(\d.*)/$1/;
 				$num = get_numeral($_);
-				$class = ($glob{href}{last_class} // "chap_") if ($num ne '' && $class eq '');
+				$class = ($glob{href}{last_class} || 'chap_') if ($num ne '' && $class eq '');
 			}
 		}
 		# print STDERR " --> |$_|$class|" . ($num || '') . "|\n";
@@ -1160,7 +1160,7 @@ sub findHREF {
 	$elm{chap} = $elm{chap_} if (defined $elm{chap_} and !defined $elm{chap});
 	$elm{ext} = $ext // '';
 	
-	$glob{href}{last_class} = $class;
+	$glob{href}{last_class} = $elm{chap} ? 'chap' : $elm{subsub} ? 'subsub' : $elm{subs} ? 'subs' : $elm{sect} ? 'sect' : $elm{part} ? 'part' : $class eq 'small' ? '' : $class;
 	
 	if ($helper && defined $glob{href}{ditto}{ext}) {
 		$glob{href}{ditto}{ext} = $helper;
