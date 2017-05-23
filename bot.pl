@@ -26,7 +26,7 @@ my $outfile;
 
 my %processed;
 my ($page, $id, $text);
-my $bot_page = decode_utf8("משתמש:OpenLawBot/הוספה");
+my $bot_page = "משתמש:OpenLawBot/הוספה";
 
 GetOptions(
 	"force" => \$force, 
