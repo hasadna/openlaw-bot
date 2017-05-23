@@ -289,6 +289,7 @@ sub parse_remark {
 	my $_ = shift;
 	s/^\(\((.*?)\)\)$/$1/s;
 	my ($text,$tip,$url) = ( /((?:\{\{.*?\}\}|\[\[.*?\]\]|[^\|])+)/g );
+	return $_ unless defined $text;
 	my $str;
 	$text =~ s/^ *(.*?) *$/$1/;
 	if ($tip) {
@@ -552,27 +553,27 @@ sub get_numeral {
 	while ($_) {
 		$token = '';
 		given ($_) {
-			($num,$token) = ("0",$1) when /^(ה?מקדמית?)\b/;
-			($num,$token) = ("11",$1) when /^(ה?אחד[- ]עשר|ה?אחת[- ]עשרה)\b/;
-			($num,$token) = ("12",$1) when /^(ה?שניי?ם[- ]עשר|ה?שתיי?ם[- ]עשרה)\b/;
-			($num,$token) = ("13",$1) when /^(ה?שלושה[- ]עשר|ה?שלוש[- ]עשרה)\b/;
-			($num,$token) = ("14",$1) when /^(ה?ארבעה[- ]עשר|ה?ארבע[- ]עשרה)\b/;
-			($num,$token) = ("15",$1) when /^(ה?חמי?שה[- ]עשר|ה?חמש[- ]עשרה)\b/;
-			($num,$token) = ("16",$1) when /^(ה?שי?שה[- ]עשר|ה?שש[- ]עשרה)\b/;
-			($num,$token) = ("17",$1) when /^(ה?שבעה[- ]עשר|ה?שבע[- ]עשרה)\b/;
-			($num,$token) = ("18",$1) when /^(ה?שמונה[- ]עשרה?)\b/;
-			($num,$token) = ("19",$1) when /^(ה?תשעה[- ]עשר|ה?תשע[- ]עשרה)\b/;
-			($num,$token) = ("1",$1) when /^(ה?ראשו(ן|נה)|אחד|אחת])\b/;
-			($num,$token) = ("2",$1) when /^(ה?שניי?ה?|ש[תנ]יי?ם)\b/;
-			($num,$token) = ("3",$1) when /^(ה?שלישית?|שלושה?)\b/;
-			($num,$token) = ("4",$1) when /^(ה?רביעית?|ארבעה?)\b/;
-			($num,$token) = ("5",$1) when /^(ה?חמי?שית?|חמש|חמי?שה)\b/;
-			($num,$token) = ("6",$1) when /^(ה?שי?שית?|שש|שי?שה)\b/;
-			($num,$token) = ("7",$1) when /^(ה?שביעית?|שבעה?)\b/;
-			($num,$token) = ("8",$1) when /^(ה?שמינית?|שמונה)\b/;
-			($num,$token) = ("9",$1) when /^(ה?תשיעית?|תשעה?)\b/;
-			($num,$token) = ("10",$1) when /^(ה?עשירית?|עשרה?)\b/;
-			($num,$token) = ("20",$1) when /^(ה?עשרים)\b/;
+			($num,$token) = ("0",$1) when /^(מקדמית?)\b/;
+			($num,$token) = ("11",$1) when /^(אחד[- ]עשר|אחת[- ]עשרה)\b/;
+			($num,$token) = ("12",$1) when /^(שניי?ם[- ]עשר|שתיי?ם[- ]עשרה)\b/;
+			($num,$token) = ("13",$1) when /^(שלושה[- ]עשר|שלוש[- ]עשרה)\b/;
+			($num,$token) = ("14",$1) when /^(ארבעה[- ]עשר|ארבע[- ]עשרה)\b/;
+			($num,$token) = ("15",$1) when /^(חמי?שה[- ]עשר|חמש[- ]עשרה)\b/;
+			($num,$token) = ("16",$1) when /^(שי?שה[- ]עשר|שש[- ]עשרה)\b/;
+			($num,$token) = ("17",$1) when /^(שבעה[- ]עשר|שבע[- ]עשרה)\b/;
+			($num,$token) = ("18",$1) when /^(שמונה[- ]עשרה?)\b/;
+			($num,$token) = ("19",$1) when /^(תשעה[- ]עשר|תשע[- ]עשרה)\b/;
+			($num,$token) = ("1",$1) when /^(ראשו(ן|נה)|אחד|אחת])\b/;
+			($num,$token) = ("2",$1) when /^(שניי?ה?|ש[תנ]יי?ם)\b/;
+			($num,$token) = ("3",$1) when /^(שלישית?|שלושה?)\b/;
+			($num,$token) = ("4",$1) when /^(רביעית?|ארבעה?)\b/;
+			($num,$token) = ("5",$1) when /^(חמי?שית?|חמש|חמי?שה)\b/;
+			($num,$token) = ("6",$1) when /^(שי?שית?|שש|שי?שה)\b/;
+			($num,$token) = ("7",$1) when /^(שביעית?|שבעה?)\b/;
+			($num,$token) = ("8",$1) when /^(שמינית?|שמונה)\b/;
+			($num,$token) = ("9",$1) when /^(תשיעית?|תשעה?)\b/;
+			($num,$token) = ("10",$1) when /^(עשירית?|עשרה?)\b/;
+			($num,$token) = ("20",$1) when /^(עשרים)\b/;
 			($num,$token) = ("$1-2","$1$2") when /^(\d+)([- ]?bis)\b/i;
 			($num,$token) = ("$1-3","$1$2") when /^(\d+)([- ]?ter)\b/i;
 			($num,$token) = ("$1-4","$1$2") when /^(\d+)([- ]?quater)\b/i;
@@ -586,7 +587,7 @@ sub get_numeral {
 			last;
 		} else {
 			# Fetch next token
-			s/^[^ ()|]*[ ()|]+// || s/^.*//;
+			s/^[הו]// || s/^[^ ()|]*[ ()|]+// || s/^.*//;
 		}
 	}
 	
@@ -766,10 +767,10 @@ sub process_section {
 	$type =~ s/\(\(.*?\)\)//g if (defined $type);
 	given ($type) {
 		when (undef) {}
-		when (/חלק/) { $glob{part} = $num; $glob{sect} = $glob{subs} = undef; }
-		when (/פרק/) { $glob{sect} = $num; $glob{subs} = undef; }
+		when (/חלק/) { $glob{part} = $num; $glob{sect} = $glob{subs} = $glob{subsub} = undef; }
+		when (/פרק/) { $glob{sect} = $num; $glob{subs} = $glob{subsub} = undef; }
+		when (/סימן/) { $glob{subs} = $num; $glob{subsub} = undef; }
 		when (/משנה/) { $glob{subsub} = $num; }
-		when (/סימן/) { $glob{subs} = $num; }
 		when (/לוחהשוואה/) { delete @glob{"part", "sect", "subs", "subsub", "supl", "appn", "form", "tabl", "tabl2"}; }
 		when (/תוספת/) { $glob{supl} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub", "appn", "form", "tabl", "tabl2"}; }
 		when (/נספח/) { $glob{appn} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
@@ -1079,6 +1080,8 @@ sub findHREF {
 	s/לוח השוואה/לוחהשוואה/;
 	s/סימ(ן|ני) משנה/משנה/;
 	s/$pre_sig(אות[והםן]) $type_sig/$2 $1/g;
+	s/^($pre_sig)($type_sig)$/$2 זה/;
+	
 	my $href = $_;
 	my @parts = split /[ ,.\-\)]+/;
 	my $class = '';
@@ -1108,13 +1111,13 @@ sub findHREF {
 			when ("(") { $class = "small" unless ($class eq "supchap"); }
 			when (/^ה?(זה|זו|זאת)/) {
 				given ($class) {
-					when (/supl|form|tabl|table2/) { $num = $glob{$class} || ''; }
-					when (/part|sect|form|chap/) { $num = $glob{$class}; }
-					when (/subs/) {
+					when (/^(supl|form|tabl|table2)$/) { $num = $glob{$class} || ''; }
+					when (/^(part|sect|form|chap)$/) { $num = $glob{$class}; }
+					when (/^subs$/) {
 						$elm{subs} = $glob{subs} unless defined $elm{subs};
 						$elm{sect} = $glob{sect} unless defined $elm{sect};
 					}
-					when (/subsub/) {
+					when (/^subsub$/) {
 						$elm{subsub} = $glob{subsub} unless defined $elm{subsub};
 						$elm{subs} = $glob{subs} unless defined $elm{subs};
 						$elm{sect} = $glob{sect} unless defined $elm{sect};
@@ -1144,7 +1147,7 @@ sub findHREF {
 			default {
 				s/^[לב]-(\d.*)/$1/;
 				$num = get_numeral($_);
-				$class = "chap_" if ($num ne '' && $class eq '');
+				$class = ($glob{href}{last_class} // "chap_") if ($num ne '' && $class eq '');
 			}
 		}
 		# print STDERR " --> |$_|$class|" . ($num || '') . "|\n";
@@ -1156,6 +1159,8 @@ sub findHREF {
 	
 	$elm{chap} = $elm{chap_} if (defined $elm{chap_} and !defined $elm{chap});
 	$elm{ext} = $ext // '';
+	
+	$glob{href}{last_class} = $class;
 	
 	if ($helper && defined $glob{href}{ditto}{ext}) {
 		$glob{href}{ditto}{ext} = $helper;
