@@ -1080,7 +1080,7 @@ sub findHREF {
 	s/לוח השוואה/לוחהשוואה/;
 	s/סימ(ן|ני) משנה/משנה/;
 	s/$pre_sig(אות[והםן]) $type_sig/$2 $1/g;
-	s/\b($pre_sig)($type_sig)$/$2 this/;
+	s/\b($pre_sig)($type_sig)$/$2 this/ unless ($ext);
 	
 	my $href = $_;
 	my @parts = split /[ ,.\-\)]+/;
@@ -1160,7 +1160,7 @@ sub findHREF {
 	$elm{chap} = $elm{chap_} if (defined $elm{chap_} and !defined $elm{chap});
 	$elm{ext} = $ext // '';
 	
-	$glob{href}{last_class} = $elm{chap} ? 'chap' : $elm{subsub} ? 'subsub' : $elm{subs} ? 'subs' : $elm{sect} ? 'sect' : $elm{part} ? 'part' : $class eq 'small' ? '' : $class;
+	$glob{href}{last_class} = $elm{supchap} ? 'supchap' : $elm{chap} ? 'chap' : $elm{subsub} ? 'subsub' : $elm{subs} ? 'subs' : $elm{sect} ? 'sect' : $elm{part} ? 'part' : $class eq 'small' ? '' : $class;
 	
 	if ($helper && defined $glob{href}{ditto}{ext}) {
 		$glob{href}{ditto}{ext} = $helper;
