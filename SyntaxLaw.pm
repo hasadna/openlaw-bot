@@ -1148,7 +1148,10 @@ sub findHREF {
 			default {
 				s/^[לב]-(\d.*)/$1/;
 				$num = get_numeral($_);
-				$class = ($glob{href}{last_class} || 'chap_') if ($num ne '' && $class eq '');
+				if ($num ne '' && $class eq '') {
+					$class = (/^$pre_sig\d+/) ? 'chap_' : ($glob{href}{last_class} || 'chap_');
+					$class = 'supchap' if ($glob{href}{last_class} eq 'supchap');
+				}
 			}
 		}
 		# print STDERR " --> |$_|$class|" . ($num || '') . "|\n";
