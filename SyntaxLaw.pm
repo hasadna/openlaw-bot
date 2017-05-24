@@ -723,6 +723,7 @@ sub parse_element {
 		}
 		when (/^סעיף/) {
 			process_chapter($params);
+			$glob{href}{last_class} = 'chap';
 		}
 		when (/^תיאור/) {
 			# Split, ignore outmost parenthesis.
