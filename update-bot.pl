@@ -859,13 +859,13 @@ sub update_makor {
 					next;
 				}
 				$text2 = "(($p|$2|$u))";
-				if (comp_str($1 eq $p)) {
+				if (comp_str($1, $p)) {
 					print "\t\tReplacing '$3' with '$u'\n";
 				} else {
-					print "\t\tReplacing '$1' with '$p' and '$3' with '$u'\n";
+					print "\t\tReplacing '$3' with '$u'\n";
+					# print "\t\tReplacing '$1' with '$p' and '$3' with '$u'\n";
+					$p = $1;
 				}
-				# $text2 = "(($1|$2|$u))";
-				# print "\t\tReplacing '$3' with '$u'\n";
 				$str2 =~ s/^.*?\|$u\)\)//s;
 				pos($text) = $lastpos;
 				$text =~ s/\G(\(\(.*?\)\))(?!\))/$text2/;
