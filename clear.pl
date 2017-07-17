@@ -126,8 +126,8 @@ if ($t1>$t2/100) {
 }
 
 # Check if we've got all parentheses wrong.
-$t1 = () = (/\).\(/g);
-$t2 = () = (/\(.\)/g);
+$t1 = () = (/[^()\n]*\)[^()\n]+\(/gm);
+$t2 = () = (/[^()\n]\([^()\n]+\)/gm);
 # print STDERR "got $t1 and $t2.\n";
 if ($t1 > $t2) {
 	tr/([{<>}])/)]}><{[(/;
