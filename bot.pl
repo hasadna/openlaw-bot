@@ -218,8 +218,9 @@ sub process_law {
 		} elsif ($text =~ /^ *<שם( קודם|)>/s) {
 			print "Warning, source misplaced, moving to \"$page_src\".\n";
 			$bot->move($page_dst, $page_src, $comment, { movetalk => 0, noredirect => 1, movesubpages => 0 }) unless ($dryrun);
-			$revid_s = $revid_t; $revid_t = 0;
-			$src_ok = ($revid_s>0); $dst_ok = 0;
+			($revid_s, $revid_t) = get_revid($bot, $page_dst);
+			$src_ok = ($revid_s>0);
+			$dst_ok = ($revid_t>0);
 		}
 	}
 	my $update = ($revid_t<$revid_s);
