@@ -291,7 +291,7 @@ sub process_law {
 	}
 	
 	$res = "v " . ($dst_ok ? "עודכן" : "נוצר") ." [[$page_dst]]";
-	$new_pages{$page_dst} = '' unless ($dst_ok);
+	$new_pages{$page_dst} = '' unless ($dst_ok && $page_dst =~ /^(חוק|פקודת)/);
 	
 	# Check all possible redirections
 	$text = "#הפניה [[$page_dst]]";
