@@ -9,7 +9,6 @@ use utf8;
 use POSIX 'strftime';
 use Data::Dumper;
 use MediaWiki::Bot;
-# use IPC::Run 'run';
 use Getopt::Long;
 
 use SyntaxLaw();
@@ -25,6 +24,7 @@ my $locforce = 0;
 my $outfile;
 
 my %processed;
+my %new_pages;
 my ($page, $id, $text);
 my $bot_page = "משתמש:OpenLawBot/הוספה";
 
@@ -123,14 +123,15 @@ if ($recent) {
 		$text[$line] = $res;
 	}
 	
-	$text = join("\n", @text);
-	$text .= "\n";
-	$text =~ s/\n{2,}/\n/g;
+	unless ($onlycheck || $dryrun) {
+		$text = join("\n", @text) . "\n";
+		$text =~ s/\n{2,}/\n/g;
+		$bot->edit({
+			page => $bot_page, text => $text, summary => 'תודה',
+			bot => 1, minor => 0, assertion => 'bot',
+		})
+	}
 	
-	$bot->edit( {
-		page => $bot_page, text => $text, summary => "תודה",
-		bot => 1, minor => 0, assertion => 'bot',
-	}) unless ($onlycheck || $dryrun);
 }
 
 if ($onlycheck and $force) {
@@ -156,6 +157,22 @@ foreach my $page_dst (@pages) {
 	
 	last if ($recent and $recent > 10);
 	
+}
+
+# Write new texts page
+if ((%new_pages) && !($onlycheck || $dryrun)) {
+	$page = 'עמוד_ראשי/טקסטים_חדשים';
+	$text = $bot->get_text($page);
+	if ($text) {
+		$text =~ /\}\}\n+/g || $text =~ /\n(?=\[\[)?/g || $text =~ s/ *\n*$/ {{*}}\n/gs;
+		my $new = join("\n", (keys(%new_pages), ''));
+		$new =~ s/(.+)/[[$1]] {{*}}/mg;
+		$text =~ s/\G/$new/;
+		$bot->edit({
+			page => $page, text => $text, summary => 'טקסטים חדשים',
+			bot => 1, minor => 0, assertion => 'bot',
+		})
+	}
 }
 
 $page = 'ויקיטקסט:ספר החוקים הפתוח';
@@ -198,6 +215,11 @@ sub process_law {
 			$src_ok = ($revid_s>0);
 			$dst_ok = ($revid_t>0);
 			print "PAGE \"$page_dst\":\t";
+		} elsif ($text =~ /^ *<שם( קודם|)>/s) {
+			print "Warning, source misplaced, moving to \"$page_src\".\n";
+			$bot->move($page_dst, $page_src, $comment, { movetalk => 0, noredirect => 1, movesubpages => 0 }) unless ($dryrun);
+			$revid_s = $revid_t; $revid_t = 0;
+			$src_ok = ($revid_s>0); $dst_ok = 0;
 		}
 	}
 	my $update = ($revid_t<$revid_s);
@@ -255,8 +277,6 @@ sub process_law {
 		return "x בעיה בהמרה";
 	};
 	
-	$res = "v " . ($dst_ok ? "עודכן" : "נוצר") ." [[$page_dst]]";
-	
 	$comment = ( $comment ? "[$revid_s] $comment" : "[$revid_s]" );
 	
 	# print STDOUT "$text\n" if ($print || $dryrun);
@@ -269,32 +289,11 @@ sub process_law {
 		# }
 	}
 	
-#	# Check editnotice and update if neccessary
-#	$page = "Mediawiki:Editnotice-0-$page_dst";
-#	$id = $bot->get_id($page);
-#	if (!defined $id) {
-#		if ($dryrun) {
-#			print "Editnotice for '$page_dst' does not exist.\n";
-#		} else {
-#			print "Creating editnotice '$page_dst'.\n";
-#			$bot->edit({
-#				page => $page, text => "{{הודעת עריכה חוקים}}",
-#				summary => "editnotice", minor => 1,
-#			});
-#		}
-#	}
-	
-#	$page = "Mediawiki:Editnotice-116-$page_dst";
-#	$id = $bot->get_id($page);
-#	if (!defined $id && !$dryrun) {
-#		$bot->edit({
-#			page => $page, text => "{{הודעת עריכה חוקים}}",
-#			summary => "editnotice", minor => 1,
-#		});
-#	}
+	$res = "v " . ($dst_ok ? "עודכן" : "נוצר") ." [[$page_dst]]";
+	new_pages{$page_dst} = '' unless ($dst_ok);
 	
 	$text = "#הפניה [[$page_dst]]";
-	$src_text = "<שם דף> $page_dst\n$src_text";
+	$src_text = "<שם דף> $page_dst\n$src_text"; # Make sure $page_dst is checked for redirections
 	while ($src_text =~ /^<שם[^>\n]*> *(.*?) *$/gm) {
 		my $page2 = $1;
 		$page2 =~ s/ *\(תיקון:.*?\)$//;
@@ -355,8 +354,6 @@ sub move_page {
 			page => "שיחת מקור:$dst", text => "#הפניה [[שיחה:$dst]]",
 			summary => "הפניה", minor => 1
 		});
-		# $bot->move("Mediawiki:Editnotice-0-$src", "Mediawiki:Editnotice-0-$dst", "העברה", {noredirect => 1});
-		# $bot->move("Mediawiki:Editnotice-116-$src", "Mediawiki:Editnotice-116-$dst", "העברה", {noredirect => 1});
 	}
 	return "v דף [[$src]] הועבר לדף [[$dst]]";
 }
@@ -365,11 +362,9 @@ sub move_page {
 sub RunParsers {
 	my ( $str1, $str2, $str3 );
 	$str1 = shift;
-	$str2 = SyntaxLaw::convert($str1);
-	$str3 = SyntaxWiki::convert($str2);
-	$str3 = decode_utf8($str3);
-	$str3 .= decode_utf8("\n[[קטגוריה:בוט חוקים]]\n");
-	return $str3;
+	$str2 = SyntaxLaw::convert( $str1 );
+	$str3 = SyntaxWiki::convert( $str2 );
+	return $str3 . "\n[[קטגוריה:בוט חוקים]]\n";
 }
 
 
