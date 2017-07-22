@@ -291,24 +291,13 @@ sub process_law {
 	}
 	
 	$res = "v " . ($dst_ok ? "עודכן" : "נוצר") ." [[$page_dst]]";
-	new_pages{$page_dst} = '' unless ($dst_ok);
+	$new_pages{$page_dst} = '' unless ($dst_ok);
 	
+	# Check all possible redirections
 	$text = "#הפניה [[$page_dst]]";
-	$src_text = "<שם דף> $page_dst\n$src_text"; # Make sure $page_dst is checked for redirections
-	while ($src_text =~ /^<שם[^>\n]*> *(.*?) *$/gm) {
-		my $page2 = $1;
-		$page2 =~ s/ *\(תיקון:.*?\)$//;
-		$page2 =~ s/ *\[נוסח חדש\]//;
-		$page2 =~ s/, *(ה?תש.?["”״].[\-־–])?\d{4}$//;
-		$page = $page2;
-		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-		$page = $page2 =~ s/[–־]/-/gr;
-		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-		$page =~ tr/“”״„’‘׳/"""'''/;
-		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-		$page = $page2 =~ s/(?<=[א-ת])[\-־](?=[א-ת])/ /gr;
-		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
-		$page = $page2 =~ s/ – / - /gr;
+	my @redirects = possible_redirects($page_dst, $src_text =~ /^<שם[^>\n]*> *(.*?) *$/gm);
+	foreach $page (@redirects) {
+		next if ($page eq $page_dst);
 		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
 	}
 	
@@ -359,6 +348,25 @@ sub move_page {
 	return "v דף [[$src]] הועבר לדף [[$dst]]";
 }
 
+sub possible_redirects {
+	my %redirects;
+	while (my $page = shift) {
+		$page =~ s/ *\(תיקון:.*?\)$//;
+		$page =~ s/ *\[נוסח חדש\]//;
+		$page =~ s/, *(ה?תש.?["”״].[\-־–])?\d{4}$//;
+		
+		for (my $k = 0; $k < 32; $k++) {
+			my $_ = $page;
+			if ($k&1) { s/[–־]+/-/g; }
+			if ($k&2) { tr/“”״„’‘׳/"""'''/; }
+			if ($k&4) { s/(?<=[א-ת])[\-־](?=[א-ת])/ /g; }
+			if ($k&8) { s/ – / - /g; }
+			if ($k&16) { s/, / /g; }
+			$redirects{$_} = '';
+		}
+	}
+	return keys %redirects;
+}
 
 sub RunParsers {
 	my ( $str1, $str2, $str3 );
