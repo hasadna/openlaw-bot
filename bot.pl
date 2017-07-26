@@ -25,6 +25,7 @@ my $outfile;
 
 my %processed;
 my %new_pages;
+my %updated_pages;
 my ($page, $id, $text);
 my $bot_page = "משתמש:OpenLawBot/הוספה";
 
@@ -57,6 +58,7 @@ my $bot = MediaWiki::Bot->new({
 	protocol   => 'https',
 	debug      => ($verbose?2:0),
 }) or die "Error login...\n";
+
 
 if ($interactive) {
 	print "Entering interacitve mode (enter empty string to quit).\n";
@@ -156,10 +158,9 @@ foreach my $page_dst (@pages) {
 	process_law($page_dst);
 	
 	last if ($recent and $recent > 10);
-	
 }
 
-# Write new texts page
+# Update new texts page
 if ((%new_pages) && !($onlycheck || $dryrun)) {
 	$page = 'עמוד_ראשי/טקסטים_חדשים';
 	$text = $bot->get_text($page);
@@ -168,6 +169,26 @@ if ((%new_pages) && !($onlycheck || $dryrun)) {
 		my $new = join("\n", (keys(%new_pages), ''));
 		$new =~ s/(.+)/[[$1]] {{*}}/mg;
 		$text =~ s/\G/$new/;
+		$bot->edit({
+			page => $page, text => $text, summary => 'טקסטים חדשים',
+			bot => 1, minor => 0, assertion => 'bot',
+		})
+	}
+}
+
+# Update recently updated page
+if ((%new_pages) && !($onlycheck || $dryrun)) {
+	$page = 'ויקיטקסט:ספר החוקים הפתוח/עדכונים אחרונים';
+	$text = $bot->get_text($page);
+	if ($text) {
+		$text =~ /^(?=\*)/gm;
+		my $new = join("\n", (keys(%updated_pages), ''));
+		$new =~ s/(.+)/* [[$1]]/gm;
+		$text =~ s/\G/$new/;
+		$text =~ /^(?=\*)/gm;
+		$text =~ /\G(\*.*\n){0,10}+/gm;
+		$text =~ s/\G(\*.*\n)*//m;
+		
 		$bot->edit({
 			page => $page, text => $text, summary => 'טקסטים חדשים',
 			bot => 1, minor => 0, assertion => 'bot',
@@ -217,8 +238,8 @@ sub process_law {
 			print "PAGE \"$page_dst\":\t";
 		} elsif ($text =~ /^ *<שם( קודם|)>/s) {
 			print "Warning, source misplaced, moving to \"$page_src\".\n";
-			$bot->move($page_dst, $page_src, $comment, { movetalk => 0, noredirect => 1, movesubpages => 0 }) unless ($dryrun);
-			($revid_s, $revid_t) = get_revid($bot, $page_dst);
+			$bot->move($page_dst, $page_src, '', { movetalk => 0, noredirect => 1, movesubpages => 0 }) unless ($dryrun);
+			($revid_s, $revid_t, $comment) = get_revid($bot, $page_dst);
 			$src_ok = ($revid_s>0);
 			$dst_ok = ($revid_t>0);
 		}
@@ -279,6 +300,12 @@ sub process_law {
 	};
 	
 	$comment = ( $comment ? "[$revid_s] $comment" : "[$revid_s]" );
+	
+	my $len1 = length($bot->get_text($page_dst) // '');
+	my $len2 = length($text);
+	
+	print "Length changed from $len1 to $len2.\n";
+	$updated_pages{$page_dst} = '' if (abs($len1-$len2)>2000);
 	
 	# print STDOUT "$text\n" if ($print || $dryrun);
 	unless ($dryrun) {
@@ -360,7 +387,7 @@ sub possible_redirects {
 			if ($k&1) { s/[–־]+/-/g; }
 			if ($k&2) { tr/“”״„’‘׳/"""'''/; }
 			if ($k&4) { s/(?<=[א-ת])[\-־](?=[א-ת])/ /g; }
-			if ($k&8) { s/ – / - /g; }
+			if ($k&8) { s/ – / - /g; s/--/-/g;} else { s/--/-/g; }
 			if ($k&16) { s/, / /g; }
 			$redirects{$_} = '';
 		}
@@ -405,7 +432,7 @@ sub get_revid {
 	
 	my $revid_s = $hist_s[0]->{revid};
 	my $revid_t = 0;
-	my $comment = $hist_s[0]->{comment};
+	my $comment = $hist_s[0]->{comment} // $hist_t[0]->{comment};
 	
 	foreach my $rec (@hist_t) {
 		if ($rec->{user} eq 'OpenLawBot' && $rec->{comment} =~ /^ *\[(\d+)\]/) {
