@@ -304,7 +304,7 @@ sub process_law {
 	my $len1 = length($bot->get_text($page_dst) // '');
 	my $len2 = length($text);
 	
-	print "Length changed from $len1 to $len2.\n";
+	# print "Length changed from $len1 to $len2.\n";
 	$updated_pages{$page_dst} = '' if (abs($len1-$len2)>2000);
 	
 	# print STDOUT "$text\n" if ($print || $dryrun);
