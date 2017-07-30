@@ -951,6 +951,7 @@ sub process_HREF {
 		$helper = $1;
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
 		(undef,$ext) = findHREF($text,$helper);
+		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext});
 		$update_mark = true;
 	} elsif ($helper =~ /^(.*?) *= *(.*)/) {
 		$type = 3;
@@ -958,6 +959,7 @@ sub process_HREF {
 		(undef,$helper) = findHREF($text) if ($2 eq '');
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
 		(undef,$ext) = findHREF($ext,$helper);
+		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext});
 		$update_mark = true;
 	} elsif ($helper eq '+' || $ext eq '+') {
 		$type = 2;
