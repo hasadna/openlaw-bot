@@ -177,20 +177,23 @@ if ((%new_pages) && !($onlycheck || $dryrun)) {
 }
 
 # Update recently updated page
-if ((%new_pages) && !($onlycheck || $dryrun)) {
+if ((%updated_pages) && !($onlycheck || $dryrun)) {
 	$page = 'ויקיטקסט:ספר החוקים הפתוח/עדכונים אחרונים';
 	$text = $bot->get_text($page);
 	if ($text) {
+		my $new = '';
+		foreach (keys(%updated_pages)) {
+			$text =~ s/\* \[\[$_\]\].*\n//m;
+			$new .= "* [[$_]]\n";
+		}
 		$text =~ /^(?=\*)/gm;
-		my $new = join("\n", (keys(%updated_pages), ''));
-		$new =~ s/(.+)/* [[$1]]/gm;
 		$text =~ s/\G/$new/;
 		$text =~ /^(?=\*)/gm;
 		$text =~ /\G(\*.*\n){0,10}+/gm;
 		$text =~ s/\G(\*.*\n)*//m;
 		
 		$bot->edit({
-			page => $page, text => $text, summary => 'טקסטים חדשים',
+			page => $page, text => $text, summary => 'עדכונים אחרונים',
 			bot => 1, minor => 0, assertion => 'bot',
 		})
 	}
