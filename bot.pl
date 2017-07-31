@@ -189,7 +189,7 @@ if ((%updated_pages) && !($onlycheck || $dryrun)) {
 		$text =~ /^(?=\*)/gm;
 		$text =~ s/\G/$new/;
 		$text =~ /^(?=\*)/gm;
-		$text =~ /\G(\*.*\n){0,10}+/gm;
+		$text =~ /\G(\*.*\n){0,15}+/gm;
 		$text =~ s/\G(\*.*\n)*//m;
 		
 		$bot->edit({
