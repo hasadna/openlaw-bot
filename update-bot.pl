@@ -554,6 +554,7 @@ sub print_fix {
 	
 	$name =~ s/ {2,}/ /g;
 	$name =~ s/ *\(חוק מקורי\)//;
+	$name =~ s/החוק המקורי/$law_name/;
 	# $law_name = ($name =~ s/ *\[.*?\]//gr) if ($first_run);
 	$name =~ s/\bמס\. $/מס' /;
 	$name =~ s/ (ב|של |ל)$law_re$//;
@@ -1019,4 +1020,3 @@ sub update_global_todo {
 		$bot->purge_page('ויקיטקסט:ספר החוקים הפתוח');
 	}
 }
-
