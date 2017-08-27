@@ -151,7 +151,7 @@ sub convert {
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
 	s/<לוח_השוואה>\s*(.*?)<\/(לוח_השוואה|)>\n?/&parse_comparetable($1)/egs;
 	s/(?<=\<math\>)(.*?)(?=\<[\\\/]math\>)/&fix_tags($1)/egs;
-	s/(<[^>]+>)/&fix_tags($1)/egs;
+	s/(<(?:div|span|table|td|th|tr) [^>]+>)/&fix_tags($1)/egs;
 	
 	s/\x00//g; # Remove nulls
 	s/\n{3,}/\n\n/g;
