@@ -150,7 +150,8 @@ sub convert {
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<[\\\/](ויקי)?\>)/&unescape_text($1) . "<\/ויקי>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
 	s/<לוח_השוואה>\s*(.*?)<\/(לוח_השוואה|)>\n?/&parse_comparetable($1)/egs;
-	s/(?<=\<math\>)(.*?)(?=\<[\\\/]math\>)/&fix_math($1)/egs;
+	s/(?<=\<math\>)(.*?)(?=\<[\\\/]math\>)/&fix_tags($1)/egs;
+	s/(<[^>]+>)/&fix_tags($1)/egs;
 	
 	s/\x00//g; # Remove nulls
 	s/\n{3,}/\n\n/g;
@@ -357,7 +358,7 @@ sub parse_wikitable {
 		}
 		
 		if (/^\{\|(.*)$/) {
-			$attributes = ($1);
+			$attributes = $1;
 			$_ = "<table$1>\n";
 			push @td_history, false;
 			push @last_tag_history, '';
@@ -658,9 +659,10 @@ sub canonic_name {
 	return $_;
 }
 
-sub fix_math {
+sub fix_tags {
 	my $_ = shift;
 	tr/–/-/;
+	tr/“”״/"/;
 	return $_;
 }
 
