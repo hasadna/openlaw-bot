@@ -21,8 +21,8 @@ $Data::Dumper::Useperl = 1;
 use constant { true => 1, false => 0 };
 
 # \bו?כ?ש?מ?[בהל]?(חוק|פקוד[הת]|תקנות|צו|חלק|פרק|סימן(?: משנה|)|תוספו?ת|טופס|לוח)
-our $pre_sig = '\bו?כ?ש?מ?[בהל]?';
-our $extref_sig = $pre_sig . '(חוק|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודעה|מנשר|כללים?|נוהל|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)\b';
+our $pre_sig = 'ו?כ?ש?מ?[בהל]?';
+our $extref_sig = $pre_sig . '(חוק|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודעה|מנשר|כללים?|נוהל|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)';
 our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+\.?)';
 
@@ -635,7 +635,7 @@ sub escape_text {
 
 sub unescape_text {
 	my $_ = shift;
-	my %table = ( 'quot' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", # No &amp; conversion here!
+	my %table = ( 'quot' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", # &amp; later
 		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'shy' => '&null;',
 		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 
 		'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε',
@@ -653,6 +653,8 @@ sub canonic_name {
 	tr/–־/-/;
 	tr/״”“/"/;
 	tr/׳‘’/'/;
+	tr/\x{05B0}-\x{05BD}//;
+	s/ - / – /g;
 	return $_;
 }
 
@@ -748,7 +750,7 @@ sub parse_element {
 		}
 		when (/^\/קישור/) {
 			my $href_idx = $glob{href}{idx};
-			$hrefs{$href_idx} = process_HREF();
+			$hrefs{$href_idx} = process_href();
 			# print STDERR "GOT href at $href_idx = |$hrefs{$href_idx}|\n";
 			$glob{context} = '';
 		}
@@ -902,7 +904,7 @@ sub check_structure {
 
 #---------------------------------------------------------------------
 
-sub process_HREF {
+sub process_href {
 	
 	my $text = $glob{href}{txt};
 	my $helper = $glob{href}{helper};
@@ -914,7 +916,7 @@ sub process_HREF {
 	
 	$helper =~ s/\$/ $text /;
 	
-	my ($int,$ext) = findHREF($text);
+	my ($int,$ext) = find_href($text);
 	my $marker = '';
 	my $found = false;
 	my $hash = false;
@@ -939,7 +941,7 @@ sub process_HREF {
 		$helper = $1 || $ext;
 		# $ext = '' if ($1 ne '');
 		$ext = $1; $int = $2;
-		($int, undef) = findHREF("+#$2") if ($2);
+		($int, undef) = find_href("+#$2") if ($2);
 		$found = true;
 		$hash = ($2 eq '');
 	}
@@ -950,30 +952,30 @@ sub process_HREF {
 		$type = 3;
 		$helper = $1;
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
-		(undef,$ext) = findHREF($text,$helper);
+		(undef,$ext) = find_href($text,$helper);
 		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext});
 		$update_mark = true;
 	} elsif ($helper =~ /^(.*?) *= *(.*)/) {
 		$type = 3;
 		$ext = $1; $helper = $2;
-		(undef,$helper) = findHREF($text) if ($2 eq '');
+		(undef,$helper) = find_href($text) if ($2 eq '');
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
-		(undef,$ext) = findHREF($ext,$helper);
+		(undef,$ext) = find_href($ext,$helper);
 		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext});
 		$update_mark = true;
 	} elsif ($helper eq '+' || $ext eq '+') {
 		$type = 2;
-		($int, $ext) = findHREF("+#$text") unless ($found);
+		($int, $ext) = find_href("+#$text") unless ($found);
 		push @{$glob{href}{ahead}}, $id;
 	} elsif ($helper eq '++' || $ext eq '++') {
 		$type = 3;
-		(undef, $helper) = findHREF("$text");
+		$helper = find_ext_ref($text);
 		$ext = "++$helper";
 		# push @{$glob{href}{marks_ahead}{$helper}}, $id;
 	} elsif ($helper eq '-' || $ext eq '-') {
 		$type = 2;
 		$ext = $glob{href}{last};
-		($int, undef) = findHREF("-#$text") unless ($found);
+		($int, undef) = find_href("-#$text") unless ($found);
 		$update_lookahead = true;
 		if ($ext =~ /\+\+(.*)/) {
 			$helper = $1;
@@ -981,12 +983,12 @@ sub process_HREF {
 		}
 	} elsif ($helper) {
 		if ($found) {
-			(undef,$ext) = findHREF($helper);
+			(undef,$ext) = find_href($helper);
 			$ext = $helper if ($ext eq '');
 		} elsif (defined $glob{href}{marks}{$helper}) {
 			$ext = $glob{href}{marks}{$helper};
 		} else {
-			($int,$ext) = findHREF($helper);
+			($int,$ext) = find_href($helper);
 		}
 		$ext = $glob{href}{last} if ($ext eq '-');
 		$type = ($ext) ? 3 : 1;
@@ -1038,7 +1040,7 @@ sub process_HREF {
 	return "$type;$text";
 }
 
-sub findHREF {
+sub find_href {
 	my $_ = shift;
 	my $helper = shift;
 	if (!$_) { return $_; }
@@ -1051,7 +1053,7 @@ sub findHREF {
 	
 	if (/^(.*?)#(.*)$/) {
 		$_ = $2;
-		$ext = findExtRef($1);
+		$ext = find_ext_ref($1);
 	}
 	
 	s/\(\((.*?)\)\)/$1/g;
@@ -1065,13 +1067,20 @@ sub findHREF {
 	
 	if (/^(.*?)\s*($extref_sig[- ]*([א-ת]+\b.*)?)$/) {
 		$_ = $1;
-		$ext = findExtRef($2) unless ($ext);
+		$ext = find_ext_ref($2) unless ($ext);
 	} elsif (/^(.*?) *$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
 		$ext = "$2$3";
 		$_ = $1;
 	} elsif ($glob{href}{all_marks} and /^(.*?) *\b$pre_sig($glob{href}{all_marks})(.*?)$/) {
 		$ext = "$2$3";
 		$_ = $1;
+	}
+	
+	if ($ext =~ /^$extref_sig( *)(.*)$/) {
+		$ext = "$1$2$3";
+		$ext = '0' if ($3 =~ /^ה?(זאת|זו|זה|אלה|אלו)\b/) || ($3 eq '' && !defined $glob{href}{marks}{$1});
+		$ext = '-' if (defined $3 && $3 =~ /^[בלמ]?(האמורה?|האמורות|אות[הו]|שב[הו]|הה[וי]א)\b/);
+		s/^ *(.*?) *$/$1/;
 	}
 	
 	s/((?:סעי[פף]|תקנ[הת])\S*) (קטן|קטנים|משנה) (\d[^( ]*?)(\(.*?\))/$1 $3 $2 $4/;
@@ -1249,13 +1258,20 @@ sub findHREF {
 	return ($href,$ext);
 }	
 
-sub findExtRef {
+sub find_ext_ref {
 	my $_ = shift;
 	return $_ if (/^https?:\/\//);
 	return $_ if (/^[+-]$/);
+	
+	s/^(.*?)#(.*)$/$1/;
+	$_ = "$1$2" if /$extref_sig(.*)/;
+	
 	tr/"'`”׳//;
+	tr/\x{05B0}-\x{05BD}//;
 	s/#.*$//;
 	s/_/ /g;
+	s/ [-——]+ / – /g;
+	s/ {2,}/ /g;
 	
 	s/ *\(נוסח (חדש|משולב)\)//g;
 	s/ *\[.*?\]//g;
@@ -1266,16 +1282,6 @@ sub findExtRef {
 	s/\, *\d+ עד \d+$//;
 	s/^ *(.*?) *$/$1/;
 	
-	if (/^$extref_sig( *)(.*)$/) {
-		$_ = "$1$2$3";
-		return '0' if ($3 =~ /^ה?(זאת|זו|זה|אלה|אלו)\b/);
-		return '0' if ($3 eq "" && !defined $glob{href}{marks}{"$1"});
-		return '-' if ($3 =~ /^[בלמ]?(האמורה?|האמורות|אות[הו]|שב[הו]|הה[וי]א)\b/);
-		s/^ *(.*?) *$/$1/;
-	}
-	
-	s/ [-——]+ / - /g;
-	s/ {2,}/ /g;
 	return $_;
 }
 
