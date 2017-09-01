@@ -53,8 +53,8 @@ sub convert {
 	s/(<קטע.*?>.*?<\/קטע>)\n?/&parse_section($1)/gse;
 	s/(<סעיף.*?>.*?<\/סעיף>)\n?/&parse_chapter($1)/gse;
 	s/(<ת+.*?>.*?<\/ת+>)\n?/&parse_line($1)/gse;
-	s/<הגדרה *.*?>(.*?)<\/הגדרה>/{{ח:הגדרה|$1}}/gs;
-	s/<הערה *.*?>(.*?)<\/הערה>/{{ח:הערה|$1}}/gs;
+	s/<הגדרה *.*?>(.*?)<\/הגדרה>/&parse_template('ח:הגדרה', $1)/gse;
+	s/<הערה *.*?>(.*?)<\/הערה>/&parse_template('ח:הערה', $1)/gse;
 	s/(<קישור.*?>.*?<\/קישור>)/&parse_link($1)/ge;
 	s/<תמונה.*?>(.*?)<\/תמונה>/[[Image:$1|link=]]/gs;
 	
@@ -117,6 +117,16 @@ sub parse_preface {
 	return $str;
 }
 
+sub parse_template {
+	my $str = shift;
+	my $cnt = 0;
+	while (my $_ = shift) {
+		$cnt++;
+		$_ = "$cnt=$_" if /=/;
+		$str .= "|$_";
+	}
+	return "{{$str}}";
+}
 
 sub parse_signatures {
 	my ($_, %attr) = parse_attr(shift);
@@ -135,7 +145,6 @@ sub parse_signatures {
 	$str .= "{{ח:סוגר}}\n";
 	return $str;
 }
-
 
 sub parse_section {
 	my ($str, %attr, %tags);
@@ -204,7 +213,6 @@ sub parse_link {
 	$href = escape_template($href,1);
 	return "{{ח:$type|$href|$str}}";
 }
-
 
 ###################################################################################################
 
