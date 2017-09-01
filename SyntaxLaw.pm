@@ -88,8 +88,6 @@ sub convert {
 	
 	# Replace with “Smart quotes”
 	$_ = convert_quotes($_);
-	# Use thin spaces in dotted lines
-	s/(\.{4,})/'. ' x (length($1)-1) . '.'/ge;
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<[\\\/](ויקי)?\>)/&escape_text($1)/egs;
 	
@@ -150,6 +148,9 @@ sub convert {
 	s/<לוח_השוואה>\s*(.*?)<\/(לוח_השוואה|)>\n?/&parse_comparetable($1)/egs;
 	s/(?<=\<math\>)(.*?)(?=\<[\\\/]math\>)/&fix_tags($1)/egs;
 	s/(<(?:div|span|table|td|th|tr) [^>]+>)/&fix_tags($1)/egs;
+	
+	# Use thin spaces in dotted lines
+	s/(\.{4,})/'<span style="word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
 	
 	# use arial font for fraction slash (U+2044)
 	s/⁄/<font face="arial">⁄<\/font>/g;
