@@ -119,7 +119,7 @@ sub convert {
 	s/^(:+) *(\([^( ]+\)) *(\([^( ]{1,2}\))/$1 $2\n$1: $3/gm;
 	s/^:+-? *$//gm;
 	# s/^(:+) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(?| +(.*?)|([-–].*?)|())\n/&parse_line(length($1),$2,$3)/egm;
-	s/^\n?(:+)([-–]?) *("?\([^( ]+\)|\[[^[ ]+\]|\d+(?:\.\d+)+|\d[^ .]*\.|[א-י]\d?\.|)( +.*?|)\n/&parse_line(length($1),$3,"$2$4")/egm;
+	s/^\n?(:+)([-–]?) *("?\([^( ]+\)|\[[^[ ]+\]|\d+(?:\.\d+)+|\d[^ .]*\.|[א-י]\d?\.|[•□]|)( +.*?|)\n/&parse_line(length($1),$3,"$2$4")/egm;
 	
 	# Move container tags if needed
 	my $structure_tags = '<(מקור|הקדמה|ת+|קטע|סעיף|חתימות)|__TOC__|$';
@@ -137,8 +137,6 @@ sub convert {
 	s/(?<=[^\[])\[\[ *(.*?) *\]\](?=[^\]])/&parse_link('',$1)/egm;
 	s/(?<!\()(\(\((.*?)\)\)([^(]*?\)\))?)(?!\))/&parse_remark($1)/egs;
 	
-	# s/\x00//g; return $_;
-	
 	# Parse file linearly, constructing all ankors and links
 	$_ = linear_parser($_);
 	s/__TOC__/&insert_TOC()/e;
@@ -152,6 +150,9 @@ sub convert {
 	s/<לוח_השוואה>\s*(.*?)<\/(לוח_השוואה|)>\n?/&parse_comparetable($1)/egs;
 	s/(?<=\<math\>)(.*?)(?=\<[\\\/]math\>)/&fix_tags($1)/egs;
 	s/(<(?:div|span|table|td|th|tr) [^>]+>)/&fix_tags($1)/egs;
+	
+	# use arial font for fraction slash (U+2044)
+	s/⁄/<font face="arial">⁄<\/font>/g;
 	
 	s/\x00//g; # Remove nulls
 	s/\n{3,}/\n\n/g;
