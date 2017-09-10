@@ -137,6 +137,7 @@ sub convert {
 	
 	# Parse file linearly, constructing all ankors and links
 	$_ = linear_parser($_);
+	
 	s/__TOC__/&insert_TOC()/e;
 	s/ *__NOTOC__//g;
 	s/ *__NOSUB__//g;
@@ -304,7 +305,8 @@ sub parse_remark {
 			$url =~ s/^ *(.*?) *$/$1/;
 			$url = "http://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
 			$url = "http://fs.knesset.gov.il/$2/law/$2_lsr_$1_$3.pdf" if ($url =~ /^(ec):(\d+):(\d+)$/);
-			$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^([a-z]+):(\d+):(\d+)$/);
+			$url = "http://fs.knesset.gov.il/$2/law/$2_ls_$1_$3.pdf" if ($url =~ /^(fr):(\d+):(\d+)$/);
+			$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^([a-z_]+):(\d+):(\d+)$/);
 			$url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
 			$url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
 			$str .= " קישור=\"$url\"";
@@ -1301,7 +1303,7 @@ sub convert_quotes {
 	s/($HE+)"($HE(ות|וֹת|ים|))(?![א-ת])/$1״$2/g;
 	s/($pre_sig-?)"([^\"\n]+)"(?=\s)/$1”$2“/g;
 	s/([א-ת])'(?!['])/$1׳/g;
-	s/([א-ת])-([\dא-ת(])/$1־$2/g;
+	s/([א-ת])-(?![\s.\-])/$1־/g;
 	s/(תש[א-ת]?["״][א-ת])[-־](\d{4})/$1–$2/g;
 	s/([^ \s\-])(?:--|—)([^ \s\-])/$1–$2/g;
 	return $_;
