@@ -224,7 +224,7 @@ sub process_law {
 		$processed{$page_dst} = '';
 	}
 	
-	my ($revid_s, $revid_t, $comment) = get_revid($bot, $page_dst);
+	my ($revid_s, $revid_t, $comment, $minor) = get_revid($bot, $page_dst);
 	my $src_ok = ($revid_s>0);
 	my $dst_ok = ($revid_t>0);
 	
@@ -314,7 +314,7 @@ sub process_law {
 	unless ($dryrun) {
 		$bot->edit( {
 			page => $page_dst, text => $text, summary => $comment,
-			bot => 1, minor => 0, assertion => 'bot'});
+			bot => 1, minor => $minor // 0, assertion => 'bot'});
 		# unless ($bot->get_protection($page_dst)) {
 		#	$bot->protect($page_dst, 'הגנה בפני עריכה בשגגה', 'sysop', 'sysop', 'infinite', 0);
 		# }
@@ -436,6 +436,7 @@ sub get_revid {
 	my $revid_s = $hist_s[0]->{revid};
 	my $revid_t = 0;
 	my $comment = $hist_s[0]->{comment} // $hist_t[0]->{comment};
+	my $minor = $hist_s[0]->{minor};
 	
 	foreach my $rec (@hist_t) {
 		if ($rec->{user} eq 'OpenLawBot' && $rec->{comment} =~ /^ *\[(\d+)\]/) {
@@ -444,7 +445,7 @@ sub get_revid {
 		}
 	}
 	
-	return ($revid_s, $revid_t, $comment);
+	return ($revid_s, $revid_t, $comment, $minor);
 }
 
 
