@@ -283,7 +283,7 @@ sub parse_attr {
 	my %attr;
 	my ($tag) = /<([^ >\/]+).*?>/;
 	$attr{tag} = $tag;
-	$str =~ s/ *<\/$tag>\n*//;
+	$str =~ s/[ \n]*<\/$tag>\n*//;
 	$attr{$1} = unescape_text($2) while (/(\S+) *= *" *(.*?) *"/g);
 	return ($str, %attr);
 }

@@ -143,7 +143,7 @@ sub convert {
 	s/ *__NOTOC__//g;
 	s/ *__NOSUB__//g;
 	
-	s/(\{\|.*?\n\|\}) *\n?/&parse_wikitable($1)/egs;
+	s/(\{\|.*?\n\|\}) *\n*/&parse_wikitable($1)/egs;
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<[\\\/](ויקי)?\>)/&unescape_text($1) . "<\/ויקי>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
@@ -974,7 +974,7 @@ sub process_href {
 		push @{$glob{href}{ahead}}, $id;
 	} elsif ($helper eq '++' || $ext eq '++') {
 		$type = 3;
-		$helper = find_ext_ref($text);
+		(undef, $helper) = find_href($text);
 		$ext = "++$helper";
 		# push @{$glob{href}{marks_ahead}{$helper}}, $id;
 	} elsif ($helper eq '-' || $ext eq '-') {
