@@ -55,11 +55,12 @@ sub convert {
 	my $_ = shift;
 	
 	# General cleanup
+	s/^[ ]+//mg;       # Remove redundant whitespaces
+	s/[ ]+$//mg;       # Remove redundant whitespaces
+	s/\n<!--.*?-->\n/\n/sg;  # Remove comments
 	s/<!--.*?-->//sg;  # Remove comments
 	s/\r//g;           # Unix style, no CR
 	s/[\t\xA0]/ /g;    # Tab and hardspace are whitespaces
-	s/^[ ]+//mg;       # Remove redundant whitespaces
-	s/[ ]+$//mg;       # Remove redundant whitespaces
 	s/$/\n/s;          # Add last linefeed
 	s/\n{3,}/\n\n/sg;  # Convert three+ linefeeds
 	s/\n\n$/\n/sg;     # Remove last linefeed
@@ -602,8 +603,10 @@ sub get_numeral {
 
 sub unquote {
 	my $_ = shift;
-	my $Q1 = '["״”“„‟″‶]';
-	my $Q2 = '[\'`׳’‘‚‛′‵]';
+	# my $Q1 = '["״”“„‟″‶]';
+	# my $Q2 = '[\'`׳’‘‚‛′‵]';
+	my $Q1 = '"';
+	my $Q2 = '\'';
 	s/^ *(?|$Q1 *(.*?) *$Q1|$Q2 *(.*?) *$Q2) *$/$1/;
 	return $_;
 }
@@ -957,7 +960,7 @@ sub process_href {
 		$type = 3;
 		$helper = $1;
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
-		(undef,$ext) = find_href($text,$helper);
+		(undef,$ext) = find_href($text, $helper);
 		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext});
 		$update_mark = true;
 	} elsif ($helper =~ /^(.*?) *= *(.*)/) {
@@ -965,7 +968,7 @@ sub process_href {
 		$ext = $1; $helper = $2;
 		(undef,$helper) = find_href($text) if ($2 eq '');
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
-		(undef,$ext) = find_href($ext,$helper);
+		(undef,$ext) = find_href($ext, $helper);
 		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext});
 		$update_mark = true;
 	} elsif ($helper eq '+' || $ext eq '+') {
@@ -974,7 +977,7 @@ sub process_href {
 		push @{$glob{href}{ahead}}, $id;
 	} elsif ($helper eq '++' || $ext eq '++') {
 		$type = 3;
-		(undef, $helper) = find_href($text);
+		(undef, $helper) = find_href($text, $helper);
 		$ext = "++$helper";
 		# push @{$glob{href}{marks_ahead}{$helper}}, $id;
 	} elsif ($helper eq '-' || $ext eq '-') {
@@ -1085,7 +1088,7 @@ sub find_href {
 	
 	if ($ext =~ /^$extref_sig( *)(.*)$/) {
 		$ext = "$1$2$3";
-		$ext = '0' if ($3 =~ /^ה?(זאת|זו|זה|אלה|אלו)\b/) || ($3 eq '' && !defined $glob{href}{marks}{$1});
+		$ext = '0' if ($3 =~ /^ה?(זאת|זו|זה|אלה|אלו)\b/) || ($3 eq '' and !defined $glob{href}{marks}{$1} and !$helper);
 		$ext = '-' if (defined $3 && $3 =~ /^[בלמ]?(האמורה?|האמורות|אות[הו]|שב[הו]|הה[וי]א)\b/);
 		s/^ *(.*?) *$/$1/;
 	}
