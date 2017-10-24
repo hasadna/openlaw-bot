@@ -303,18 +303,19 @@ sub process_law {
 	};
 	
 	$comment = ( $comment ? "[$revid_s] $comment" : "[$revid_s]" );
+	$minor //= 0;
 	
 	my $len1 = length($bot->get_text($page_dst) // '');
 	my $len2 = length($text);
 	
 	# print "Length changed from $len1 to $len2.\n";
-	$updated_pages{$page_dst} = '' if (abs($len1-$len2)>2000);
+	$updated_pages{$page_dst} = '' if (abs($len1-$len2)>2000) && !$minor;
 	
 	# print STDOUT "$text\n" if ($print || $dryrun);
 	unless ($dryrun) {
 		$bot->edit( {
 			page => $page_dst, text => $text, summary => $comment,
-			bot => 1, minor => $minor // 0, assertion => 'bot'});
+			bot => 1, minor => $minor, assertion => 'bot'});
 		# unless ($bot->get_protection($page_dst)) {
 		#	$bot->protect($page_dst, 'הגנה בפני עריכה בשגגה', 'sysop', 'sysop', 'infinite', 0);
 		# }
