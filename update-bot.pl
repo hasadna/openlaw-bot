@@ -568,8 +568,9 @@ sub print_fix {
 	$name =~ s/ {2,}/ /g;
 	
 	$url =~ s/.*?\/(\d+)_lsr_(\d+).pdf/$1:$2/;
-	$url =~ s/.*?\/(\d+)_lsnv_(\d+).pdf/nv:$1:$2/;
-	$url =~ s/.*?\/(\d+)_lsr_ec_(\d+).pdf/ec:$1:$2/;
+	# $url =~ s/.*?\/(\d+)_lsnv_(\d+).pdf/nv:$1:$2/;
+	# $url =~ s/.*?\/(\d+)_lsr_ec_(\d+).pdf/ec:$1:$2/;
+	$url =~ s/.*?\/(\d+)_lsr?_?([a-z]{2})_(\d+).pdf/$2:$1:$3/;
 	# $url ||= $booklet if ($name ne 'ת"ט');
 	
 	if ($last_type && $type eq $last_type) { $type = ''; } else { $last_type = $type; }

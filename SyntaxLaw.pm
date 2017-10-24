@@ -71,6 +71,7 @@ sub convert {
 	tr/\x{FEFF}//d;    # Unicode marker
 	tr/\x{2000}-\x{200A}\x{205F}/ /; # Convert typographic spaces
 	tr/\x{200B}-\x{200D}//d;         # Remove zero-width spaces
+	s/($HE)–($HE)/$1--$2/g;
 	tr/־–—‒―/-/;        # typographic dashes
 	tr/\xAD\x96\x97/-/; # more typographic dashes
 	tr/״”“„‟″‶/"/;      # typographic double quotes
@@ -117,7 +118,7 @@ sub convert {
 	s/^(:+) *(\([^( ]+\)) *(\([^( ]{1,2}\))/$1 $2\n$1: $3/gm;
 	s/^:+-? *$//gm;
 	# s/^(:+) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(?| +(.*?)|([-–].*?)|())\n/&parse_line(length($1),$2,$3)/egm;
-	s/^\n?(:+)([-–]?) *("?\([^( ]+\)|\[[^[ ]+\]|\d+(?:\.\d+)+|\d[^ .]*\.|[א-י]\d?\.|[•□]|)( +.*?|)\n/&parse_line(length($1),$3,"$2$4")/egm;
+	s/^(:+)([-–]?) *(["”“]?(?:\([^( ]+\)|\[[^[ ]+\]|\(\(\(\d.?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|[א-י]\d?\.|[•□]|))( +.*?|)\n/&parse_line(length($1),$3,"$2$4")/egm;
 	
 	# Move container tags if needed
 	my $structure_tags = '<(מקור|הקדמה|ת+|קטע|סעיף|חתימות)|__TOC__|$';
@@ -151,7 +152,8 @@ sub convert {
 	s/(<(?:div|span|table|td|th|tr) [^>]+>)/&fix_tags($1)/egs;
 	
 	# Use thin spaces in dotted lines
-	s/(\.{4,})/'<span style="word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
+	s/(\.{4,20})/'. 'x(length($1)-1) . '.'/ge;
+	s/(\.{21,})/'<span style="word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
 	
 	# use arial font for fraction slash (U+2044)
 	s/⁄/<font face="arial">⁄<\/font>/g;
@@ -256,13 +258,9 @@ sub parse_line {
 	my $type = '';
 	my $id;
 	# print STDERR "|$num|$line|\n";
-	if ($num =~ /\(\(/) {
-		# ((remark))
-		$line = $num.$line;
-		$num = '';
-	}
 	$num =~ s/"/&quot;/g;
 	$id = unparent($num);
+	$id = '' if $num =~ /\(\(.*\)\)/;
 	$len++ if ($num);
 	$type = "ת" x $len;
 	$line =~ s/^ *(.*?) *$/$1/;
@@ -341,8 +339,6 @@ sub parse_signatures {
 sub parse_pubdate {
 	$pubdate = shift;
 	return "";
-	# my $_ = shift;
-	# return "<פרסום>$_</פרסום>\n"
 }
 
 #---------------------------------------------------------------------
@@ -606,15 +602,16 @@ sub get_numeral {
 
 sub unquote {
 	my $_ = shift;
-	s/^ *(["']) *(.*?) *\1 *$/$2/;
+	my $Q1 = '["״”“„‟″‶]';
+	my $Q2 = '[\'`׳’‘‚‛′‵]';
+	s/^ *(?|$Q1 *(.*?) *$Q1|$Q2 *(.*?) *$Q2) *$/$1/;
 	return $_;
 }
 
 sub unparent {
 	my $_ = unquote(shift);
-	s/^\((.*?)\)$/$1/;
-	s/^\[(.*?)\]$/$1/;
-	s/^\{(.*?)\}$/$1/;
+	s/^\(\((.*?)\)\)$/$1/;
+	s/^(?|\((.*?)\)|\[(.*?)\]|\{(.*?)\})$/$1/;
 	s/^ *(.*?) *$/$1/;
 	return $_;
 }
@@ -950,6 +947,8 @@ sub process_href {
 		($int, undef) = find_href("+#$2") if ($2);
 		$found = true;
 		$hash = ($2 eq '');
+	# } else {
+	# 	$found = ($int ne '');
 	}
 	
 	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
@@ -994,14 +993,16 @@ sub process_href {
 		} elsif (defined $glob{href}{marks}{$helper}) {
 			$ext = $glob{href}{marks}{$helper};
 		} else {
-			($int,$ext) = find_href($helper);
+			my $int2;
+			($int2,$ext) = find_href($helper);
+			$int = $int2 if ($int2);
 		}
 		$ext = $glob{href}{last} if ($ext eq '-');
 		$type = ($ext) ? 3 : 1;
 	} else {
 	}
 	
-	## print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
+	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
 	if ($update_mark) {
 		$glob{href}{marks}{$helper} = $ext;

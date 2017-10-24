@@ -95,7 +95,7 @@ if ($recent) {
 	# Get recently changed pages in namespace
 	$recent = 1;
 	my %cat = map { $_ => undef } @pages;
-	@pages = $bot->recentchanges({ns => 116, limit => 100}); # Namespace 116 is 'מקור'
+	@pages = $bot->recentchanges({ns => 116, limit => $credentials{limit} // 100}); # Namespace 116 is 'מקור'
 	@pages = map {$_->{title}} @pages;
 	map {s/^\s*(?:מקור:|)\s*(.*?)\s*$/$1/} @pages;
 	# Intersect list with category list
@@ -387,10 +387,10 @@ sub possible_redirects {
 		
 		for (my $k = 0; $k < 32; $k++) {
 			my $_ = $page;
-			if ($k&1) { s/[–־]+/-/g; }
-			if ($k&2) { tr/“”״„’‘׳/"""'''/; }
+			if ($k&1) { s/[–־]+/-/g; } else { s/(?<=[א-ת])[\-־](?=[א-ת])/־/g; }
+			if ($k&2) { s/ – / - /g; s/--/-/g;} else { s/--/–/g; s/ - / – /g; }
 			if ($k&4) { s/(?<=[א-ת])[\-־](?=[א-ת])/ /g; }
-			if ($k&8) { s/ – / - /g; s/--/-/g;} else { s/--/-/g; }
+			if ($k&8) { tr/“”״„’‘׳/"""'''/; }
 			if ($k&16) { s/, / /g; }
 			$redirects{$_} = '';
 		}
