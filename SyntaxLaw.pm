@@ -59,27 +59,31 @@ sub convert {
 	s/[ ]+$//mg;       # Remove redundant whitespaces
 	s/\n<!--.*?-->\n/\n/sg;  # Remove comments
 	s/<!--.*?-->//sg;  # Remove comments
+	
 	s/\r//g;           # Unix style, no CR
-	s/[\t\xA0]/ /g;    # Tab and hardspace are whitespaces
-	s/$/\n/s;          # Add last linefeed
-	s/\n{3,}/\n\n/sg;  # Convert three+ linefeeds
+	s/[\t\xA0]/ /g;    # tab and hardspace are whitespaces
+	s/$/\n/s;          # add last linefeed
+	s/\n{3,}/\n\n/sg;  # remove extra linefeeds
 	s/\n\n$/\n/sg;     # Remove last linefeed
 	
 	if (/[\x{202A}-\x{202E}]/) {
 		# Throw away BIDI characters if LRE/RLE/PDF exists
 		tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 	}
+	
 	tr/\x{FEFF}//d;    # Unicode marker
-	tr/\x{2000}-\x{200A}\x{205F}/ /; # Convert typographic spaces
+	tr/\x{2000}-\x{200A}\x{205F}/ /; # typographic spaces
 	tr/\x{200B}-\x{200D}//d;         # Remove zero-width spaces
-	s/($HE)–($HE)/$1--$2/g;
+	s/($HE)–($HE)/$1--$2/g; # Keep en-dash between Hebrew words
 	tr/־–—‒―/-/;        # typographic dashes
 	tr/\xAD\x96\x97/-/; # more typographic dashes
 	tr/״”“„‟″‶/"/;      # typographic double quotes
 	tr/`׳’‘‚‛′‵/'/;     # typographic single quotes
 	tr/;/;/;            # wrong OCRed semicolon
-	s/[ ]{2,}/ /g;      # Pack  long spaces
+	s/[ ]{2,}/ /g;      # remove extra  spaces
 	s/ -{2,4} / — /g;   # em-dash
+	
+	s/\n+(=[^\n]*=)\n+/\n\n$1\n\n/g;
 	
 	s/\[\[קטגוריה:.*?\]\] *\n?//g;  # Ignore categories (for now)
 	
@@ -144,7 +148,7 @@ sub convert {
 	s/ *__NOTOC__//g;
 	s/ *__NOSUB__//g;
 	
-	s/(\{\|.*?\n\|\}) *\n*/&parse_wikitable($1)/egs;
+	s/(\{\|.*?\n\|\}) *\n?/&parse_wikitable($1)/egs;
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<[\\\/](ויקי)?\>)/&unescape_text($1) . "<\/ויקי>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;

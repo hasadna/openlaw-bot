@@ -123,7 +123,8 @@ sub parse_template {
 	my $cnt = 0;
 	while (my $_ = shift) {
 		$cnt++;
-		$_ = "$cnt=$_" if /=/;
+		# $str .= (/=/) ? "|$cnt=$_" : "|$_";
+		s/({{==}}|=)(?!"[^"]+")/{{==}}/g;
 		$str .= "|$_";
 	}
 	return "{{$str}}";
@@ -212,6 +213,7 @@ sub parse_link {
 	return $str unless ($href);
 	$str = escape_template($str,2);
 	$href = escape_template($href,1);
+	$href =~ s/"/&quot;/;
 	return "{{ח:$type|$href|$str}}";
 }
 
