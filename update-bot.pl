@@ -278,22 +278,23 @@ sub law_name {
 # @list = (name, series, booklet, page, date, lawid, url, count)
 sub get_primary_page {
 	my $page = shift;
-	my $count = shift // ($history ? 10 : 2);
 	my $id;
+	my $count = shift // ($history ? 10 : 2);
 	my ($tree, @trees);
 	my (@table, @lol);
 	
 	$page = $primary_prefix.$page unless ($page =~ /^https?:/);
-	$id = $1 if ($page =~ /lawitemid=(\d+)$/);
+	$id = ($page =~ /lawitemid=(\d+)$/) ? $1 : '';
 	my $local = ($dump && -f "p$id.html");
 	
 	my $law_list = ($page =~ /LawReshumot/);
 	
 	while ($page && $count>0) {
-		# print "Reading HTML file $page...\n";
 		if ($local) {
+			print ">> Reading HTML file p$id.html\n" if ($verbose);
 			$tree = HTML::TreeBuilder::XPath->new_from_file(html_file("p$id.html"));
 		} else {
+			print ">> Loading HTML page $page\n" if ($verbose);
 			$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 		}
 		push @trees, $tree;
@@ -374,14 +375,15 @@ sub get_secondary_page {
 	my (@table, @lol);
 	
 	$page = $secondary_prefix.$page unless ($page =~ /^https?:/);
-	$id = $1 if ($page =~ /lawitemid=(\d+)$/);
+	$id = ($page =~ /lawitemid=(\d+)$/) ? $1 : '';
 	my $local = ($dump && -f "s$id.html");
 	
 	while ($page) {
-		# print "Reading HTML file $page...\n";
 		if ($local) {
+			print ">> Reading HTML file s$id.html\n" if ($verbose);
 			$tree = HTML::TreeBuilder::XPath->new_from_file(html_file("s$id.html"));
 		} else {
+			print ">> Loading HTML page $page\n" if ($verbose);
 			$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 		}
 		push @trees, $tree;
@@ -439,13 +441,14 @@ sub get_bill_page {
 	my (@table, @lol);
 	
 	$page = $bill_prefix.$page unless ($page =~ /^https?:/);
-	$id = $1 if ($page =~ /lawitemid=(\d+)$/);
+	$id = ($page =~ /lawitemid=(\d+)$/) ? $1 : '';
 	my $local = ($dump && -f "b$id.html");
 	
-	# print "Reading HTML file $page...\n";
 	if ($local) {
+		print ">> Reading HTML file b$id.html\n" if ($verbose);
 		$tree = HTML::TreeBuilder::XPath->new_from_file(html_file("b$id.html"));
 	} else {
+		print ">> Loading HTML page $page\n" if ($verbose);
 		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 	}
 	
@@ -465,7 +468,7 @@ sub get_bill_page {
 	if (!scalar(@table)) {
 		# print "No data.\n";
 		$tree->delete();
-		return get_secondary_page($page);
+		return get_secondary_page($id);
 	}
 	
 	foreach my $node (@table) {
