@@ -465,7 +465,7 @@ sub get_bill_page {
 	if (!scalar(@table)) {
 		# print "No data.\n";
 		$tree->delete();
-		return ();
+		return get_secondary_page($page);
 	}
 	
 	foreach my $node (@table) {
