@@ -285,14 +285,14 @@ sub get_primary_page {
 	
 	$page = $primary_prefix.$page unless ($page =~ /^https?:/);
 	$id = $1 if ($page =~ /lawitemid=(\d+)$/);
-	my $local = ($dump && -f "$id.html");
+	my $local = ($dump && -f "p$id.html");
 	
 	my $law_list = ($page =~ /LawReshumot/);
 	
 	while ($page && $count>0) {
 		# print "Reading HTML file $page...\n";
 		if ($local) {
-			$tree = HTML::TreeBuilder::XPath->new_from_file(html_file("$id.html"));
+			$tree = HTML::TreeBuilder::XPath->new_from_file(html_file("p$id.html"));
 		} else {
 			$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 		}
@@ -375,12 +375,12 @@ sub get_secondary_page {
 	
 	$page = $secondary_prefix.$page unless ($page =~ /^https?:/);
 	$id = $1 if ($page =~ /lawitemid=(\d+)$/);
-	my $local = ($dump && -f "$id.html");
+	my $local = ($dump && -f "s$id.html");
 	
 	while ($page) {
 		# print "Reading HTML file $page...\n";
 		if ($local) {
-			$tree = HTML::TreeBuilder::XPath->new_from_file(html_file("$id.html"));
+			$tree = HTML::TreeBuilder::XPath->new_from_file(html_file("s$id.html"));
 		} else {
 			$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 		}
@@ -440,16 +440,16 @@ sub get_bill_page {
 	
 	$page = $bill_prefix.$page unless ($page =~ /^https?:/);
 	$id = $1 if ($page =~ /lawitemid=(\d+)$/);
-	my $local = ($dump && -f "$id.html");
+	my $local = ($dump && -f "b$id.html");
 	
 	# print "Reading HTML file $page...\n";
 	if ($local) {
-		$tree = HTML::TreeBuilder::XPath->new_from_file(html_file("$id.html"));
+		$tree = HTML::TreeBuilder::XPath->new_from_file(html_file("b$id.html"));
 	} else {
 		$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 	}
 	
-	my @table = $tree->findnodes('//table[contains(@class, "LawBillGridCls")]//tr');
+	@table = $tree->findnodes('//table[contains(@class, "LawBillGridCls")]//tr');
 	
 	my $loc_id = $tree->findnodes('//form[@id = "aspnetForm"]')->[0];
 	if (defined $loc_id) {
