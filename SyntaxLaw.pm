@@ -14,6 +14,7 @@ use strict;
 no strict 'refs';
 use English;
 use utf8;
+use Time::HiRes 'time';
 
 use Data::Dumper;
 $Data::Dumper::Useperl = 1;
@@ -137,8 +138,8 @@ sub convert {
 	# Parse links and remarks
 	s/\[\[(?:קובץ:|תמונה:|[Ff]ile:|[Ii]mage:)(.*?)\]\]/<תמונה>$1<\/תמונה>/gm;
 	
-	s/(?<=[^\[])\[\[ *([^\]]*?) *\| *(.*?) *\]\](?=[^\]])/&parse_link($1,$2)/egm;
-	s/(?<=[^\[])\[\[ *(.*?) *\]\](?=[^\]])/&parse_link('',$1)/egm;
+	s/(?<!\[)\[\[((?:(?!\]\]|\[\[).)*?\]?)\|((?:(?!\]\]|\[\[).)*)\]\](\]?)/&parse_link($1,"$2$3")/egm;
+	s/(?<!\[)\[\[((?:(?!\]\]|\[\[).)*)\]\](\]?)/&parse_link('',"$1$2")/egm;
 	s/(?<!\()(\(\((.*?)\)\)([^(]*?\)\))?)(?!\))/&parse_remark($1)/egs;
 	
 	# Parse file linearly, constructing all ankors and links
@@ -940,7 +941,7 @@ sub process_href {
 	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
 	if ($helper =~ /^(קובץ|[Ff]ile|תמונה|[Ii]mage):/) {
-		return "";
+		return '';
 	} elsif ($helper =~ /^https?:\/\/|w:|s:/) {
 		$type = 4;
 		$ext = $helper;
@@ -1093,7 +1094,7 @@ sub find_href {
 	if ($ext =~ /^$extref_sig( *)(.*)$/) {
 		$ext = "$1$2$3";
 		$ext = '0' if ($3 =~ /^ה?(זאת|זו|זה|אלה|אלו)\b/) || ($3 eq '' and !defined $glob{href}{marks}{$1} and !$helper);
-		$ext = '-' if (defined $3 && $3 =~ /^[בלמ]?(האמורה?|האמורות|אות[הו]|שב[הו]|הה[וי]א)\b/);
+		$ext = '-' if (defined $3 && $3 =~ /^[בלמ]?(האמור(|ה|ות|ים)|אות[הו]|שב[הו]|הה[וי]א)\b/);
 		s/^ *(.*?) *$/$1/;
 	}
 	
@@ -1303,7 +1304,10 @@ sub find_ext_ref {
 
 sub convert_quotes {
 	my $_ = shift;
-	s/(תש[א-ת]?)"([א-ת])/$1״$2/g;
+	# my $start = time(); my $end;
+	s/(תש[א-ת])"([א-ת])/$1״$2/g;
+	s/(תש)"([א-ת])/$1״$2/g;
+	# $end = time(); printf STDERR "\ttook %.2f sec.\n", $end-$start; $start = $end;
 	# s/(\s+[בהו]?-?)"([^\"\n]+)"/$1”$2“/g;
 	s/([\s\|]+[בהו]?-?|")"([^\"\n]+(?:[״"]$HE+[^\"\n]*)*)"/$1”$2“/g;
 	s/([\s\|]+[בהו]?-?)"([^\"\n]+(?:[״"]$HE+[^\"\n]*)*)"/$1”$2“/g;
