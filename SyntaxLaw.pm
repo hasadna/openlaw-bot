@@ -284,12 +284,14 @@ sub parse_line {
 sub parse_link {
 	my ($id,$txt) = @_;
 	my $str;
+	my $post = '';
 	$id = unquote($id);
 	# $txt =~ s/\(\((.*?)\)\)/$1/g;
 	($id,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$id); 
+	$post = $1 if ($txt =~ s/(?<=\d{4})(\])$//);
 	$str = "<קישור";
 	$str .= " $id" if ($id);
-	$str .= ">$txt</קישור>";
+	$str .= ">$txt</קישור>$post";
 	$str =~ s/([()])\1/$1\x00$1/g unless ($str =~ /\(\(.*\)\)/); # Avoid splitted comments
 	return $str;
 }
@@ -1013,9 +1015,9 @@ sub process_href {
 	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
 	if ($update_mark) {
-		$glob{href}{marks}{$helper} = $ext;
+		$glob{href}{marks}{$helper} = $glob{href}{marks}{"ה$helper"} = $ext;
 		unless ($helper =~ /$extref_sig/) {
-			$glob{href}{all_marks} .= "|$helper";
+			$glob{href}{all_marks} .= "|ה?$helper";
 			$glob{href}{all_marks} =~ s/^\|//;
 			# print STDERR "adding '$helper' to all_marks = '$glob{href}{all_marks}'\n";
 		}
@@ -1086,7 +1088,7 @@ sub find_href {
 	} elsif (/^(.*?) *$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
 		$ext = "$2$3";
 		$_ = $1;
-	} elsif ($glob{href}{all_marks} and /^(.*?) *\b$pre_sig($glob{href}{all_marks})(.*?)$/) {
+	} elsif ($glob{href}{all_marks} and /^(.*?) *\b$pre_sig?($glob{href}{all_marks})(.*?)$/) {
 		$ext = "$2$3";
 		$_ = $1;
 	}
