@@ -1113,12 +1113,10 @@ sub find_href {
 	s/\b($pre_sig)($type_sig)$/$2 this/ unless ($ext);
 	
 	my $href = $_;
-	my @parts = split /[ ,.\-\)]+/;
 	my $class = '';
 	my ($num, $numstr);
 	my %elm = ();
 	
-	my @matches = ();
 	my @pos = ();
 	push @pos, $-[0] while (/([^ ,.\-\)]+)/g);
 	
@@ -1178,7 +1176,7 @@ sub find_href {
 				s/^[לב]-(\d.*)/$1/;
 				$num = get_numeral($_);
 				if ($num ne '' && $class eq '') {
-					$class = (/^$pre_sig\d+/) ? 'chap_' : ($glob{href}{last_class} || 'chap_');
+					$class = (/^$pre_sig-\d+/) ? 'chap_' : ($glob{href}{last_class} || 'chap_');
 					$class = 'supchap' if ($glob{href}{last_class} eq 'supchap');
 				}
 			}
