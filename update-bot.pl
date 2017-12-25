@@ -118,19 +118,23 @@ while (my $id = shift @pages) {
 			my %tt = ('list' => \@list, 'name' => $law_name);
 			store \%tt, "$id.dump" if ($dump);
 		}
-		print "'$law_name'\n";
-		foreach (@list) {
-			if ($_->[3] =~ /^[sSbB]/) {
-				my $id2 = $_->[2];
-				next if (defined $processed{$id2});
-				print "    Adding secondary #$id2 '$_->[0]'.\n";
-				unshift(@pages, $id2);
-				$count++;
+		if ($law_name eq '???') {
+			print "failed\n";
+		} else {
+			print "'$law_name'\n";
+			foreach (@list) {
+				if ($_->[3] =~ /^[sSbB]/) {
+					my $id2 = $_->[2];
+					next if (defined $processed{$id2});
+					print "    Adding secondary #$id2 '$_->[0]'.\n";
+					unshift(@pages, $id2);
+					$count++;
+				}
 			}
+			$processed{$id} = $law_name;
+			@list = grep {$_->[3] =~ /^[pP]/} @list;
+			@list = map {$_->[2]} @list;
 		}
-		$processed{$id} = $law_name;
-		@list = grep {$_->[3] =~ /^[pP]/} @list;
-		@list = map {$_->[2]} @list;
 	}
 	
 	foreach my $id2 (@list) {
@@ -631,14 +635,14 @@ sub process_law {
 	
 	my @list;
 	
-	if ($dump and -f "$id.dump") {
-		my $tt = retrieve("$id.dump");
+	if ($dump and -f "p$id.dump") {
+		my $tt = retrieve("p$id.dump");
 		@list = @{$tt->{list}};
 		$law_name = $full_name = $tt->{name};
 	} else {
 		@list = get_primary_page($page);
 		my %tt = ('list' => \@list, 'name' => $law_name);
-		store \%tt, "$id.dump" if ($dump);
+		store \%tt, "p$id.dump" if ($dump);
 	}
 	
 	print "    Got primary #$id '$full_name'.\n";
