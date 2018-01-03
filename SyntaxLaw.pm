@@ -58,8 +58,8 @@ sub convert {
 	# General cleanup
 	s/^[ ]+//mg;       # Remove redundant whitespaces
 	s/[ ]+$//mg;       # Remove redundant whitespaces
-	s/\n<!--.*?-->\n/\n/sg;  # Remove comments
-	s/<!--.*?-->//sg;  # Remove comments
+	s/\n *<!--.*?--> *\n/\n/sg;  # Remove comments
+	s/ *<!--.*?--> *//sg;  # Remove comments
 	
 	s/\r//g;           # Unix style, no CR
 	s/[\t\xA0]/ /g;    # tab and hardspace are whitespaces
@@ -284,11 +284,12 @@ sub parse_line {
 sub parse_link {
 	my ($id,$txt) = @_;
 	my $str;
-	my $post = '';
+	my $pre = ''; my $post = '';
 	$id = unquote($id);
 	# $txt =~ s/\(\((.*?)\)\)/$1/g;
 	($id,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$id); 
 	$post = $1 if ($txt =~ s/(?<=\d{4})(\])$//);
+	($pre, $post) = ($1, $3) if ($txt =~ s/^(\[)(.*)(\])$/$2/);
 	$str = "<קישור";
 	$str .= " $id" if ($id);
 	$str .= ">$txt</קישור>$post";
@@ -705,7 +706,7 @@ sub linear_parser {
 	
 	$glob{context} = '';
 	
-	@line = split(/(<(?: "[^"]*"|[^>])*>)/, $_);
+	@line = split(/(<(?: "[^"]*"|[^>])*>|\n)/, $_);
 	$idx = 0;
 	for (@line) {
 		if (/<(.*)>/) {
@@ -714,6 +715,7 @@ sub linear_parser {
 			$glob{href}{txt} .= $_;
 		}
 		$idx++;
+		$glob{href}{last_class} = '' if /\n$/;
 	}
 	
 	for (keys %hrefs) {
@@ -1064,7 +1066,7 @@ sub find_href {
 	
 	my $ext = '';
 	
-	if (/^([ws]:|https?:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/) {
+	if (/^([ws]:|https?:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/i) {
 		return ('', $_);
 	}
 	
