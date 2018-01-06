@@ -113,7 +113,7 @@ sub convert {
 	s/^(=+)(.*?)\1\n/&parse_section(length($1),$2)/egm;
 	s/^<סעיף *(.*?)>(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
 	s/^(@.*?) +(:+ .*)$/$1\n$2/gm;
-	s/^@ *(\(תיקון.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
+	s/^@ *(\(תיקון: .*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
 	s/^@ *(\d\S*) *\n/&parse_chapter($1,"","סעיף")/egm;
 	s/^@ *($chp_sig) +(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
 	s/^@ *(\d[^ .]*\.) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
