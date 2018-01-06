@@ -287,9 +287,12 @@ sub parse_link {
 	my $pre = ''; my $post = '';
 	$id = unquote($id);
 	# $txt =~ s/\(\((.*?)\)\)/$1/g;
+	
+	if ($id =~ /^\[/ and $txt =~ /\]$/) { $pre = '['; $id =~ s/^\[//; $txt =~ s/\]$//; $post = ']'; }
+	elsif ($txt =~ s/^(\[)(.*)(\])$/$2/) { ($pre, $post) = ($1, $3); }
+	elsif ($txt =~ s/(?<=\d{4})(\])$//) { $post = $1; }
+	
 	($id,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$id); 
-	$post = $1 if ($txt =~ s/(?<=\d{4})(\])$//);
-	($pre, $post) = ($1, $3) if ($txt =~ s/^(\[)(.*)(\])$/$2/);
 	$str = "$pre<קישור";
 	$str .= " $id" if ($id);
 	$str .= ">$txt</קישור>$post";
@@ -942,7 +945,7 @@ sub process_href {
 		return '';
 	} elsif ($helper =~ /^https?:\/\/|[ws]:/i) {
 		$type = 4;
-		$ext = $helper;
+		(undef, $ext) = find_href($helper);
 		$int = $helper = '';
 		$found = true;
 	} elsif ($helper =~ /^(.*?)#(.*)/) {
