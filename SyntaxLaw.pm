@@ -290,7 +290,7 @@ sub parse_link {
 	($id,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$id); 
 	$post = $1 if ($txt =~ s/(?<=\d{4})(\])$//);
 	($pre, $post) = ($1, $3) if ($txt =~ s/^(\[)(.*)(\])$/$2/);
-	$str = "<קישור";
+	$str = "$pre<קישור";
 	$str .= " $id" if ($id);
 	$str .= ">$txt</קישור>$post";
 	$str =~ s/([()])\1/$1\x00$1/g unless ($str =~ /\(\(.*\)\)/); # Avoid splitted comments
@@ -309,13 +309,7 @@ sub parse_remark {
 		$tip = escape_quote($tip);
 		$str = "<תיבה טקסט=\"$tip\"";
 		if ($url) {
-			$url =~ s/^ *(.*?) *$/$1/;
-			$url = "http://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
-			$url = "http://fs.knesset.gov.il/$2/law/$2_lsr_$1_$3.pdf" if ($url =~ /^(ec):(\d+):(\d+)$/);
-			$url = "http://fs.knesset.gov.il/$2/law/$2_ls_$1_$3.pdf" if ($url =~ /^(fr):(\d+):(\d+)$/);
-			$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^([a-z_]+):(\d+):(\d+)$/);
-			$url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
-			$url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
+			$url = find_reshumot_href($url);
 			$str .= " קישור=\"$url\"";
 		}
 		$str .= ">$text</תיבה>";
@@ -946,7 +940,7 @@ sub process_href {
 	
 	if ($helper =~ /^(קובץ|[Ff]ile|תמונה|[Ii]mage):/) {
 		return '';
-	} elsif ($helper =~ /^https?:\/\/|w:|s:/) {
+	} elsif ($helper =~ /^https?:\/\/|[ws]:/i) {
 		$type = 4;
 		$ext = $helper;
 		$int = $helper = '';
@@ -1066,9 +1060,9 @@ sub find_href {
 	
 	my $ext = '';
 	
-	if (/^([ws]:|https?:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/i) {
-		return ('', $_);
-	}
+	if (/^([wsWS]:|https?:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/) { return ('', $_); }
+	if (/^HTTPS?:/) { return ('', lc($_)); }
+	if (/^([a-z_]+:|)(\d+):(\d+)$/) { return ('', find_reshumot_href($_)); }
 	
 	if (/^(.*?)#(.*)$/) {
 		$_ = $2;
@@ -1275,9 +1269,22 @@ sub find_href {
 	return ($href,$ext);
 }	
 
+sub find_reshumot_href {
+	my $url = shift;
+	$url =~ s/^ *(.*?) *$/$1/;
+	$url = "http://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
+	$url = "http://fs.knesset.gov.il/$2/law/$2_lsr_$1_$3.pdf" if ($url =~ /^(ec):(\d+):(\d+)$/);
+	$url = "http://fs.knesset.gov.il/$2/law/$2_ls_$1_$3.pdf" if ($url =~ /^(fr):(\d+):(\d+)$/);
+	$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^([a-z_]+):(\d+):(\d+)$/);
+	$url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
+	$url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
+	return $url;
+}
+
 sub find_ext_ref {
 	my $_ = shift;
 	return $_ if (/^https?:\/\//);
+	return lc($_) if (/^HTTPS?:\/\//);
 	return $_ if (/^[+-]$/);
 	
 	s/^(.*?)#(.*)$/$1/;
