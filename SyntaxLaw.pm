@@ -22,7 +22,7 @@ $Data::Dumper::Useperl = 1;
 use constant { true => 1, false => 0 };
 
 # \bו?כ?ש?מ?[בהל]?(חוק|פקוד[הת]|תקנות|צו|חלק|פרק|סימן(?: משנה|)|תוספו?ת|טופס|לוח)
-our $pre_sig = 'ו?כ?ש?מ?[בהל]?';
+our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
 our $extref_sig = $pre_sig . '(חוק|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודעה|מנשר|כללים?|נוהל|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)';
 our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+\.?)';
@@ -56,13 +56,13 @@ sub convert {
 	my $_ = shift;
 	
 	# General cleanup
-	s/^[ ]+//mg;       # Remove redundant whitespaces
-	s/[ ]+$//mg;       # Remove redundant whitespaces
 	s/\n *<!--.*?--> *\n/\n/sg;  # Remove comments
-	s/ *<!--.*?--> *//sg;  # Remove comments
-	
+	s/<!--.*?-->//sg;  # Remove comments
 	s/\r//g;           # Unix style, no CR
 	s/[\t\xA0]/ /g;    # tab and hardspace are whitespaces
+	s/^[ ]+//mg;       # Remove redundant whitespaces
+	s/[ ]+$//mg;       # Remove redundant whitespaces
+	s/[ ]{2,}/ /g;     # remove extra  spaces
 	s/$/\n/s;          # add last linefeed
 	s/\n{3,}/\n\n/sg;  # remove extra linefeeds
 	s/\n\n$/\n/sg;     # Remove last linefeed
@@ -81,7 +81,6 @@ sub convert {
 	tr/״”“„‟″‶/"/;      # typographic double quotes
 	tr/`׳’‘‚‛′‵/'/;     # typographic single quotes
 	tr/;/;/;            # wrong OCRed semicolon
-	s/[ ]{2,}/ /g;      # remove extra  spaces
 	s/ -{2,4} / — /g;   # em-dash
 	
 	s/\n+(=[^\n]*=)\n+/\n\n$1\n\n/g;
@@ -703,7 +702,7 @@ sub linear_parser {
 	
 	$glob{context} = '';
 	
-	@line = split(/(<(?: "[^"]*"|[^>])*>|\n)/, $_);
+	@line = split(/(<(?: "[^"]*"|[^>])*>)/, $_);
 	$idx = 0;
 	for (@line) {
 		if (/<(.*)>/) {
@@ -997,7 +996,7 @@ sub process_href {
 		}
 	} elsif ($helper) {
 		if ($found) {
-			(undef,$ext) = find_href($helper);
+			(undef, $ext) = find_href($helper);
 			$ext = $helper if ($ext eq '');
 		} elsif (defined $glob{href}{marks}{$helper}) {
 			$ext = $glob{href}{marks}{$helper};
@@ -1175,7 +1174,7 @@ sub find_href {
 				s/^[לב]-(\d.*)/$1/;
 				$num = get_numeral($_);
 				if ($num ne '' && $class eq '') {
-					$class = (/^$pre_sig-\d+/) ? 'chap_' : ($glob{href}{last_class} || 'chap_');
+					$class = (/^$pre_sig\d+/) ? 'chap_' : ($glob{href}{last_class} || 'chap_');
 					$class = 'supchap' if ($glob{href}{last_class} eq 'supchap');
 				}
 			}
