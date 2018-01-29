@@ -134,6 +134,8 @@ sub convert {
 	
 	# s/(<(qq|ins|del)>.*?<\/\2>)/&parse_spans($2,$1)/egs;
 	
+	s/(\{\|.*?\n\|\}) *\n?/&parse_wikitable($1)/egs;
+	
 	# Parse links and remarks
 	s/\[\[(?:קובץ:|תמונה:|[Ff]ile:|[Ii]mage:)(.*?)\]\]/<תמונה>$1<\/תמונה>/gm;
 	
@@ -147,8 +149,6 @@ sub convert {
 	s/__TOC__/&insert_TOC()/e;
 	s/ *__NOTOC__//g;
 	s/ *__NOSUB__//g;
-	
-	s/(\{\|.*?\n\|\}) *\n?/&parse_wikitable($1)/egs;
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<[\\\/](ויקי)?\>)/&unescape_text($1) . "<\/ויקי>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
@@ -326,13 +326,14 @@ my $pubdate = '';
 sub parse_signatures {
 	my $_ = shift;
 	chomp;
-#	print STDERR "Signatures = |$_|\n";
+	# print STDERR "Signatures = |$_|\n";
 	my $str = "<חתימות>\n";
 	$str .= "<פרסום>$pubdate</פרסום>\n" if ($pubdate);
 	s/;/\n/g;
 	foreach (split("\n")) {
 		s/^\*? *(.*?) *$/$1/;
-		s/ *[\|\,] */ | /g;
+		tr/,/|/ unless (/\|/);
+		s/ * \| */ | /g;
 		$str .= "* $_\n";
 		# /^\*? *([^,|]*?)(?: *[,|] *(.*?) *)?$/;
 		# $str .= ($2 ? "* $1 | $2\n" : "* $1\n");
@@ -586,7 +587,7 @@ sub get_numeral {
 			($num,$token) = ("$1-4","$1$2") when /^(\d+)([- ]?quater)\b/i;
 			($num,$token) = ($1,$1) when /^(\d+(\.\d+[א-ט]?)+)\b/;
 			($num,$token) = ($1,$1) when /^(\d+(([א-י]|טו|טז|[יכלמנסעפצ][א-ט]?|)\d*|))\b/;
-			($num,$token) = ($1,$1) when /^(([א-י]|טו|טז|[יכלמנסעפצ][א-ט]?|[ק](טו|טז|[יכלמנסעפצ]?[א-ט]?))(\d+[א-י]*|))\b/;
+			($num,$token) = ($1,$1) when /^(([א-י]|טו|טז|[יכלמנסעפצ][א-ט]?|[קרש](טו|טז|[יכלמנסעפצ]?[א-ט]?))(\d+[א-י]*|))\b/;
 		}
 		if ($num ne '') {
 			# Remove token from rest of string
@@ -965,15 +966,15 @@ sub process_href {
 		$type = 3;
 		$helper = $1;
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
-		(undef,$ext) = find_href($text, $helper);
+		(undef, $ext) = find_href($text, $helper);
 		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext});
 		$update_mark = true;
 	} elsif ($helper =~ /^(.*?) *= *(.*)/) {
 		$type = 3;
 		$ext = $1; $helper = $2;
-		(undef,$helper) = find_href($text) if ($2 eq '');
+		(undef, $helper) = find_href($text) if ($2 eq '');
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
-		(undef,$ext) = find_href($ext, $helper);
+		(undef, $ext) = find_href($ext, $helper);
 		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext});
 		$update_mark = true;
 	} elsif ($helper eq '+' || $ext eq '+') {
@@ -1031,7 +1032,6 @@ sub process_href {
 		$helper = $ext =~ s/[-: ]+/ /gr;
 		$ext = $glob{href}{marks}{$helper} if ($glob{href}{marks}{$helper});
 		$text = ($int ? "$ext#$int" : $ext);
-		
 		if ($type==3 || $update_lookahead) {
 			$glob{href}{last} = $ext;
 			if ($ext =~ /\+\+(.*)/) {
@@ -1167,6 +1167,8 @@ sub find_href {
 				}
 				# $elm{supl} = $glob{href}{ditto}{supl} unless defined $elm{supl};
 				# print STDERR "DITTO \"$class\"\n";
+				# print STDERR "\t\$href:  $href\n";
+				# print STDERR "\t\$helper: $helper\n" if ($helper);
 				# print STDERR "\t\$ditto: " . dump_hash($glob{href}{ditto}) . "\n";
 				# print STDERR "\t\$elm:   " . dump_hash(\%elm) . "\n";
 			}
