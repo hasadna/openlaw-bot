@@ -182,9 +182,15 @@ if ((%updated_pages) && !($onlycheck || $dryrun)) {
 	$text = $bot->get_text($page);
 	if ($text) {
 		my $new = '';
-		foreach (keys(%updated_pages)) {
-			$text =~ s/\* \[\[$_\]\].*\n//m;
-			$new .= "* [[$_]]\n";
+		foreach my $p (keys(%updated_pages)) {
+			my $re = ($p =~ s/(?<!\\)([.()\[\]\\])/\\$1/gr);
+			$text =~ s/.*\[\[$re(\||\]\]).*\n//gm;
+			my $alt = ($p =~ s/(\(.*\))/{{מוקטן|$1}}/r);
+			if ($alt ne $p) {
+				$new .= "* [[$p|$alt]]\n";
+			} else {
+				$new .= "* [[$p]]\n";
+			}
 		}
 		$text =~ /^(?=\*)/gm;
 		$text =~ s/\G/$new/;
@@ -478,10 +484,9 @@ sub clean_name {
 	return $_;
 }
 
-
 sub convert_regexp {
 	my $_ = shift;
-	s/\./\\./g;
+	s/([.()\[\]])/\\$1/g;
 	s/\*/.*/g;
 	s/\?/./g;
 	s/^\^?/^/;
