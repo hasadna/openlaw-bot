@@ -525,7 +525,7 @@ sub parse_comparetable {
 sub get_fixstr {
 	my $_ = shift;
 	my @fix = ();
-	my $fix_sig = '(?:תיקון|תקון|תיקונים):?';
+	my $fix_sig = '(?:תיקון|תקון|תיקונים):';
 	push @fix, unquote($1) while (s/(?| *\($fix_sig *(([^()]++|\(.*?\))+) *\)| *\[$fix_sig *(.*?) *\](?!\]))//);
 	s/^ *(.*?) *$/$1/;
 	s/\bה(תש[א-ת"]+)\b/$1/g for (@fix);
