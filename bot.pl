@@ -362,8 +362,55 @@ sub process_law {
 		});
 	}
 	
+	if (!$dryrun && !$dst_ok) {
+		my $src_text2 = auto_correct($src_text);
+		$bot->edit( {
+			page => $page_src, text => $src_text2, summary => 'בוט: תיקונים אוטומטיים',
+			bot => 1, minor => 1, assertion => 'bot'}
+		) if ($src_text2 ne $src_text);
+		# Update of $page_dst will take place on next run, providing user time to check automatic updates.
+	}
+	
 	return $res;
 }
+
+sub auto_correct {
+	my $HE = '(?:[א-ת][\x{05B0}-\x{05BD}]*+)';
+	my $_ = shift;
+	s/ +$//mg;
+	s/^ +//mg;
+	s/ ([.,][ \n])/$1/sg;
+	s/^(:+)(\()/$1 $2/mg;
+	s/^(:+ "?\([^)]{1,2}\))($HE)/$1 $2/mg;
+	s/(?:\]\]-|-\]\])(\d{4})/-$1]]/mg;
+	s/ *class="wikitable"//g;
+	$_ = s_lut($_, { 
+		'½' => '¹⁄₂', '⅓' => '¹⁄₃', '⅔' => '²⁄₃', '¼' => '¹⁄₄', '¾' => '³⁄₄', 
+		'⅕' => '¹⁄₅', '⅙' => '¹⁄₆', '⅐' => '¹⁄₇', '⅛' => '¹⁄₈', '⅑' => '¹⁄₉', '⅒' => '¹⁄₁₀'
+	});
+	s/([⁰¹²³⁴-⁹]+\⁄[₀-₉]+)(\d+)/$2$1/g;
+	# s/ %(\d*[⁰¹²³⁴-⁹]+\⁄[₀-₉]+|\d+\/\d+|\d+(\.\d+)?)/ $1%/g;
+	# s/(\d+)%(\d*\.\d+)/$1$2%/g;
+	s/^(@ \d[^ .]) /$1. /gm;
+	s/^(@ \d.*?\.) \./$1 /gm;
+	s/^@ :$/@/gm;
+	s/\=\n+@\n/=\n/g;
+	s/(חא"י),? (כרך [אב]'),? (פרק [א-ת"']+),? (עמ' )?/$1 $2 $3, עמ' /;
+	s/(19\d\d) (תוס' [12])/$1, $2/g;
+	s/ ([א-ת])(\[\[)/ $2$1/g;
+	s/;(?=\n\n+@)/./g;
+	s/(@ [^:]* \(תיקון) (.*\))/$1: $2/g;
+	return $_;
+}
+
+sub s_lut {
+	my $str = shift;
+	my $table = shift;
+	my $keys = join('', keys(%{$table}));
+	$str =~ s/([$keys])/$table->{$1}/ge;
+	return $str;
+}
+
 
 sub move_page {
 	my $src = shift;
