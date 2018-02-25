@@ -181,14 +181,14 @@ sub parse_chapter {
 	$fix = $tags{'תיקון'};
 	$other = $tags{'אחר'};
 	$text = trim($str);
-	my $ankor2 = $ankor unless ($ankor =~ s/^סעיף *//);
+	$ankor = '' if ($ankor eq "סעיף $number");
 	
 	$str = "{{ח:סעיף";
-	$str .= "*" if ($ankor2 || !$ankor);
+	$str .= "*" if ($ankor || $number eq '');
 	$str .= "|$number|$desc" if ($number || $desc || $fix);
 	$str .= "|תיקון: $fix" if ($fix);
 	$str .= "|אחר=$other" if ($other);
-	$str .= "|עוגן=$ankor2" if ($ankor2);
+	$str .= "|עוגן=$ankor" if ($ankor);
 	$str .= "}}\n";
 	
 	if ($text) {

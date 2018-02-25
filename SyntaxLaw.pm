@@ -243,11 +243,10 @@ sub parse_chapter {
 	($desc, $fix) = get_fixstr($desc);
 	($desc, $extra) = get_extrastr($desc);
 	($desc, $ankor) = get_ankor($desc);
-	$id = $num;
-	$id =~ s/[.,]$//;
+	$id = get_numeral($num);
 	
 	$type =~ s/\*$//;
-	$ankor = $type . " " . ((!$ankor && $num) ? $id : $ankor);
+	$ankor = ((!$ankor && $num) ? $id : $ankor);
 	my $str = "<$type עוגן=\"$ankor\">";
 	$str .= "<מספר>$num</מספר>" if ($num);
 	$str .= "<תיאור>$desc</תיאור>" if ($desc);
@@ -544,7 +543,7 @@ sub get_extrastr {
 sub get_ankor {
 	my $_ = shift;
 	my @ankor = ();
-	push @ankor, unquote($1) while (s/<עוגן:? *(.*?)>//);
+	push @ankor, unquote($1) while (s/ *<עוגן:? *(.*?)>//);
 	return ($_, join(', ',@ankor));
 }
 
@@ -585,7 +584,7 @@ sub get_numeral {
 			($num,$token) = ("$1-2","$1$2") when /^(\d+)([- ]?bis)\b/i;
 			($num,$token) = ("$1-3","$1$2") when /^(\d+)([- ]?ter)\b/i;
 			($num,$token) = ("$1-4","$1$2") when /^(\d+)([- ]?quater)\b/i;
-			($num,$token) = ($1,$1) when /^(\d+(\.\d+[א-ט]?)+)\b/;
+			($num,$token) = ($1,$1) when /^(\d+([._]\d+[א-ט]?)+)\b/;
 			($num,$token) = ($1,$1) when /^(\d+(([א-י]|טו|טז|[יכלמנסעפצ][א-ט]?|)\d*|))\b/;
 			($num,$token) = ($1,$1) when /^(([א-י]|טו|טז|[יכלמנסעפצ][א-ט]?|[קרש](טו|טז|[יכלמנסעפצ]?[א-ט]?))(\d+[א-י]*|))\b/;
 		}
@@ -807,7 +806,7 @@ sub process_section {
 
 sub process_chapter {
 	my $params = shift;
-	$params =~ /עוגן="(?:סעיף )?([^"]+)"/;
+	$params =~ /עוגן="(?:סעיף |)([^"]+)"/;
 	my $num = $1 // '';
 	$glob{chap} = $num;
 	if ((defined $glob{supl} || defined $glob{tabl}) && $num) {
@@ -820,6 +819,8 @@ sub process_chapter {
 		$ankor = "תוספת $glob{supl} $ankor" if (defined $glob{supl});
 		$ankor =~ s/  / /g;
 		$line[$idx] =~ s/ עוגן=".*?"/ עוגן="$ankor"/;
+	} elsif ($num) {
+		$line[$idx] =~ s/ עוגן=".*?"/ עוגן="סעיף $num"/;
 	}
 }
 
@@ -1098,7 +1099,7 @@ sub find_href {
 	}
 	
 	s/((?:סעי[פף]|תקנ[הת])\S*) (קטן|קטנים|משנה) (\d[^( ]*?)(\(.*?\))/$1 $3 $2 $4/;
-	s/[\(_]/ ( /g;
+	s/\(/ ( /g;
 	s/(פרי?ט|פרטים) \(/$1/g;
 	s/["'״׳]//g;
 	s/\bו-//g;
