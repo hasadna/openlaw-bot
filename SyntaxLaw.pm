@@ -157,8 +157,8 @@ sub convert {
 	s/(<(?:div|span|table|td|th|tr) [^>]+>)/&fix_tags($1)/egs;
 	
 	# Use thin spaces in dotted lines
-	s/(\.{4,20})/'. 'x(length($1)-1) . '.'/ge;
 	s/(\.{21,})/'<span style="word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
+	s/(\.{4,20})/'. 'x(length($1)-1) . '.'/ge;
 	
 	# use arial font for fraction slash (U+2044)
 	s/⁄/<font face="arial">⁄<\/font>/g;
@@ -247,7 +247,7 @@ sub parse_chapter {
 	$id =~ s/[.,]$//;
 	
 	$type =~ s/\*$//;
-	$ankor = "$type $id" if (!$ankor && $num);
+	$ankor = $type . " " . ((!$ankor && $num) ? $id : $ankor);
 	my $str = "<$type עוגן=\"$ankor\">";
 	$str .= "<מספר>$num</מספר>" if ($num);
 	$str .= "<תיאור>$desc</תיאור>" if ($desc);
@@ -544,7 +544,7 @@ sub get_extrastr {
 sub get_ankor {
 	my $_ = shift;
 	my @ankor = ();
-	push @ankor, unquote($1) while (s/(?| *\(עוגן:? *(.*?) *\)| *\[עוגן:? *(.*?) *\])//);
+	push @ankor, unquote($1) while (s/<עוגן:? *(.*?)>//);
 	return ($_, join(', ',@ankor));
 }
 
@@ -807,7 +807,8 @@ sub process_section {
 
 sub process_chapter {
 	my $params = shift;
-	my $num = get_numeral($params);
+	$params =~ /עוגן="(?:סעיף )?([^"]+)"/;
+	my $num = $1 // '';
 	$glob{chap} = $num;
 	if ((defined $glob{supl} || defined $glob{tabl}) && $num) {
 		my $ankor = "פרט $num";
@@ -818,9 +819,7 @@ sub process_chapter {
 		$ankor = "נספח $glob{appn} $ankor" if (defined $glob{appn});
 		$ankor = "תוספת $glob{supl} $ankor" if (defined $glob{supl});
 		$ankor =~ s/  / /g;
-		# $line[$idx] =~ s/סעיף\*?/סעיף*/;
 		$line[$idx] =~ s/ עוגן=".*?"/ עוגן="$ankor"/;
-		# $line[$idx] .= "\n<עוגן $ankor>";
 	}
 }
 

@@ -52,7 +52,7 @@ sub convert {
 	s/(<חתימות>.*<\/חתימות>)\n?/&parse_signatures($1)/se;
 	s/(<קטע.*?>.*?<\/קטע>)\n?/&parse_section($1)/gse;
 	s/(<סעיף.*?>.*?<\/סעיף>)\n?/&parse_chapter($1)/gse;
-	s/(<ת+.*?>.*?<\/ת+>)\n?/&parse_line($1)/gse;
+	s/(<ת+( .*?)?>.*?<\/ת+>)\n?/&parse_line($1)/gse;
 	
 	s/(<קישור.*?>.*?<\/קישור>)/&parse_link($1)/ge;
 	s/<הגדרה *.*?>(.*?)<\/הגדרה>/&parse_template('ח:הגדרה', $1)/gse;
