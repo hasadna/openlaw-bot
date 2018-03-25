@@ -72,10 +72,14 @@ sub convert {
 		tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 	}
 	
+	s/([0-9₀-₉])′/$1&#8242;/g; # Keep prime [feet/minutes] and double prime [inch/seconds]
+	s/([0-9₀-₉])″/$1&#8243;/g; # (restored at unescape_text)
+	
+	s/($HE)–($HE)/$1--$2/g; # Keep en-dash between Hebrew words
+	
 	tr/\x{FEFF}//d;    # Unicode marker
 	tr/\x{2000}-\x{200A}\x{205F}/ /; # typographic spaces
 	tr/\x{200B}-\x{200D}//d;         # Remove zero-width spaces
-	s/($HE)–($HE)/$1--$2/g; # Keep en-dash between Hebrew words
 	tr/־–—‒―/-/;        # typographic dashes
 	tr/\xAD\x96\x97/-/; # more typographic dashes
 	tr/״”“„‟″‶/"/;      # typographic double quotes
@@ -413,6 +417,7 @@ sub parse_wikitable {
 			
 			s/!!/||/g if ( $type eq '!' );
 			my @cells = split( / *\|\| */, $_ , -1);
+			@cells = ('') if (!@cells);
 			$_ = '';
 			# print STDERR "Cell is |" . join('|',@cells) . "|\n";
 			
@@ -647,7 +652,7 @@ sub unescape_text {
 	my %table = ( 'quot' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", # &amp; later
 		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'shy' => '&null;',
 		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 
-		'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε',
+		'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε'
 	);
 	s/&#(\d+);/chr($1)/ge;
 	s/(&([a-z]+);)/($table{$2} || $1)/ge;
@@ -1322,11 +1327,11 @@ sub convert_quotes {
 	s/(תש)"([א-ת])/$1״$2/g;
 	# $end = time(); printf STDERR "\ttook %.2f sec.\n", $end-$start; $start = $end;
 	# s/(\s+[בהו]?-?)"([^\"\n]+)"/$1”$2“/g;
-	s/([\s\|]+[בהו]?-?|")"([^\"\n]+(?:[״"]$HE+[^\"\n]*)*)"/$1”$2“/g;
-	s/([\s\|]+[בהו]?-?)"([^\"\n]+(?:[״"]$HE+[^\"\n]*)*)"/$1”$2“/g;
+	s/([\s\|]+[בהו]?-?|")"([^\"\n\s]+(?:[״"]$HE+[^\"\n\s]*| [^\"\n\s]+)*)"/$1”$2“/g;
+	s/([\s\|]+[בהו]?-?)"([^\"\n\s]+(?:[״"]$HE+[^\"\n\s]*| [^\"\n\s]+)*)"/$1”$2“/g;
 	s/($HE+)"($HE)(?![א-ת])/$1״$2/g;
 	s/($HE+)"($HE(ות|וֹת|ים|))(?![א-ת])/$1״$2/g;
-	s/($pre_sig-?)"([^\"\n]+)"(?=\s)/$1”$2“/g;
+	s/($pre_sig-?)"([^\"\n\s]+(?: [^\"\n\s]+)*)"(?=\s)/$1”$2“/g;
 	s/([א-ת])'(?!['])/$1׳/g;
 	s/([א-ת])-(?![\s.\-])/$1־/g;
 	s/(?<![\s.\-])-([א-ת])/־$1/g;
