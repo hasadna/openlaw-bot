@@ -656,7 +656,7 @@ sub process_law {
 	}
 	if (!$text) {
 		$text = $bot->get_text($law_name);
-		if (!$text && scalar(@list)==1) {
+		if (!$text && scalar(@list)<=2) {
 			print "\tPage '$law_name' not found, new law.\n";
 			$text = "";
 			$new = 1;
@@ -690,7 +690,7 @@ sub process_law {
 	
 	print "\tPage '$src_page' found, size ", length($text), ".\n" unless ($new);
 	
-	$alt_names = join('|', $text =~ /^<שם(?: קודם)?>[ \n]+(.*?)(?:, *(?:ה?תש.?["״].[\-־–])?\d{4})? *(?:\(תיקון:.*?\) *)?$/mg);
+	$alt_names = join('|', $text =~ /^<שם(?: קודם)?>[ \n]*(.*?)(?:, *(?:ה?תש.?["״].[\-־–])?\d{4})? *(?:\(תיקון:.*?\) *)?$/mg);
 	print "\tLaw name(s) is '$alt_names'\n";
 	$alt_names =~ s/([()])/\\$1/g;
 	

@@ -47,7 +47,7 @@ my $LRE = "\x{202A}";
 my $RLE = "\x{202B}";
 my $PDF = "\x{202C}";
 
-if (/\x{F8FF}/) { # Fix f*cked-up macos encoding
+if (/\x{F8FF}/ and /\xD3/) { # Fix f*cked-up macos encoding
 	# Convert Unicode to "Mac OS Roman", treat as "Mac OS Hebrew" and convert back to Unicode.
 	# See ftp://ftp.unicode.org/Public/MAPPINGS/VENDORS/APPLE/ROMAN.TXT
 	# and ftp://ftp.unicode.org/Public/MAPPINGS/VENDORS/APPLE/HEBREW.TXT
@@ -64,6 +64,8 @@ if (/\x{F8FF}/) { # Fix f*cked-up macos encoding
 	s/($RLE[0-9]$PDF(?:$RLE[0-9.,%]$PDF)+)/$LRE$1$PDF/g;
 	s/\x{F86A}/\x{05DC}\x{05B9}/g; # HEBREW LETTER LAMED + HEBREW POINT HOLAM
 	tr/\x{F89B}-\x{F89E}//d; # Remove obsolete "canorals"
+} elsif (/\x{F8FF}/) {
+	tr/\x{F8FF}/נ/;
 }
 
 s/([\x{05B0}-\x{05BD}]+)([א-ת])/$2$1/g if (/$RLE\x{05BC}[א-ת]/);
