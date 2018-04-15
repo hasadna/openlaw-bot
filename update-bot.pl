@@ -52,7 +52,7 @@ GetOptions(
 	"dryrun" => \$dryrun,
 	"full" => \$history,
 	"noglobal" => \$noglobaltodo,
-	"recent=i" => \$count,
+	"recent=s" => \$count,
 	"save" => \$dump,
 	"verbose" => \$verbose,
 	"write" => sub { $dryrun = false; },
