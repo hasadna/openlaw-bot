@@ -92,7 +92,7 @@ if (scalar(@list)) {
 		@list = @{retrieve("main.dump")};
 	} else {
 		$page = $recent_page;
-		$page .= "&pn=$1" if $count =~ /(\d+):(\d+)/$2/;
+		$page .= "&pn=$1" if $count =~ s/(\d+):(\d+)/$2/;
 		@list = get_primary_page($page,1);
 		store \@list, "main.dump" if ($dump);
 	}
