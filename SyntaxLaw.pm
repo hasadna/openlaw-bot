@@ -62,7 +62,6 @@ sub convert {
 	s/[\t\xA0]/ /g;    # tab and hardspace are whitespaces
 	s/^[ ]+//mg;       # Remove redundant whitespaces
 	s/[ ]+$//mg;       # Remove redundant whitespaces
-	s/[ ]{2,}/ /g;     # remove extra  spaces
 	s/$/\n/s;          # add last linefeed
 	s/\n{3,}/\n\n/sg;  # remove extra linefeeds
 	s/\n\n$/\n/sg;     # Remove last linefeed
@@ -86,6 +85,7 @@ sub convert {
 	tr/`׳’‘‚‛′‵/'/;     # typographic single quotes
 	tr/;/;/;            # wrong OCRed semicolon
 	s/ -{2,4} / — /g;   # em-dash
+	s/[ ]{2,}/ /g;     # remove extra  spaces
 	
 	s/\n+(=[^\n]*=)\n+/\n\n$1\n\n/g;
 	
