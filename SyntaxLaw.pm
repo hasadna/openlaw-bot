@@ -103,7 +103,7 @@ sub convert {
 	
 	# Parse various elements
 	s/^(?|<שם> *\n?(.*)|=([^=].*)=)\n*/&parse_title($1)/em; # Once!
-	s/<שם קודם> .*\n//g;
+	s/<שם (קודם|אחר)> .*\n//g;
 	s/<מאגר .*?>\n?//;
 	s/^<פרסום> *\n?(.*)\n/&parse_pubdate($1)/egm;
 	s/^<חתימות> *\n?(((\*.*\n)+)|(.*\n))/&parse_signatures($1)/egm;
