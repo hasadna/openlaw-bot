@@ -1087,13 +1087,13 @@ sub find_href {
 	
 	s/(\b[לב]?(אותו|אותה)\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
 	
-	if (/^(.*?)\s*($extref_sig[- ]*([א-ת]+\b.*)?)$/) {
+	if (/^(.*?)\s*\b($pre_sig$extref_sig[- ]*([א-ת]+\b.*)?)$/) {
 		$_ = $1;
 		$ext = find_ext_ref($2) unless ($ext);
-	} elsif (/^(.*?) *$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
+	} elsif (/^(.*?) *\b$pre_sig$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
 		$ext = "$2$3";
 		$_ = $1;
-	} elsif ($glob{href}{all_marks} and /^(.*?) *\b$pre_sig?($glob{href}{all_marks})(.*?)$/) {
+	} elsif ($glob{href}{all_marks} and /^(.*?) *\b$pre_sig($glob{href}{all_marks})(.*?)$/) {
 		$ext = "$2$3";
 		$_ = $1;
 	}
