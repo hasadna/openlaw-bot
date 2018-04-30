@@ -66,7 +66,7 @@ if ($interactive) {
 	push @pages, '-';
 }
 
-if ( (defined $select) || (defined $start) || (@pages) ) {
+if ( (defined $select) || (defined $start) || scalar(@pages)>0 || (defined $recent && $recent==0)) {
 	$recent = undef;
 } else {
 	$recent = 1;
