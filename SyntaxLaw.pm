@@ -274,11 +274,12 @@ sub parse_line {
 	$line =~ s/^ *(.*?) *$/$1/;
 	$def = true if ($line =~ s/^[-–] *//);
 	my $str;
-	$str = "<$type" . ($id ? " מספר=\"$id\"" : "") . ">";
-	$str .= "<מספר>$num</מספר>" if ($num);
-	$str .= "<הגדרה>" if ($def);
+	$str = "<$type";
+	$str .= " מספר=\"$id\"" if ($id);
+	$str .= " סוג=\"הגדרה\"" if ($def);
+	$str .= ">";
+	$str .= "<מספר>$num</מספר> " if ($num);
 	$str .= "$line" if (length($line)>0);
-	$str .= "</הגדרה>" if ($def);
 	$str .= "</$type>\n";
 	return $str;
 }
