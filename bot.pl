@@ -315,7 +315,7 @@ sub process_law {
 	my $len2 = length($text);
 	
 	# print "Length changed from $len1 to $len2.\n";
-	$updated_pages{$page_dst} = '' if (abs($len1-$len2)>2000) && !$minor;
+	$updated_pages{$page_dst} = '' if ((abs($len1-$len2)>2000) && !$minor) || (!$dst_ok);
 	
 	# print STDOUT "$text\n" if ($print || $dryrun);
 	unless ($dryrun) {
