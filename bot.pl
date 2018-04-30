@@ -18,7 +18,7 @@ binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 
 my @pages = ();
-my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $select, $start);
+my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $select, $start, $force_comment);
 my $botpage;
 my $locforce = 0;
 my $outfile;
@@ -31,14 +31,15 @@ my $bot_page = "משתמש:OpenLawBot/הוספה";
 
 GetOptions(
 	"force" => \$force, 
-	"check" => \$onlycheck,
-	"dryrun" => \$dryrun,
+	"c|check" => \$onlycheck,
+	"d|dryrun" => \$dryrun,
 	"verbose" => \$verbose,
-#	"OUTPUT=s" => sub { $print = 1; open(STDOUT, ">_[1]"); },
 	"output" => \$print,
-	"recent" => \$recent,
+	"all" => sub { $recent = 0 },
+	"recent" => sub { $recent = 1 },
 	"select=s" => \$select,
 	"start=s" => \$start,
+	"comment=s" => \$force_comment,
 	"help|?" => \&HelpMessage,
 	"" => \$interactive
 ) or die("Error in command line arguments\n");
@@ -65,10 +66,12 @@ if ($interactive) {
 	push @pages, '-';
 }
 
-if (@pages and $recent) {
-	$recent = 0;
-	print "Warning: '-recent' ignored.\n";
+if ( (defined $select) || (defined $start) || (@pages) ) {
+	$recent = undef;
+} else {
+	$recent = 1;
 }
+$force_comment = decode_utf8($force_comment) if (defined $force_comment);
 
 unless (@pages) {
 	# Get category list
@@ -177,7 +180,7 @@ if ((%new_pages) && !($onlycheck || $dryrun)) {
 }
 
 # Update recently updated page
-if ((%updated_pages) && !($onlycheck || $dryrun)) {
+if ((%updated_pages) && !($onlycheck || $dryrun) && !$recent) {
 	$page = 'ויקיטקסט:ספר החוקים הפתוח/עדכונים אחרונים';
 	$text = $bot->get_text($page);
 	if ($text) {
@@ -254,6 +257,7 @@ sub process_law {
 		}
 	}
 	my $update = ($revid_t<$revid_s);
+	my $new = (!$dst_ok);
 	my $done = 0;
 	
 	print "ID $revid_s ", ($update ? '>' : '='), " $revid_t";
@@ -291,10 +295,15 @@ sub process_law {
 	
 	return $res if ($done);
 	
-	$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *// || $comment =~ s/ \[.*/.../ if ($comment =~ /העבירה? את הדף/);
-	if ($comment =~ /^יצירת דף עם התוכן "/) {
-		$comment = $page_dst;
-		$comment =~ s/[_ ]+/ /g;
+	if (defined $force_comment) {
+		$comment = $force_comment;
+		$minor = 1;
+	} else {
+		$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *// || $comment =~ s/ \[.*/.../ if ($comment =~ /העבירה? את הדף/);
+		if ($comment =~ /^יצירת דף עם התוכן "/) {
+			$comment = $page_dst;
+			$comment =~ s/[_ ]+/ /g;
+		}
 	}
 	
 	$locforce = 0;
@@ -327,8 +336,8 @@ sub process_law {
 		# }
 	}
 	
-	$res = "v " . ($dst_ok ? "עודכן" : "נוצר") ." [[$page_dst]]";
-	$new_pages{$page_dst} = '' if (!$dst_ok && $page_dst =~ /^(חוק|פקודת)/);
+	$res = "v " . ($new ? "נוצר" : "עודכן") ." [[$page_dst]]";
+	$new_pages{$page_dst} = '' if ($new && $page_dst =~ /^(חוק|פקודת)/);
 	
 	# Check all possible redirections
 	$text = "#הפניה [[$page_dst]]";
@@ -362,7 +371,7 @@ sub process_law {
 		});
 	}
 	
-	if (!$dryrun && !$dst_ok) {
+	if (!$dryrun && $new) {
 		my $src_text2 = auto_correct($src_text);
 		$bot->edit( {
 			page => $page_src, text => $src_text2, summary => 'בוט: תיקונים אוטומטיים',
@@ -567,9 +576,8 @@ Optional flags:
   -f, --force           Force changing contents of destination
   -l LOG, --log LOG     Set a custom log file
   -o, --output          Output the final format to stdout
-  -r, --recent          Check only recent changes
   -v, --verbose         Output full process log to stdout
+  -a, --all             Check all pages
 EOP
-#  -O FILE, --OUTPUT FILE Output the final format to file FILE
 	exit 0;
 }
