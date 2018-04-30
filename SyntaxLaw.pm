@@ -157,7 +157,7 @@ sub convert {
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<[\\\/](ויקי)?\>)/&unescape_text($1) . "<\/ויקי>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
 	s/<לוח_השוואה>\s*(.*?)<\/(לוח_השוואה|)>\n?/&parse_comparetable($1)/egs;
-	s/(?<=\<math\>)(.*?)(?=\<[\\\/]math\>)/&fix_tags($1)/egs;
+	s/(\<math.*?\>.*?\<[\\\/]math\>)/&fix_tags($1)/egs;
 	s/(<(?:div|span|table|td|th|tr) [^>]+>)/&fix_tags($1)/egs;
 	
 	# Use thin spaces in dotted lines
