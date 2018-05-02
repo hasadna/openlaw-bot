@@ -109,14 +109,14 @@ while (my $id = shift @pages) {
 		@list = ($id);
 	} else {
 		print "Reading secondary #$id ";
-		if ($dump and -f "$id.dump") {
-			my $tt = retrieve("$id.dump");
+		if ($dump and -f "s$id.dump") {
+			my $tt = retrieve("s$id.dump");
 			@list = @{$tt->{list}};
 			$law_name = $tt->{name};
 		} else {
 			@list = get_bill_page($id);
 			my %tt = ('list' => \@list, 'name' => $law_name);
-			store \%tt, "$id.dump" if ($dump);
+			store \%tt, "s$id.dump" if ($dump);
 		}
 		if ($law_name eq '???') {
 			print "failed\n";
@@ -326,7 +326,8 @@ sub get_primary_page {
 	}
 	
 	$full_name = trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]')) || 
-		trim($tree->findvalue('//div[@class="LawPrimaryTitleDiv"]/h3')) || '???';
+		trim($tree->findvalue('//div[@class="LawPrimaryTitleDiv"]/h3')) || 
+		trim($tree->findvalue('//h3[@class="LawBrownTitleH3"]')) || '???';
 	$law_name = law_name($full_name);
 	# print "Law $id \"$law_name\"\n";
 	
@@ -393,7 +394,7 @@ sub get_secondary_page {
 		push @trees, $tree;
 		
 		my @loc_table = $tree->findnodes('//table[contains(@class, "rgMasterTable")]//tr');
-		
+		# print STDERR $loc_table[0]->dump();
 		my $loc_id = $tree->findnodes('//form[@id = "aspnetForm"]')->[0];
 		if (defined $loc_id) {
 			($loc_id) = ($loc_id->attr('action') =~ m/lawitemid=(\d+)/);
@@ -553,6 +554,8 @@ sub print_fix {
 	
 	$name =~ s/,? *ה?(תש.?".)[-–]\d{4}// and $year = $1;
 	$year = poorman_hebrewyear($date,$page);
+	
+	$law_name = '' if ($law_name eq '???');
 	
 	my $law_re = $law_name;
 	$law_re .= "|$alt_names" if ($alt_names);
