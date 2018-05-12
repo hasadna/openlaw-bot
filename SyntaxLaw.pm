@@ -84,7 +84,7 @@ sub convert {
 	tr/״”“„‟″‶/"/;      # typographic double quotes
 	tr/`׳’‘‚‛′‵/'/;     # typographic single quotes
 	tr/;/;/;            # wrong OCRed semicolon
-	s/ -{2,4} / — /g;   # em-dash
+	s/(?<=[ \n])-{2,4}(?=[ \n])/—/g;   # em-dash
 	s/[ ]{2,}/ /g;     # remove extra  spaces
 	
 	s/\n+(=[^\n]*=)\n+/\n\n$1\n\n/g;
@@ -110,7 +110,7 @@ sub convert {
 	s/^<מקור> *\n?(.*)\n/\n<מקור>\n$1\n<\/מקור>\n/m;
 	s/^<(?:מבוא|הקדמה)> *\n?(.*)\n/<הקדמה>\n$1\n<\/הקדמה>\n\n/m;
 	s/^<סיום> *\n?(.*)\n/<מפריד\/>\n<הקדמה>\n$1\n<\/הקדמה>\n\n/m;
-	s/^-{3,}$/<מפריד\/>/gm;
+	s/^(-{3,}|—)$/<מפריד\/>/gm;
 	
 	# Parse structured elements
 	s/^(=+)(.*?)\1\n/&parse_section(length($1),$2)/egm;
