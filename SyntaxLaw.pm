@@ -113,7 +113,7 @@ sub convert {
 	s/^(-{3,}|—)$/<מפריד\/>/gm;
 	
 	# Parse structured elements
-	s/^(=+)(.*?)\1\n/&parse_section(length($1),$2)/egm;
+	s/^(=+)(.*?)\1\n+/&parse_section(length($1),$2)/egm;
 	s/^<סעיף *(.*?)>(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
 	s/^(@.*?) +(:+ .*)$/$1\n$2/gm;
 	s/^@ *(\(תיקון: .*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
@@ -204,7 +204,7 @@ sub parse_section {
 	$str = $_;
 	
 	# print STDERR "parse_section with |$_|\n";
-	s/^\(\(([^()]*?)\)\)/$1/g;
+	s/(?|\(\(\(([^()]*?)\)\)\)|\(\(([^()]*?)\)\))/$1/g;
 	
 	if (/^\((.*?)\)$/) {
 		$num = '';
@@ -221,7 +221,7 @@ sub parse_section {
 	
 	$type = $_;
 	$type =~ s/\(\(.*?\)\)//g;
-	$type = ($type =~ /$type_sig\b/ ? $1 : '');
+	$type = ($type =~ /^(?:|[א-ת]+ )$type_sig\b/ ? $1 : '');
 	$type = 'משנה' if ($type =~ /סימ(ן|ני) משנה/);
 	$type = 'לוחהשוואה' if ($type =~ /השוואה/);
 	my $ankor = $type;
