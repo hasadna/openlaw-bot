@@ -99,10 +99,10 @@ if ($recent) {
 	$recent = 1;
 	my %cat = map { $_ => undef } @pages;
 	@pages = $bot->recentchanges({ns => 116, limit => $credentials{limit} // 100}); # Namespace 116 is 'מקור'
-	@pages = map {$_->{title}} @pages;
-	map {s/^\s*(?:מקור:|)\s*(.*?)\s*$/$1/} @pages;
+	@pages = map { $_->{title} } @pages;
+	map { s/^\s*(?:מקור:|)\s*(.*?)\s*$/$1/ } @pages;
 	# Intersect list with category list
-	@pages = grep {exists($cat{ $_ })} @pages;
+	@pages = grep { exists($cat{$_}) } @pages;
 }
 
 if ($recent) {
@@ -180,7 +180,7 @@ if ((%new_pages) && !($onlycheck || $dryrun)) {
 }
 
 # Update recently updated page
-if ((%updated_pages) && !($onlycheck || $dryrun) && !$recent) {
+if ((%updated_pages) && !($onlycheck || $dryrun) && $recent) {
 	$page = 'ויקיטקסט:ספר החוקים הפתוח/עדכונים אחרונים';
 	$text = $bot->get_text($page);
 	if ($text) {
