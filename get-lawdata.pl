@@ -114,16 +114,19 @@ sub print_fix {
 	$year = poorman_hebrewyear($date,$page);
 	
 	$name =~ s/ {2,}/ /g;
-	$name =~ s/ *\(חוק מקורי\)//;
-	$name =~ s/החוק המקורי/$law_name/;
+	$law_name = $1 if ($name =~ s/^(.*?) *\(ה?חוק ה?מקורי\)/$1/);
+	$name =~ s/החוק המקורי/$law_name/ if ($law_name);
 	# $law_name = ($name =~ s/ *\[.*?\]//gr) if ($first_run);
 	$name =~ s/\bמס\. $/מס' /;
-	$name =~ s/ (ב|של |ל)$law_name//;
+	if ($law_name && ~$first_run) {
+		$name =~ s/ (ב|של |ל)$law_name//;
+		$name =~ s/^(?:חוק לתיקון )?$law_name \((.*?)\)/ $1/;
+	}
 	$name =~ s/^תיקו(ן|ני) טעו(יו|)ת.*/ת"ט/;
 	$name =~ s/\((מס' \d\S*?)\)/(תיקון $1)/;
-	$name =~ s/^(?:חוק לתיקון )?$law_name \((.*?)\)/ $1/;
 	$name =~ s/חוק לתיקון פקודת/תיקון לפקודת/;
 	$name =~ s/^(?:חוק לתיקון |תיקון ל|)(\S.*?) \((תי?קון .*?)\)(.*)/$2 $3 ל$1/;
+	$name =~ s/  / /g;
 	
 	if ($url) {
 		$url =~ s/.*?\/(\d+)_lsr_(\d+).pdf/$1:$2/;
@@ -237,9 +240,11 @@ sub get_primary_page {
 		$_->delete() for (@trees);
 		return [];
 	}
-
+	
 	my $full_name = trim($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]')) ||
-		trim($tree->findvalue('//div[@class="LawPrimaryTitleDiv"]/h3'));
+		trim($tree->findvalue('//div[@class="LawPrimaryTitleDiv"]/h3')) ||
+		trim($tree->findvalue('//h3[@class="LawBrownTitleH3"]')) || '';
+	
 	$law_name = law_name($full_name);
 	# print "Law $id \"$law_name\"\n";
 	
@@ -294,10 +299,9 @@ sub get_secondary_entry {
 	# print "Reading HTML file $page...\n";
 	$tree = HTML::TreeBuilder::XPath->new_from_url($page);
 	
-	my $law_name = law_name($tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]'));
-	$law_name =~ s/^[ \n]*(.*?)[ \n]*$/$1/;
-	$law_name =~ s/, ([א-ת"]*-)?\d{4}//;
-	$law_name =~ s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
+	my $full_name = $tree->findvalue('//div[@class="LawBillTitleDiv"]//h2[@class="LawDarkBrownTitleH2"]') || 
+		$tree->findvalue('//td[contains(@class,"LawPrimaryTitleBkgWhite")]') || '';
+	$law_name = law_name($full_name);
 	# print "Law $id \"$law_name\"\n";
 	
 	@table = $tree->findnodes('//table[@id = "tblMainProp"]//td');
