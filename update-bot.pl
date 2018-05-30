@@ -120,6 +120,7 @@ while (my $id = shift @pages) {
 		}
 		if ($law_name eq '???') {
 			print "failed\n";
+			@list = ($id);
 		} else {
 			print "'$law_name'\n";
 			foreach (@list) {
