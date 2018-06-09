@@ -105,37 +105,34 @@ if (scalar(@list)) {
 while (my $id = shift @pages) {
 	last if $recent and $count-- <= 0;
 	my $any_change = 0;
-	if (false && $id>2000000 && $id<2010000 && !$recent) {
+	
+	print "Reading secondary #$id ";
+	if ($dump and -f "s$id.dump") {
+		my $tt = retrieve("s$id.dump");
+		@list = @{$tt->{list}};
+		$law_name = $tt->{name};
+	} else {
+		@list = get_bill_page($id);
+		my %tt = ('list' => \@list, 'name' => $law_name);
+		store \%tt, "s$id.dump" if ($dump);
+	}
+	if ($law_name eq '???') {
+		print "failed\n";
 		@list = ($id);
 	} else {
-		print "Reading secondary #$id ";
-		if ($dump and -f "s$id.dump") {
-			my $tt = retrieve("s$id.dump");
-			@list = @{$tt->{list}};
-			$law_name = $tt->{name};
-		} else {
-			@list = get_bill_page($id);
-			my %tt = ('list' => \@list, 'name' => $law_name);
-			store \%tt, "s$id.dump" if ($dump);
-		}
-		if ($law_name eq '???') {
-			print "failed\n";
-			@list = ($id);
-		} else {
-			print "'$law_name'\n";
-			foreach (@list) {
-				if ($_->[3] =~ /^[sSbB]/) {
-					my $id2 = $_->[2];
-					next if (defined $processed{$id2});
-					print "    Adding secondary #$id2 '$_->[0]'.\n";
-					unshift(@pages, $id2);
-					$count++;
-				}
+		print "'$law_name'\n";
+		foreach (@list) {
+			if ($_->[3] =~ /^[sSbB]/) {
+				my $id2 = $_->[2];
+				next if (defined $processed{$id2});
+				print "    Adding secondary #$id2 '$_->[0]'.\n";
+				unshift(@pages, $id2);
+				$count++;
 			}
-			$processed{$id} = $law_name;
-			@list = grep {$_->[3] =~ /^[pP]/} @list;
-			@list = map {$_->[2]} @list;
 		}
+		$processed{$id} = $law_name;
+		@list = grep {$_->[3] =~ /^[pP]/} @list;
+		@list = map {$_->[2]} @list;
 	}
 	
 	foreach my $id2 (@list) {
