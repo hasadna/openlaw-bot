@@ -285,21 +285,20 @@ sub parse_line {
 }
 
 sub parse_link {
-	my ($id,$txt) = @_;
+	my ($helper,$txt) = @_;
 	my $str;
 	my $pre = ''; my $post = '';
-	$id = unquote($id);
+	$helper = unquote($helper);
 	# $txt =~ s/\(\((.*?)\)\)/$1/g;
 	
-	if ($id =~ /^\[/ and $txt =~ /\]$/) { $pre = '['; $id =~ s/^\[//; $txt =~ s/\]$//; $post = ']'; }
+	if ($helper =~ /^\[/ and $txt =~ /\]$/) { $pre = '['; $helper =~ s/^\[//; $txt =~ s/\]$//; $post = ']'; }
 	elsif ($txt =~ s/^(\[)(.*)(\])$/$2/) { ($pre, $post) = ($1, $3); }
 	elsif ($txt =~ s/(?<=\d{4})(\])$//) { $post = $1; }
 	
-	($id,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$id); 
-	$str = "$pre<קישור";
-	$str .= " $id" if ($id);
-	$str .= ">$txt</קישור>$post";
+	($helper,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$helper); 
+	$str = "$pre<קישור" . ($helper ? " $helper" : '') . ">$txt</קישור>$post";
 	$str =~ s/([()])\1/$1\x00$1/g unless ($str =~ /\(\(.*\)\)/); # Avoid splitted comments
+	push_lookahead($2) if ($helper =~ /^([^a-zA-Z]*)\=([^a-zA-Z]+)$/);
 	return $str;
 }
 
@@ -693,6 +692,7 @@ sub dump_hash {
 our %glob;
 our %hrefs;
 our %sections;
+our @lookahead;
 our (@line, $idx);
 
 sub cleanup {
@@ -703,6 +703,9 @@ sub cleanup {
 sub linear_parser {
 	cleanup();
 	my $_ = shift;
+	
+	foreach my $l (@lookahead) { process_href($l, '++'); }
+	undef @lookahead;
 	
 	my @sec_list = (m/<קטע [^>]*?עוגן="(.*?)">/g);
 	check_structure(@sec_list);
@@ -924,11 +927,21 @@ sub check_structure {
 
 #---------------------------------------------------------------------
 
+sub push_lookahead {
+	push @lookahead, shift;
+}
+
 sub process_href {
-	
-	my $text = $glob{href}{txt};
-	my $helper = $glob{href}{helper};
-	my $id = $glob{href}{idx};
+	my ($text, $helper, $id);
+	if (@_>=1) {
+		$text = shift;
+		$helper = shift // '';
+		$id = 0;
+	} else {
+		$text = $glob{href}{txt};
+		$helper = $glob{href}{helper};
+		$id = $glob{href}{idx};
+	}
 	
 	# Canonic name
 	$text = canonic_name($text);
@@ -964,8 +977,6 @@ sub process_href {
 		($int, undef) = find_href("+#$2") if ($2);
 		$found = true;
 		$hash = ($2 eq '');
-	# } else {
-	# 	$found = ($int ne '');
 	}
 	
 	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
@@ -985,24 +996,6 @@ sub process_href {
 		(undef, $ext) = find_href($ext, $helper);
 		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext});
 		$update_mark = true;
-	} elsif ($helper eq '+' || $ext eq '+') {
-		$type = 2;
-		($int, $ext) = find_href("+#$text") unless ($found);
-		push @{$glob{href}{ahead}}, $id;
-	} elsif ($helper eq '++' || $ext eq '++') {
-		$type = 3;
-		(undef, $helper) = find_href($text, $helper);
-		$ext = "++$helper";
-		# push @{$glob{href}{marks_ahead}{$helper}}, $id;
-	} elsif ($helper eq '-' || $ext eq '-') {
-		$type = 2;
-		$ext = $glob{href}{last};
-		($int, undef) = find_href("-#$text") unless ($found);
-		$update_lookahead = true;
-		if ($ext =~ /\+\+(.*)/) {
-			$helper = $1;
-			push @{$glob{href}{marks_ahead}{$helper}}, $id;
-		}
 	} elsif ($helper) {
 		if ($found) {
 			(undef, $ext) = find_href($helper);
@@ -1014,9 +1007,26 @@ sub process_href {
 			($int2,$ext) = find_href($helper);
 			$int = $int2 if ($int2);
 		}
-		$ext = $glob{href}{last} if ($ext eq '-');
 		$type = ($ext) ? 3 : 1;
-	} else {
+	}
+	
+	if ($ext eq '+') {
+		$type = 2;
+		($int, $ext) = find_href("+#$text") unless ($found);
+		push @{$glob{href}{ahead}}, $id if ($id);
+	} elsif ($ext eq '++') {
+		$type = 3;
+		(undef, $helper) = find_href($text, $helper);
+		$ext = "++$helper";
+	} elsif ($ext eq '-') {
+		$type = 2;
+		$ext = $glob{href}{last};
+		($int, undef) = find_href("-#$text") unless ($found);
+		$update_lookahead = true;
+		if ($ext =~ /\+\+(.*)/) {
+			$helper = $1;
+			push @{$glob{href}{marks_ahead}{$helper}}, $id if ($id);
+		}
 	}
 	
 	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
@@ -1045,7 +1055,7 @@ sub process_href {
 			if ($ext =~ /\+\+(.*)/) {
 				$helper = $1;
 				$glob{href}{marks}{$helper} = $ext;
-				push @{$glob{href}{marks_ahead}{$helper}}, $id;
+				push @{$glob{href}{marks_ahead}{$helper}}, $id if ($id>0);
 				push @{$glob{href}{marks_ahead}{$helper}}, @{$glob{href}{ahead}} if ($glob{href}{ahead});
 			} else {
 				for (@{$glob{href}{ahead}}) {
@@ -1078,6 +1088,7 @@ sub find_href {
 		$_ = $2;
 		$ext = find_ext_ref($1);
 	}
+	if (/^[-+]+$/) { return ('', $_); }
 	
 	s/\(\((.*?)\)\)/$1/g;
 	s/<הערה>(.*?)<\/הערה>/$1/g;
@@ -1298,7 +1309,7 @@ sub find_ext_ref {
 	my $_ = shift;
 	return $_ if (/^https?:\/\//);
 	return lc($_) if (/^HTTPS?:\/\//);
-	return $_ if (/^[+-]$/);
+	return $_ if (/^[+-]+$/);
 	
 	s/^(.*?)#(.*)$/$1/;
 	$_ = "$1$2" if /$extref_sig(.*)/;
