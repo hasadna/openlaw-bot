@@ -204,6 +204,7 @@ sub parse_section {
 	$str = $_;
 	
 	# print STDERR "parse_section with |$_|\n";
+	s/\(\([^()]*?\[\[[^()]*?\)\)//g;
 	s/(?|\(\(\(([^()]*?)\)\)\)|\(\(([^()]*?)\)\))/$1/g;
 	
 	if (/^\((.*?)\)$/) {
@@ -788,7 +789,7 @@ sub process_section {
 	my ($level,$name);
 	($level) = ($params =~ /(?|.*דרגה="(.*?)"|())/);
 	($name) = ($params =~ /(?|.*עוגן="(.*?)"|())/);
-	my ($type,$num) = split(/ /,$name || '');
+	my ($type,$num) = split(/ /, $name || '');
 	# $num = get_numeral($num) if defined($num);
 	$type =~ s/\(\(.*?\)\)//g if (defined $type);
 	given ($type) {
@@ -1006,6 +1007,7 @@ sub process_href {
 			my $int2;
 			($int2,$ext) = find_href($helper);
 			$int = $int2 if ($int2);
+			$found = true;
 		}
 		$type = ($ext) ? 3 : 1;
 	}
