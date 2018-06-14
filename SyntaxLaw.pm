@@ -1018,7 +1018,7 @@ sub process_href {
 		(undef, $helper) = find_href($text, $helper);
 		$helper =~ s/^ה//;
 		$glob{href}{all_marks} .= "|ה?$text";
-		$glob{href}{all_marks} .= "|ה?$helper" unless ($helper eq $text);
+		$glob{href}{all_marks} .= "|ה?$helper" if ($helper && $helper ne $text);
 		$glob{href}{all_marks} =~ s/^\|//;
 		$glob{href}{marks}{$helper} = "++$helper";
 		$ext = "++$text";
