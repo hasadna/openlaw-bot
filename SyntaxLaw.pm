@@ -1016,13 +1016,13 @@ sub process_href {
 	} elsif ($ext eq '++') {
 		$type = 3;
 		(undef, $helper) = find_href($text, $helper);
-		$helper =~ s/^ה//;
-		$glob{href}{all_marks} .= "|ה?$text";
-		$glob{href}{all_marks} .= "|ה?$helper" if ($helper && $helper ne $text);
-		$glob{href}{all_marks} =~ s/^\|//;
-		$glob{href}{marks}{$helper} = "++$helper";
-		$ext = "++$text";
-		$helper = '';
+		$ext = $helper ? "++$helper" : "++$text";
+		# $helper =~ s/^ה//;
+		# $glob{href}{all_marks} .= "|ה?$text";
+		# $glob{href}{all_marks} .= "|ה?$helper" if ($helper && $helper ne $text);
+		# $glob{href}{all_marks} =~ s/^\|//;
+		# $glob{href}{marks}{$helper} = $ext;
+		# $helper = '';
 	} elsif ($ext eq '-') {
 		$type = 2;
 		$ext = $glob{href}{last};
@@ -1038,6 +1038,11 @@ sub process_href {
 	
 	if ($update_mark) {
 		$glob{href}{marks}{$helper} = $glob{href}{marks}{"ה$helper"} = $ext;
+		unless ($helper =~ /$extref_sig/) {
+			$glob{href}{all_marks} .= "|ה?$helper";
+			$glob{href}{all_marks} =~ s/^\|//;
+			# print STDERR "adding '$helper' to all_marks = '$glob{href}{all_marks}'\n";¶
+		}
 		for (@{$glob{href}{marks_ahead}{$helper}}) {
 			$hrefs{$_} =~ s/\+[^#]*(.*)/$ext$1/;
 		}
