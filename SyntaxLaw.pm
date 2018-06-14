@@ -1015,8 +1015,11 @@ sub process_href {
 		push @{$glob{href}{ahead}}, $id if ($id);
 	} elsif ($ext eq '++') {
 		$type = 3;
-		(undef, $helper) = find_href($text, $helper);
-		$ext = "++$helper";
+		# (undef, $helper) = find_href($text, $helper);
+		$glob{href}{all_marks} .= "|ה?$text";
+		$glob{href}{all_marks} =~ s/^\|//;
+		$helper = '';
+		$ext = "++$text";
 	} elsif ($ext eq '-') {
 		$type = 2;
 		$ext = $glob{href}{last};
@@ -1032,12 +1035,6 @@ sub process_href {
 	
 	if ($update_mark) {
 		$glob{href}{marks}{$helper} = $glob{href}{marks}{"ה$helper"} = $ext;
-		unless ($helper =~ /$extref_sig/) {
-			$glob{href}{all_marks} .= "|ה?$helper";
-			$glob{href}{all_marks} =~ s/^\|//;
-			# print STDERR "adding '$helper' to all_marks = '$glob{href}{all_marks}'\n";
-		}
-		## print STDERR "$helper is $ext\n";
 		for (@{$glob{href}{marks_ahead}{$helper}}) {
 			## print STDERR "## X replacing |$hrefs{$_}|";
 			$hrefs{$_} =~ s/\+[^#]*(.*)/$ext$1/;
@@ -1150,7 +1147,7 @@ sub find_href {
 			when (/^$pre_sig(לוח|לוחות)/) { $class = 'tabl'; }
 			when (/^$pre_sig(טבל[הא]|טבלאות)/) { $class = 'tabl2'; }
 			when (/^$pre_sig(סעיף|סעיפים|תקנה|תקנות)/) { $class = 'chap'; }
-			when (/^$pre_sig(אמו?ת[ -]מידה)/) { $class = 'chap'; }
+			when (/^$pre_sig(אמו?ת[ -]ה?מידה)/) { $class = 'chap'; }
 			when (/^$pre_sig(פריט|פרט)/) { $class = 'supchap'; }
 			when (/^$pre_sig(קט[נן]|פי?סקה|פסקאות|משנה|טור)/) { $class = 'small'; }
 			when ("(") { $class = 'small' unless ($class eq 'supchap'); }
