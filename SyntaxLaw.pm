@@ -865,12 +865,9 @@ sub insert_TOC {
 			$next = '';
 			$next .= $line[$_++] while ($next !~ /\n/ and defined $line[$_]);
 		}
-		if ($text =~ /__NOTOC__/) {
-			$skip = $indent;
-			next;
-		}
 		next if ($skip and $indent>$skip);
 		next if ($indent>3);
+		if ($text =~ /__NOTOC__/) { $skip = $indent; next; }
 		$skip = 0;
 		$skip = $indent if ($text =~ s/ *__NOSUB__//);
 		$text =~ s/<\/קטע>//;
