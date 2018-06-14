@@ -1015,11 +1015,14 @@ sub process_href {
 		push @{$glob{href}{ahead}}, $id if ($id);
 	} elsif ($ext eq '++') {
 		$type = 3;
-		# (undef, $helper) = find_href($text, $helper);
+		(undef, $helper) = find_href($text, $helper);
+		$helper =~ s/^ה//;
 		$glob{href}{all_marks} .= "|ה?$text";
+		$glob{href}{all_marks} .= "|ה?$helper" unless ($helper eq $text);
 		$glob{href}{all_marks} =~ s/^\|//;
-		$helper = '';
+		$glob{href}{marks}{$helper} = "++$helper";
 		$ext = "++$text";
+		$helper = '';
 	} elsif ($ext eq '-') {
 		$type = 2;
 		$ext = $glob{href}{last};
@@ -1036,9 +1039,7 @@ sub process_href {
 	if ($update_mark) {
 		$glob{href}{marks}{$helper} = $glob{href}{marks}{"ה$helper"} = $ext;
 		for (@{$glob{href}{marks_ahead}{$helper}}) {
-			## print STDERR "## X replacing |$hrefs{$_}|";
 			$hrefs{$_} =~ s/\+[^#]*(.*)/$ext$1/;
-			## print STDERR " with |$hrefs{$_}|\n";
 		}
 		$glob{href}{marks_ahead}{$helper} = [];
 	}
