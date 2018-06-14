@@ -705,14 +705,15 @@ sub linear_parser {
 	cleanup();
 	my $_ = shift;
 	
+	$glob{context} = '';
+	$glob{href}{last_class} = '';
+	
 	foreach my $l (@lookahead) { process_href($l, '++'); }
 	undef @lookahead;
 	
 	my @sec_list = (m/<קטע [^>]*?עוגן="(.*?)">/g);
 	check_structure(@sec_list);
 	# print STDERR "part_type = $glob{part_type}; sect_type = $glob{sect_type}; subs_type = $glob{subs_type};\n";
-	
-	$glob{context} = '';
 	
 	@line = split(/(<(?: "[^"]*"|[^>])*>)/, $_);
 	$idx = 0;
@@ -1007,7 +1008,6 @@ sub process_href {
 			my $int2;
 			($int2,$ext) = find_href($helper);
 			$int = $int2 if ($int2);
-			$found = true;
 		}
 		$type = ($ext) ? 3 : 1;
 	}
@@ -1124,7 +1124,7 @@ sub find_href {
 	s/(פרי?ט|פרטים) \(/$1/g;
 	s/["'״׳]//g;
 	s/\bו-//g;
-	s/\b(או|מן|סיפא|רישא)\b/ /g;
+	s/\b$pre_sig(או|מן|סיפ[הא]|ריש[הא])\b( של\b|)/ /g;
 	s/^ *(.*?) *$/$1/;
 	s/לוח השוואה/לוחהשוואה/;
 	s/סימ(ן|ני) משנה/משנה/;
