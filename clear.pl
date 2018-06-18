@@ -71,14 +71,15 @@ if (/\x{F8FF}/ and /\xD3/) { # Fix f*cked-up macos encoding
 s/([\x{05B0}-\x{05BD}]+)([א-ת])/$2$1/g if (/$RLE\x{05BC}[א-ת]/);
 
 # General cleanup
+s/(?<=[א-ת])–(?=[א-ת])/&ndash;/g; # Keep ndash between hebrew words
 tr/\x{2000}-\x{200A}\x{205F}/ /; # Typographic spaces
-tr/\x{200B}-\x{200D}//d;  # Zero-width spaces
-tr/־–—‒―/-/;        # Convert typographic dashes
+tr/\x{200B}-\x{200D}//d;      # Zero-width spaces
+tr/־–—‒―/-/;                  # Convert typographic dashes
 s/(?<![א-ת\x{05B0}-\x{05BD}])\x{05BF}/-/g; # Rafe (U+05BF) misused as dash
-tr/\xAD\x96\x97/-/; # Convert more typographic dashes
-tr/״”“„‟″‶/"/;      # Convert typographic double quotes
-tr/`׳’‘‚‛′‵/'/;     # Convert typographic single quotes
-tr/;/;/;            # Convert wrong OCRed semicolon
+tr/\xAD\x96\x97/-/;           # Convert more typographic dashes
+tr/״”“„‟″‶/"/;                # Convert typographic double quotes
+tr/`׳’‘‚‛′‵/'/;               # Convert typographic single quotes
+tr/;/;/;                      # Convert wrong OCRed semicolon
 
 tr/\x{FEFF}\x{FFFC}-\x{FFFF}//d;    # Unicode placeholders and junk
 
@@ -125,6 +126,7 @@ tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 
 # Strange typos in reshumot (PDF)
 s/(?<!ש)[\x{05C1}\x{05C2}]+//gm;
+s/( ¸){2,}//g;
 
 $t1 = () = (/^[45T]+$/mg);
 $t2 = () = (/\n/mg);
