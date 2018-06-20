@@ -43,6 +43,7 @@ sub main() {
 
 sub convert {
 	my $_ = shift;
+	clean_up();
 	
 	s/^ *(.*?) *$/$1/g;
 	
@@ -77,7 +78,11 @@ __PACKAGE__->main() unless (caller);
 
 ###################################################################################################
 
-our $id = 0;
+our $id;
+
+sub clean_up {
+	$id = 0;
+}
 
 sub parse_title {
 	my ($str, %attr) = parse_attr(shift);
@@ -89,7 +94,7 @@ sub parse_title {
 
 sub parse_db_link {
 	my ($str, %attr) = parse_attr(shift);
-	$id = $attr{'מזהה'} // undef;
+	$id = $attr{'מזהה'} // 0;
 	return '';
 }
 
