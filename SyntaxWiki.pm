@@ -47,6 +47,7 @@ sub convert {
 	s/^ *(.*?) *$/$1/g;
 	
 	s/(<שם>.*<\/שם>)\n?/&parse_title($1)/se;
+	s/(<מאגר.*?\/>)\n?/&parse_db_link($1)/se;
 	s/(<מקור>.*<\/מקור>)\n?/&parse_bib($1)/se;
 	s/(<הקדמה>.*<\/הקדמה>)\n?/&parse_preface($1)/se;
 	s/(<חתימות>.*<\/חתימות>)\n?/&parse_signatures($1)/se;
@@ -76,12 +77,20 @@ __PACKAGE__->main() unless (caller);
 
 ###################################################################################################
 
+our $id = 0;
+
 sub parse_title {
 	my ($str, %attr) = parse_attr(shift);
 	$str =~ s/\s*<תיקון>.*?<\/תיקון>\s*//gs;
 	$str = escape_template($str);
 	$str = "{{ח:כותרת|$str}}\n";
 	return $str;
+}
+
+sub parse_db_link {
+	my ($str, %attr) = parse_attr(shift);
+	$id = $attr{'מזהה'} // undef;
+	return '';
 }
 
 sub printBox {
@@ -104,7 +113,9 @@ sub parse_bib {
 	s/(<תיבה.*?>.*?<\/תיבה>)/&printBox($1)/ge;
 	s/\.\n+/\.\n\n/g;
 	s/\n*$//s;
-	my $str = "{{ח:פתיח-התחלה}}\n$_\n";
+	my $str = "{{ח:פתיח-התחלה}}\n";
+	$str .= "{{ח:מאגר|$id}} " if ($id);
+	$str .= "$_\n";
 	$str .= "{{ח:סוגר}}\n";
 	$str .= "{{ח:מפריד}}\n";
 	return $str;
@@ -288,10 +299,11 @@ sub parse_attr {
 	s/(<(?:[^>]+|"[^"]*"|'[^']*')+>)\s*(.*)/$1/s;
 	my $str = $2;
 	my %attr;
-	my ($tag) = /<([^ >\/]+).*?>/;
+	s/<([^ >\/]+)(.*?)\/?>/$2/;
+	my $tag = $1;
 	$attr{tag} = $tag;
 	$str =~ s/[ \n]*<\/$tag>\n*//;
-	$attr{$1} = unescape_text($2) while (/(\S+) *= *" *(.*?) *"/g);
+	$attr{$1} = unescape_text($2) while (/(\S+) *= *(?|" *(.*?) *"|([^ ]*))/g);
 	return ($str, %attr);
 }
 
@@ -318,3 +330,5 @@ sub dump_hash {
 		return join('; ', map("$_ => '" . ($h{$_} // "[undef]") . "'", keys(%h)));
 	}
 }
+
+1;

@@ -104,7 +104,7 @@ sub convert {
 	# Parse various elements
 	s/^(?|<שם> *\n?(.*)|=([^=].*)=)\n*/&parse_title($1)/em; # Once!
 	s/<שם (קודם|אחר)> .*\n//g;
-	s/<מאגר .*?>\n?//;
+	s/<מאגר (\d*) תיקון (\d*)>\n?/<מאגר מזהה=$1 תיקון=$2\/>\n/;
 	s/^<פרסום> *\n?(.*)\n/&parse_pubdate($1)/egm;
 	s/^<חתימ(?:ות|ה)> *\n?(((\*.*\n)+)|(.*\n))/&parse_signatures($1)/egm;
 	s/^<מקור> *\n?(.*)\n/\n<מקור>\n$1\n<\/מקור>\n/m;
@@ -985,7 +985,7 @@ sub process_href {
 		$helper = $1;
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
 		(undef, $ext) = find_href($text, $helper);
-		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext});
+		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext} && $glob{href}{marks}{$ext} ne "++$ext");
 		$update_mark = true;
 	} elsif ($helper =~ /^(.*?) *= *(.*)/) {
 		$type = 3;
@@ -993,7 +993,7 @@ sub process_href {
 		(undef, $helper) = find_href($text) if ($2 eq '');
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
 		(undef, $ext) = find_href($ext, $helper);
-		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext});
+		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext} && $glob{href}{marks}{$ext} ne "++$ext");
 		$update_mark = true;
 	} elsif ($helper) {
 		if ($found) {
@@ -1002,9 +1002,9 @@ sub process_href {
 		} elsif (defined $glob{href}{marks}{$helper}) {
 			$ext = $glob{href}{marks}{$helper};
 		} else {
-			my $int2;
-			($int2,$ext) = find_href($helper);
-			$int = $int2 if ($int2);
+			my ($int2, $ext2) = find_href($helper);
+			$int = $int2 and $found = true if ($int2);
+			$ext = $ext2 if ($ext2);
 		}
 		$type = ($ext) ? 3 : 1;
 	}
