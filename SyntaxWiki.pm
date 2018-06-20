@@ -48,7 +48,8 @@ sub convert {
 	s/^ *(.*?) *$/$1/g;
 	
 	s/(<שם>.*<\/שם>)\n?/&parse_title($1)/se;
-	s/(<מאגר.*?\/>)\n*/&parse_db_link($1)/se;
+	s/(<מאגר.*?\/>)\n?/&parse_db_link($1)/se;
+	# s/\n\n\n/\n\n/g;
 	s/(<מקור>.*<\/מקור>)\n?/&parse_bib($1)/se;
 	s/(<הקדמה>.*<\/הקדמה>)\n?/&parse_preface($1)/se;
 	s/(<חתימות>.*<\/חתימות>)\n?/&parse_signatures($1)/se;
@@ -308,7 +309,7 @@ sub parse_attr {
 	my $tag = $1;
 	$attr{tag} = $tag;
 	$str =~ s/[ \n]*<\/$tag>\n*//;
-	$attr{$1} = unescape_text($2) while (/(\S+) *= *(?|" *(.*?) *"|([^ ]*))/g);
+	$attr{$1} = unescape_text($2) while (/(\S+) *= *" *(.*?) *"/g);
 	return ($str, %attr);
 }
 
