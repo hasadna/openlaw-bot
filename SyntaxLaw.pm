@@ -1004,7 +1004,7 @@ sub process_href {
 		} else {
 			my ($int2, $ext2) = find_href($helper);
 			$int = $int2 and $found = true if ($int2);
-			$ext = $ext2 if ($ext2);
+			$ext = $ext2;
 		}
 		$type = ($ext) ? 3 : 1;
 	}
