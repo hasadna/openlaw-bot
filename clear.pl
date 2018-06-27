@@ -70,8 +70,10 @@ if (/\x{F8FF}/ and /\xD3/) { # Fix f*cked-up macos encoding
 
 s/([\x{05B0}-\x{05BD}]+)([א-ת])/$2$1/g if (/$RLE\x{05BC}[א-ת]/);
 
+# Keep ndash between hebrew words if not all words are seperated with ndash
+s/(?<=[א-ת])–(?=[א-ת])/&ndash;/g if /[א-ת][\־\-][א-ת]/;
+
 # General cleanup
-s/(?<=[א-ת])–(?=[א-ת])/&ndash;/g; # Keep ndash between hebrew words
 tr/\x{2000}-\x{200A}\x{205F}/ /; # Typographic spaces
 tr/\x{200B}-\x{200D}//d;      # Zero-width spaces
 tr/־–—‒―/-/;                  # Convert typographic dashes
@@ -148,7 +150,6 @@ s/^(\d)\n+\.\n/$1\.\n/gm;
 s/\n("?\(\D.{0,2}\))\n([^\(].*)\n(\(\d.{0,2}\))\n/\n$1 $3 $2\n/g;
 while (s/\n(.*)\n("?\(.{1,2}\)|\*|[0-9]|[1-9].?\.)\n/\n$2 $1\n/g) {}
 
-
 # Clean HTML markups
 s/<style.*?<\/style>//gsi;
 s/\s*\n\s*/ /g if /<\/p>/i;
@@ -195,7 +196,7 @@ s/(?<=[א-ת]-)(\d{1,2})((19|20)\d\d)(?!\d)/$2 $1/gm;
 
 s/([⁰¹²³⁴-⁹]+\⁄[₀-₉]+)(\d+)/$2$1/g;
 s/%(\d*[⁰¹²³⁴-⁹]+\⁄[₀-₉]+|\d+\/\d+|\d+(\.\d+)?)/$1%/g;
-s/(\S)(\d+(?:\.\d+)?)-(\S)/$1-$2 $3/g;
+s/([א-ת])(\d+(?:\.\d+)?)-([א-ת])/$1-$2 $3/g;
 s/\b(\d+(?:\.\d+)?)[Xx](\d+(?:\.\d+)?)\b/$2×$1/g;
 
 s/^לתחילת העמוד$//gm;

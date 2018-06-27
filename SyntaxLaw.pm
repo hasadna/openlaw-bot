@@ -26,6 +26,8 @@ our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
 our $extref_sig = $pre_sig . '(חוק|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודעה|מנשר|כללים?|נוהל|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)';
 our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]מידה|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+\.?)';
+our $heb_num2 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?)';
+our $heb_num3 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?|[קרש](?:טו|טז|[יכלמנסעפצ]?[א-ט]?))';
 
 our $HE = '(?:[א-ת][\x{05B0}-\x{05BD}]*+)';
 our $nikkud = '[\x{05B0}-\x{05BD}]';
@@ -71,8 +73,8 @@ sub convert {
 		tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 	}
 	
-	s/([0-9₀-₉])′/$1&#8242;/g; # Keep prime [feet/minutes] and double prime [inch/seconds]
-	s/([0-9₀-₉])″/$1&#8243;/g; # (restored at unescape_text)
+	s/(?<=[0-9₀-₉])′/&#8242;/g; # Keep prime [feet/minutes] and double prime [inch/seconds]
+	s/(?<=[0-9₀-₉])″/&#8243;/g; # (later restored by unescape_text)
 	
 	s/($HE)–($HE)/$1--$2/g; # Keep en-dash between Hebrew words
 	
@@ -127,7 +129,7 @@ sub convert {
 	s/^(:+) *(\([^( ]+\)) *(\([^( ]{1,2}\))/$1 $2\n$1: $3/gm;
 	s/^:+-? *$//gm;
 	# s/^(:+) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(?| +(.*?)|([-–].*?)|())\n/&parse_line(length($1),$2,$3)/egm;
-	s/^(:+)([-–]?) *(["”“]?(?:\([^( ]+\)|\[[^[ ]+\]|\(\(\(\d.?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|[א-י]\d?\.|[•□]|))( +.*?|)\n/&parse_line(length($1),$3,"$2$4")/egm;
+	s/^(:+)([-–]?) *(["”“]?(?:\([^( ]+\)|\[[^[ ]+\]|\(\(\(\d.?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|$heb_num2\d?\.|[•□]|))( +.*?|)\n/&parse_line(length($1),$3,"$2$4")/egm;
 	
 	# Move container tags if needed
 	my $structure_tags = '<(מקור|הקדמה|ת+|קטע|סעיף|חתימות)|__TOC__|$';
@@ -593,8 +595,8 @@ sub get_numeral {
 			($num,$token) = ("$1-3","$1$2") when /^(\d+)([- ]?ter)\b/i;
 			($num,$token) = ("$1-4","$1$2") when /^(\d+)([- ]?quater)\b/i;
 			($num,$token) = ($1,$1) when /^(\d+([._]\d+[א-ט]?)+)\b/;
-			($num,$token) = ($1,$1) when /^(\d+(([א-י]|טו|טז|[יכלמנסעפצ][א-ט]?|)\d*|))\b/;
-			($num,$token) = ($1,$1) when /^(([א-י]|טו|טז|[יכלמנסעפצ][א-ט]?|[קרש](טו|טז|[יכלמנסעפצ]?[א-ט]?))(\d+[א-י]*|))\b/;
+			($num,$token) = ($1,$1) when /^(\d+($heb_num2?\d*|))\b/;
+			($num,$token) = ($1,$1) when /^($heb_num3(\d+[א-י]*|))\b/;
 		}
 		if ($num ne '') {
 			# Remove token from rest of string
@@ -1302,8 +1304,9 @@ sub find_reshumot_href {
 	$url = "http://fs.knesset.gov.il/$2/law/$2_lsr_$1_$3.pdf" if ($url =~ /^(ec):(\d+):(\d+)$/);
 	$url = "http://fs.knesset.gov.il/$2/law/$2_ls_$1_$3.pdf" if ($url =~ /^(fr):(\d+):(\d+)$/);
 	$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^([a-z_]+):(\d+):(\d+)$/);
-	$url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
-	$url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
+	$url = '' if ($url =~ /^(\d+)(?|_(\d+)|())$/);
+	# $url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
+	# $url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
 	return $url;
 }
 
