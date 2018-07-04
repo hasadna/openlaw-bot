@@ -272,6 +272,7 @@ sub sort_laws {
 sub law_name {
 	my $_ = shift;
 	s/^[ \n]*(.*?)[ \n]*$/$1/;
+	s/''/"/g;
 	s/, (ה?תש.?".[-–])?\d{4}//;
 	s/ *[\[\(](נוסח משולב|נוסח חדש|לא בתוקף)[\]\)]//g;
 	return $_;
@@ -550,6 +551,7 @@ sub print_fix {
 	$type2 = "תוס' $1" if ($booklet =~ s/תוס(?:'|פת) (\S+) *//);
 	$type2 = "כרך $1 פרק $2" if ($booklet =~ s/כרך (\S+?) ?- ?(\S+) *//);
 	
+	$name =~ s/''/"/g;
 	$name =~ s/,? *ה?(תש.?".)[-–]\d{4}// and $year = $1;
 	$year = poorman_hebrewyear($date,$page);
 	
@@ -560,6 +562,7 @@ sub print_fix {
 	$law_re =~ s/\\?([()\\])/\\$1/g;
 	$law_re = "(?:$law_re)";
 	
+	$name =~ s/^הצעת חוק/חוק/;
 	$name =~ s/ {2,}/ /g;
 	$name =~ s/ *\(חוק מקורי\)//;
 	$name =~ s/החוק המקורי/$law_name/;
