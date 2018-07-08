@@ -114,6 +114,9 @@ sub convert {
 	s/^<סיום> *\n?(.*)\n/<מפריד\/>\n<הקדמה>\n$1\n<\/הקדמה>\n\n/m;
 	s/^(-{3,}|—)$/<מפריד\/>/gm;
 	
+	s/(?<!\n)\n(?=@)/\n\n/gm;
+	s/(?<![=\n])\n(\=)/\n\n/gm;
+	
 	# Parse structured elements
 	s/^(=+)(.*?)\1\n+/&parse_section(length($1),$2)/egm;
 	s/^<סעיף *(.*?)>(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
@@ -1103,7 +1106,7 @@ sub find_href {
 	
 	s/(\b[לב]?(אותו|אותה)\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
 	
-	if (/^(.*?)\s*\b($pre_sig$extref_sig[- ]*([א-ת]+\b.*)?)$/) {
+	if (/^(.*?)\s*\b($pre_sig$extref_sig[- ]*([א-ת]+\b.*|.*תש.?["״]?.[-–]\d{4}|))$/) {
 		$_ = $1;
 		$ext = find_ext_ref($2) unless ($ext);
 	} elsif (/^(.*?) *\b$pre_sig$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
