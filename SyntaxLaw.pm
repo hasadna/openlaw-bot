@@ -91,6 +91,9 @@ sub convert {
 	
 	s/\n+(=[^\n]*=)\n+/\n\n$1\n\n/g;
 	
+	s/(?<!\n)\n(?=@)/\n\n/gm;
+	s/(?<![=\n])\n(\=)/\n\n/gm;
+	
 	s/\[\[קטגוריה:.*?\]\] *\n?//g;  # Ignore categories (for now)
 	
 	# Unescape HTML characters
@@ -113,9 +116,6 @@ sub convert {
 	s/^<(?:מבוא|הקדמה)> *\n?(.*)\n/<הקדמה>\n$1\n<\/הקדמה>\n\n/m;
 	s/^<סיום> *\n?(.*)\n/<מפריד\/>\n<הקדמה>\n$1\n<\/הקדמה>\n\n/m;
 	s/^(-{3,}|—)$/<מפריד\/>/gm;
-	
-	s/(?<!\n)\n(?=@)/\n\n/gm;
-	s/(?<![=\n])\n(\=)/\n\n/gm;
 	
 	# Parse structured elements
 	s/^(=+)(.*?)\1\n+/&parse_section(length($1),$2)/egm;
