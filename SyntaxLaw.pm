@@ -74,9 +74,10 @@ sub convert {
 	}
 	
 	s/(?<=[0-9₀-₉])′/&#8242;/g; # Keep prime [feet/minutes] and double prime [inch/seconds]
-	s/(?<=[0-9₀-₉])″/&#8243;/g; # (later restored by unescape_text)
+	s/(?<=[0-9₀-₉])″/&#8243;/g; # (restored later by unescape_text)
 	
 	s/($HE)–($HE)/$1--$2/g; # Keep en-dash between Hebrew words
+	s/(\d)–(\d)/$1--$2/g; # Keep en-dash between numerals
 	
 	tr/\x{FEFF}//d;    # Unicode marker
 	tr/\x{2000}-\x{200A}\x{205F}/ /; # typographic spaces
