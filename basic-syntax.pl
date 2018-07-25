@@ -65,7 +65,7 @@ s/ *(=+)\n+ *(\((תיקון|תיקונים):? .*?\)) *\n/ $2 $1\n/g;
 
 print "##AA############\n$_\n##AA############\n" if ($debug);
 
-s/\n([^\n]+)\n(\d+\. \([^\n\)]+\)) *\n/\n$2 $1\n/g;
+s/\n([^\n]+)\n(\d+\S{0,3}\. \([^\n\)]+\)) *\n/\n$2 $1\n/g;
 
 # Join seperated lines
 s/^([\d=\@:\-].*)$/$1 /gm; # Disallow concatination on certain prefixes
