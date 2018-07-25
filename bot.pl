@@ -136,7 +136,6 @@ if ($recent) {
 			bot => 1, minor => 0, assertion => 'bot',
 		})
 	}
-	
 }
 
 if ($onlycheck and $force) {
@@ -441,6 +440,11 @@ sub move_page {
 		$bot->move($src, $dst, "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1 });
 		$bot->edit({page => "שיחת מקור:$dst", text => "#הפניה [[שיחה:$dst]]", summary => "הפניה", minor => 1 });
 		$bot->edit({page => "$src", text => "#הפניה [[$dst]]", summary => "הפניה", minor => 1 });
+		my @redirects = $bot->what_links_here($src, 'redirects');
+		# my @redirects = possible_redirects($src, $dst);
+		foreach my $page (@redirects) {
+			$bot->edit({page => $page, text => "#הפניה [[$dst]]", summary => "הפניה", minor => 1});
+		}
 	}
 	return "v דף [[$src]] הועבר לדף [[$dst]]";
 }
