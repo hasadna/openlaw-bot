@@ -323,7 +323,7 @@ sub process_law {
 	my $len2 = length($text);
 	
 	# print "Length changed from $len1 to $len2.\n";
-	$updated_pages{$page_dst} = '' if ((abs($len1-$len2)>2000) && !$minor) || (!$dst_ok);
+	$updated_pages{$page_dst} = '' if (((abs($len1-$len2)>2000) || ($comment =~ /תיקון/)) && !$minor) || (!$dst_ok);
 	
 	# print STDOUT "$text\n" if ($print || $dryrun);
 	unless ($dryrun) {
@@ -352,22 +352,17 @@ sub process_law {
 	if ($dryrun) {
 		# Do nothing
 	} elsif (!defined $id) {
-		$bot->edit({
-			page => $page, text => "#הפניה [[שיחה:$page_dst]]",
-			summary => "הפניה", minor => 1,
-		});
+		$bot->edit({page => $page, text => "#הפניה [[שיחה:$page_dst]]", summary => "הפניה", minor => 1});
 	} elsif ($id>0 && !($bot->get_id("שיחה:$page_dst")) && ($bot->get_text($page) !~ /^\s*#(הפניה|redirect)/si)) {
 		# Discussion at source talk page, move to main talk page
 		$bot->move($page, "שיחה:$page_dst", "העברה", { movetalk => 1, noredirect => 0, movesubpages => 1 });
+		$bot->edit({page => $page, text => "#הפניה [[שיחה:$page_dst]]", summary => "הפניה", minor => 1});
 	}
 	
 	$page = "שיחה:$page_dst";
 	$id = $bot->get_id($page);
 	if (!$dryrun && !defined $id) {
-		$bot->edit({
-			page => $page, text => "",
-			summary => "דף ריק", minor => 1,
-		});
+		$bot->edit({page => $page, text => "", summary => "דף ריק", minor => 1});
 	}
 	
 	if (!$dryrun && $new) {
