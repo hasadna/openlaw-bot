@@ -250,7 +250,7 @@ sub process_law {
 		} elsif ($text =~ /^ *<שם( קודם|)>/s) {
 			print "Warning, source misplaced, moving to \"$page_src\".\n";
 			$bot->move($page_dst, $page_src, '', { movetalk => 0, noredirect => 1, movesubpages => 0 }) unless ($dryrun);
-			($revid_s, $revid_t, $comment) = get_revid($bot, $page_dst);
+			($revid_s, $revid_t) = get_revid($bot, $page_dst);
 			$src_ok = ($revid_s>0);
 			$dst_ok = ($revid_t>0);
 		}
@@ -323,7 +323,7 @@ sub process_law {
 	my $len2 = length($text);
 	
 	# print "Length changed from $len1 to $len2.\n";
-	$updated_pages{$page_dst} = '' if (((abs($len1-$len2)>2000) || ($comment =~ /תיקון/)) && !$minor) || (!$dst_ok);
+	$updated_pages{$page_dst} = '' if (((abs($len1-$len2)>2000) || ($comment =~ /תיקון|תיקונים/)) && !$minor) || ($new);
 	
 	# print STDOUT "$text\n" if ($print || $dryrun);
 	unless ($dryrun) {
