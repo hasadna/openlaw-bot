@@ -23,7 +23,7 @@ use constant { true => 1, false => 0 };
 
 # \bו?כ?ש?מ?[בהל]?(חוק|פקוד[הת]|תקנות|צו|חלק|פרק|סימן(?: משנה|)|תוספו?ת|טופס|לוח)
 our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
-our $extref_sig = $pre_sig . '(חוק|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודעה|מנשר|כללים?|נוהל|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)';
+our $extref_sig = $pre_sig . '(חוק(?: ה?יסוד:?|)|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודעה|מנשר|כללים?|נוהל|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)';
 our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]מידה|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+\.?)';
 our $heb_num2 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?)';
@@ -595,6 +595,7 @@ sub get_numeral {
 			($num,$token) = ("9",$1) when /^(תשיעית?|תשעה?)\b/;
 			($num,$token) = ("10",$1) when /^(עשירית?|עשרה?)\b/;
 			($num,$token) = ("20",$1) when /^(עשרים)\b/;
+			($num,$token) = ($1,$1) when /^([A-Ka-k])\b/;
 			($num,$token) = ("$1-2","$1$2") when /^(\d+)([- ]?bis)\b/i;
 			($num,$token) = ("$1-3","$1$2") when /^(\d+)([- ]?ter)\b/i;
 			($num,$token) = ("$1-4","$1$2") when /^(\d+)([- ]?quater)\b/i;
@@ -829,7 +830,8 @@ sub process_chapter {
 	my $num = $1 // '';
 	$glob{chap} = $num;
 	if ((defined $glob{supl} || defined $glob{tabl}) && $num) {
-		my $ankor = "פרט $num";
+		my $ankor = $num;
+		$ankor = "פרט $ankor" if ($ankor =~ /^\d|^$heb_num3$/);
 		$ankor = "סימן $glob{subs} $ankor" if (defined $glob{part} && defined $glob{subs});
 		$ankor = "חלק $glob{part} $ankor" if (defined $glob{part});
 		$ankor = "לוח $glob{tabl} $ankor" if (defined $glob{tabl});
@@ -1221,6 +1223,8 @@ sub find_href {
 	
 	$glob{href}{last_class} = $elm{supchap} ? 'supchap' : $elm{chap} ? 'chap' : $elm{subsub} ? 'subsub' : $elm{subs} ? 'subs' : $elm{sect} ? 'sect' : $elm{part} ? 'part' : $class eq 'small' ? '' : $class;
 	
+	$glob{href}{ditto}{ext} = $ext if (defined $glob{href}{ditto}{ext} and ($ext) and $glob{href}{ditto}{ext} eq '+');
+	
 	if ($helper && defined $glob{href}{ditto}{ext}) {
 		$glob{href}{ditto}{ext} = $helper;
 		# print STDERR "\t\$ditto set to '$ext'.\n";
@@ -1245,13 +1249,13 @@ sub find_href {
 		$href .= " פרק $elm{sect}" if (defined $elm{sect});
 		$href .= " סימן $elm{subs}" if (defined $elm{subs});
 		$href .= " טופס $elm{form}" if (defined $elm{form});
-		$href .= " לוח $elm{tabl}" if defined $elm{tabl};
-		$href .= " טבלה $elm{tabl2}" if defined $elm{tabl2};
+		$href .= " לוח $elm{tabl}" if (defined $elm{tabl});
+		$href .= " טבלה $elm{tabl2}" if (defined $elm{tabl2});
 		$href .= " פרט $elm{supchap}" if (defined $elm{supchap});
 	} elsif (defined $elm{form} || defined $elm{tabl} || defined $elm{tabl2}) {
-		$href = "טופס $elm{form}" if defined $elm{form};
-		$href = "לוח $elm{tabl}" if defined $elm{tabl};
-		$href = "טבלה $elm{tabl2}" if defined $elm{tabl2};
+		$href = "טופס $elm{form}" if (defined $elm{form});
+		$href = "לוח $elm{tabl}" if (defined $elm{tabl});
+		$href = "טבלה $elm{tabl2}" if (defined $elm{tabl2});
 		$href .= " חלק $elm{part}" if (defined $elm{part});
 		$href .= " פרק $elm{sect}" if (defined $elm{sect});
 		$href .= " סימן $elm{subs}" if (defined $elm{subs});
@@ -1331,7 +1335,7 @@ sub find_ext_ref {
 	s/ {2,}/ /g;
 	
 	s/ *\(נוסח (חדש|משולב)\)//g;
-	s/ *\[.*?\]//g;
+	s/,? *\[.*?\]//g;
 	s/\.[^\.]*$//;
 	# s/\, *[^ ]*\d+$//;
 	s/(\,? ה?תש.?["״].[-–]\d{4}|, *[^ ]*\d{4}|, מס['׳] \d+ לשנת \d{4}| [-–] ה?תש.?["״]. מיום \d+.*|\, *\d+ עד \d+)$//;
