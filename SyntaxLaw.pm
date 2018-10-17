@@ -831,7 +831,7 @@ sub process_chapter {
 	$glob{chap} = $num;
 	if ((defined $glob{supl} || defined $glob{tabl}) && $num) {
 		my $ankor = $num;
-		$ankor = "פרט $ankor" if ($ankor =~ /^\d|^$heb_num3$/);
+		$ankor = "פרט $ankor" if ($ankor =~ /^\d|^$heb_num3(\d+[א-י]*)?$/);
 		$ankor = "סימן $glob{subs} $ankor" if (defined $glob{part} && defined $glob{subs});
 		$ankor = "חלק $glob{part} $ankor" if (defined $glob{part});
 		$ankor = "לוח $glob{tabl} $ankor" if (defined $glob{tabl});
