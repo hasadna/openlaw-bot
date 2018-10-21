@@ -60,7 +60,6 @@ my $bot = MediaWiki::Bot->new({
 	debug      => ($verbose?2:0),
 }) or die "Error login...\n";
 
-
 if ($interactive) {
 	print "Entering interacitve mode (enter empty string to quit).\n";
 	push @pages, '-';
@@ -339,11 +338,13 @@ sub process_law {
 	$new_pages{$page_dst} = '' if ($new && $page_dst =~ /^(חוק|פקודת)/);
 	
 	# Check all possible redirections
-	$text = "#הפניה [[$page_dst]]";
-	my @redirects = possible_redirects($page_dst, $src_text =~ /^<שם[^>\n]*> *(.*?) *$/gm);
-	foreach $page (@redirects) {
-		next if ($page eq $page_dst);
-		unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+	if ($recent) {
+		$text = "#הפניה [[$page_dst]]";
+		my @redirects = possible_redirects($page_dst, $src_text =~ /^<שם[^>\n]*> *(.*?) *$/gm);
+		foreach $page (@redirects) {
+			next if ($page eq $page_dst);
+			unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+		}
 	}
 	
 	# Check talkpage and add redirection if neccessary
@@ -438,6 +439,7 @@ sub move_page {
 		$bot->edit({page => "שיחת מקור:$dst", text => "#הפניה [[שיחה:$dst]]", summary => "הפניה", minor => 1 });
 		$bot->edit({page => "$src", text => "#הפניה [[$dst]]", summary => "הפניה", minor => 1 });
 		my @redirects = $bot->what_links_here($src, 'redirects');
+		@redirects = map { $_->{title} } @redirects;
 		# my @redirects = possible_redirects($src, $dst);
 		foreach my $page (@redirects) {
 			$bot->edit({page => $page, text => "#הפניה [[$dst]]", summary => "הפניה", minor => 1});
@@ -452,11 +454,11 @@ sub possible_redirects {
 		$page =~ s/ *\(תיקון:.*?\)$//;
 		$page =~ s/ *\[נוסח חדש\]//;
 		# $page =~ s/, *(ה?תש.?["”״].[\-־–])?\d{4}$//;
-		$page =~ s/(\,? ה?תש.?["״].[-–]\d{4}|, *[^ ]*\d{4}|, מס['׳] \d+ לשנת \d{4}| [-–] ה?תש.?["״]. מיום \d+.*|\, *\d+ עד \d+)$//;
+		$page =~ s/(\,? ה?תש.?["״].[-–]\d{4}|, *[^ ]*\d{4}|, מס['׳] \d+ לשנת \d{4}| [-–] ה?תש.?["״]. מיום \d+.*|\, *\d+ עד \d+| [-–] ה?תש.?["״].)$//;
 		
 		for (my $k = 0; $k < 32; $k++) {
 			my $_ = $page;
-			if ($k&1) { s/[–־]+/-/g; } else { s/(?<=[א-ת])[\-־](?=[א-ת])/־/g; }
+			if ($k&1) { s/[–־]+/-/g; }; # else { s/(?<=[א-ת])[\-־](?=[א-ת])/־/g; }
 			if ($k&2) { s/ – / - /g; s/--/-/g;} else { s/--/–/g; s/ - / – /g; }
 			if ($k&4) { s/(?<=[א-ת])[\-־](?=[א-ת])/ /g; }
 			if ($k&8) { tr/“”״„’‘׳/"""'''/; }
