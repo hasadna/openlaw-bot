@@ -1311,7 +1311,7 @@ sub find_reshumot_href {
 	$url = "http://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
 	$url = "http://fs.knesset.gov.il/$2/law/$2_lsr_$1_$3.pdf" if ($url =~ /^(ec):(\d+):(\d+)$/);
 	$url = "http://fs.knesset.gov.il/$2/law/$2_ls_$1_$3.pdf" if ($url =~ /^(fr):(\d+):(\d+)$/);
-	$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^([a-z_]+):(\d+):(\d+)$/);
+	$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^(?|ls([a-z_0-9]+)|([a-z_]+)):(\d+):(\d+)$/);
 	$url = '' if ($url =~ /^(\d+)(?|_(\d+)|())$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
@@ -1363,6 +1363,8 @@ sub convert_quotes {
 	s/([א-ת])'(?!['])/$1׳/g;
 	s/([א-ת])-(?![\s.\-])/$1־/g;
 	s/(?<![\s.\-])-([א-ת])/־$1/g;
+	s/(\([א-ת0-9]{1,2})[־\-]([א-ת0-9]{1,2}\))/$1–$2/g;
+	s/(\(..?\))-(\(..?\))/$1–$2/g;
 	s/(תש[א-ת]?["״][א-ת])[-־](\d{4})/$1–$2/g;
 	s/([^ \s\-])(?:--|—)([^ \s\-])/$1–$2/g;
 	return $_;
