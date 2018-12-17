@@ -211,6 +211,16 @@ $bot->purge_page($page);
 
 $bot->logout();
 
+# Run update-bot on new pages
+if ((%new_pages) && !($onlycheck || $dryrun)) {
+	my $pwd = $0; $pwd =~ s/[^\/]*$//;
+	my $cmd = "$pwd/update-bot.pl";
+	my @args = keys(%new_pages);
+	print "Running update-bot for new pages: \"" . join("\", \"", @args) . "\"\n";
+	push @args, '-f';
+	system $cmd, @args;
+}
+
 exit 0;
 1;
 
@@ -402,6 +412,7 @@ sub auto_correct {
 	s/^(@ \d[^ .]) /$1. /gm;
 	s/^(@ \d.*?\.) \./$1 /gm;
 	s/^@ :$/@/gm;
+	s/^(\d+[א-י]?\.)/@ $1/gm;
 	s/\=\n+@\n/=\n/g;
 	s/(חא"י),? (כרך [אב]'),? (פרק [א-ת"']+),? (עמ' )?/$1 $2 $3, עמ' /;
 	s/(19\d\d) (תוס' [12])/$1, $2/g;
