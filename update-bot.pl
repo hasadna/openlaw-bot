@@ -24,7 +24,7 @@ binmode STDERR, ":utf8";
 sub max ($$) { $_[$_[0] < $_[1]] }
 sub min ($$) { $_[$_[0] > $_[1]] }
 
-my $website = 'http://main.knesset.gov.il';
+my $website = 'https://main.knesset.gov.il';
 my $recent_page = $website . '/Activity/Legislation/Laws/Pages/LawReshumot.aspx?t=LawReshumot&st=LawReshumot';
 my $primary_prefix = $website . '/Activity/Legislation/Laws/Pages/LawPrimary.aspx?lawitemid=';
 my $secondary_prefix = $website . '/Activity/Legislation/Laws/Pages/LawSecondary.aspx?lawitemid=';
