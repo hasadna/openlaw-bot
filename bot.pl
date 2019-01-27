@@ -213,12 +213,17 @@ $bot->logout();
 
 # Run update-bot on new pages
 if ((%new_pages) && !($onlycheck || $dryrun)) {
-	my $pwd = $0; $pwd =~ s/[^\/]*$//;
-	my $cmd = "$pwd/update-bot.pl";
-	my @args = keys(%new_pages);
-	print "Running update-bot for new pages: \"" . join("\", \"", @args) . "\"\n";
-	push @args, '-f';
-	system $cmd, @args;
+	# my $pwd = $0; $pwd =~ s/[^\/]*$//;
+	# my $cmd = "$pwd/update-bot.pl";
+	# my @args = keys(%new_pages);
+	# print "Running update-bot for new pages: \"" . join("\", \"", @args) . "\"\n";
+	# push @args, '-f';
+	# system $cmd, @args;
+	my $cmd = $0;
+	$cmd =~ s/[^\/]*$/update-bot.pl/;
+	$cmd .= ' -w -f "' . join('" "', keys(%new_pages)) . '"';
+	print "Running $cmd\n";
+	system $cmd;
 }
 
 exit 0;
