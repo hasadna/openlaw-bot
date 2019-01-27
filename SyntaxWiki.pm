@@ -234,7 +234,7 @@ sub parse_link {
 	return $str unless ($href);
 	$str = escape_template($str,2);
 	$href = escape_template($href,1);
-	$href =~ s/"/&quot;/g;
+	# $href =~ s/"/&quot;/g;
 	return "{{ח:$type|$href|$str}}";
 }
 

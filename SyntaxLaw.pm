@@ -149,6 +149,7 @@ sub convert {
 	# Parse links and remarks
 	s/\[\[(?:קובץ:|תמונה:|[Ff]ile:|[Ii]mage:)(.*?)\]\]/<תמונה>$1<\/תמונה>/gm;
 	
+#	s/(?<!\[)(\[\[(?:(?!\]\]|\[\[).)*\]\]\]?(?:(?:,|או|) \[\[(?:(?!\]\]|\[\[).)*\]\]\]?)++)/&update_linkset($1)/egm;
 	s/(?<!\[)\[\[((?:(?!\]\]|\[\[).)*?\]?)\|((?:(?!\]\]|\[\[).)*)\]\](\]?)/&parse_link($1,"$2$3")/egm;
 	s/(?<!\[)\[\[((?:(?!\]\]|\[\[).)*)\]\](\]?)/&parse_link('',"$1$2")/egm;
 	s/(?<!\()(\(\((.*?)\)\)([^(]*?\)\))?)(?!\))/&parse_remark($1)/egs;
@@ -256,6 +257,9 @@ sub parse_chapter {
 	($desc, $ankor) = get_ankor($desc);
 	$id = get_numeral($num);
 	
+	$desc =~ s/(?<=–)(?! )/<wbr>/g;
+	$extra =~ s/(?=\()/\<wbr\>/g if defined $extra;
+	
 	$type =~ s/\*$//;
 	$ankor = ((!$ankor && $num) ? $id : $ankor);
 	my $str = "<$type עוגן=\"$ankor\">";
@@ -357,6 +361,11 @@ sub parse_signatures {
 sub parse_pubdate {
 	$pubdate = shift;
 	return "";
+}
+
+sub update_linkset {
+	my $_ = shift;
+	print STDERR "$_\n";
 }
 
 #---------------------------------------------------------------------
@@ -550,7 +559,6 @@ sub get_extrastr {
 	my $extra = undef;
 	$extra = unquote($1) if (s/(?<=[^\[])\[ *([^\[\]]+) *\] *//) || (s/^\[ *([^\[\]]+) *\] *//);
 	s/^ *(.*?) *$/$1/;
-	$extra =~ s/(?=\()/\<wbr\>/g if defined $extra;
 	return ($_, $extra);
 }
 
