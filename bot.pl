@@ -221,7 +221,7 @@ if ((%new_pages) && !($onlycheck || $dryrun)) {
 	# system $cmd, @args;
 	my $cmd = $0;
 	$cmd =~ s/[^\/]*$/update-bot.pl/;
-	$cmd .= ' -w -f "' . join('" "', keys(%new_pages)) . '"';
+	$cmd .= ' -w -f ' . join(' ', values(%new_pages));
 	print "Running $cmd\n";
 	system $cmd;
 }
@@ -349,8 +349,11 @@ sub process_law {
 		# }
 	}
 	
+	$src_text =~ /<מאגר (\d*) תיקון (\d*)>/;
+	my $lawid = $1 // '';
+	
 	$res = "v " . ($new ? "נוצר" : "עודכן") ." [[$page_dst]]";
-	$new_pages{$page_dst} = '' if ($new && $page_dst =~ /^(חוק|פקודת)/);
+	$new_pages{$page_dst} = $lawid if ($new && $page_dst =~ /^(חוק|פקודת)/);
 	
 	# Check all possible redirections
 	if ($recent) {
