@@ -23,7 +23,7 @@ use constant { true => 1, false => 0 };
 
 # \bו?כ?ש?מ?[בהל]?(חוק|פקוד[הת]|תקנות|צו|חלק|פרק|סימן(?: משנה|)|תוספו?ת|טופס|לוח)
 our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
-our $extref_sig = $pre_sig . '(חוק(?: ה?יסוד:?|)|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודעה|מנשר|כללים?|נוהל|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך)';
+our $extref_sig = $pre_sig . '(חוק(?: ה?יסוד:?|)|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודעה|מנשר|כללים?|נוהל|קביעו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|הנחי[יו]ת|קווים מנחים)';
 our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]מידה|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+\.?)';
 our $heb_num2 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?)';
@@ -149,7 +149,7 @@ sub convert {
 	# Parse links and remarks
 	s/\[\[(?:קובץ:|תמונה:|[Ff]ile:|[Ii]mage:)(.*?)\]\]/<תמונה>$1<\/תמונה>/gm;
 	
-#	s/(?<!\[)(\[\[(?:(?!\]\]|\[\[).)*\]\]\]?(?:(?:,|או|) \[\[(?:(?!\]\]|\[\[).)*\]\]\]?)++)/&update_linkset($1)/egm;
+	# s/(?<!\[)(\[\[(?:(?!\]\]|\[\[).)*\]\]\]?(?:(?:,|או|) \[\[(?:(?!\]\]|\[\[).)*\]\]\]?)++)/&mark_linkset($1)/egm;
 	s/(?<!\[)\[\[((?:(?!\]\]|\[\[).)*?\]?)\|((?:(?!\]\]|\[\[).)*)\]\](\]?)/&parse_link($1,"$2$3")/egm;
 	s/(?<!\[)\[\[((?:(?!\]\]|\[\[).)*)\]\](\]?)/&parse_link('',"$1$2")/egm;
 	s/(?<!\()(\(\((.*?)\)\)([^(]*?\)\))?)(?!\))/&parse_remark($1)/egs;
@@ -257,7 +257,7 @@ sub parse_chapter {
 	($desc, $ankor) = get_ankor($desc);
 	$id = get_numeral($num);
 	
-	$desc =~ s/(?<=–)(?! )/<wbr>/g;
+	$desc =~ s/(?<=–)(?! |$)/<wbr>/g;
 	$extra =~ s/(?=\()/\<wbr\>/g if defined $extra;
 	
 	$type =~ s/\*$//;
@@ -306,7 +306,7 @@ sub parse_link {
 	elsif ($txt =~ s/^(\[)(.*)(\])$/$2/) { ($pre, $post) = ($1, $3); }
 	elsif ($txt =~ s/(?<=\d{4})(\])$//) { $post = $1; }
 	
-	($helper,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$helper); 
+	($helper,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$helper);
 	$str = "$pre<קישור" . ($helper ? " $helper" : '') . ">$txt</קישור>$post";
 	$str =~ s/([()])\1/$1\x00$1/g unless ($str =~ /\(\(.*\)\)/); # Avoid splitted comments
 	push_lookahead($2) if ($helper =~ /^([^a-zA-Z]*)\=([^a-zA-Z]+)$/);
@@ -363,9 +363,12 @@ sub parse_pubdate {
 	return "";
 }
 
-sub update_linkset {
+sub mark_linkset {
 	my $_ = shift;
-	print STDERR "$_\n";
+	s/\[\[(?|(.*?)\|(.*?)|()(.*?))\]\]/[[»$1|$2]]/g;
+	s/»([^»]+)$/«$1/;
+	# print STDERR "$_\n";
+	return $_;
 }
 
 #---------------------------------------------------------------------
@@ -962,6 +965,7 @@ sub process_href {
 	$text = canonic_name($text);
 	$helper = canonic_name($helper);
 	
+	my $linkset = ($helper =~ s/^[»«]>//);
 	$helper =~ s/\$/ $text /;
 	
 	my ($int,$ext) = find_href($text);
@@ -1135,7 +1139,7 @@ sub find_href {
 		s/^ *(.*?) *$/$1/;
 	}
 	
-	s/((?:סעי[פף]|תקנ[הת])\S*) (קטן|קטנים|משנה) (\d[^( ]*?)(\(.*?\))/$1 $3 $2 $4/;
+	# s/((?:סעי[פף]|תקנ[הת]|פסק[הא])\S*) (קטן|קטנים|משנה) (\d[^( ]*?)(\(.*?\))/$1 $3 $2 $4/;
 	s/\(/ ( /g;
 	s/(פרי?ט|פרטים) \(/$1/g;
 	s/["'״׳]//g;
@@ -1143,7 +1147,7 @@ sub find_href {
 	s/\b$pre_sig(או|מן|סיפ[הא]|ריש[הא])\b( של\b|)/ /g;
 	s/^ *(.*?) *$/$1/;
 	s/לוח השוואה/לוחהשוואה/;
-	s/סימ(ן|ני) משנה/משנה/;
+	s/סימ(ן|ני) משנה/סימןמשנה/;
 	s/$pre_sig(אות[והםן]) $type_sig/$2 $1/g;
 	s/\b($pre_sig)($type_sig)$/$2 this/ unless ($ext);
 	
@@ -1162,7 +1166,7 @@ sub find_href {
 			when (/לוחהשוואה/) { $class = 'comptable'; $num = ""; }
 			when (/^$pre_sig(חלק|חלקים)/) { $class = 'part'; }
 			when (/^$pre_sig(פרק|פרקים)/) { $class = 'sect'; }
-			when (/^$pre_sig(משנה)/) { $class = 'subsub'; }
+			when (/^$pre_sig(סימןמשנה)/) { $class = 'subsub'; }
 			when (/^$pre_sig(סימן|סימנים)/) { $class = 'subs'; }
 			when (/^$pre_sig(תוספת|תוספות|נספח|נספחים)/) { $class = 'supl'; $num = ""; }
 			when (/^$pre_sig(טופס|טפסים)/) { $class = 'form'; }
@@ -1317,8 +1321,8 @@ sub find_reshumot_href {
 	my $url = shift;
 	$url =~ s/^ *(.*?) *$/$1/;
 	$url = "http://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
-	$url = "http://fs.knesset.gov.il/$2/law/$2_lsr_$1_$3.pdf" if ($url =~ /^(ec):(\d+):(\d+)$/);
-	$url = "http://fs.knesset.gov.il/$2/law/$2_ls_$1_$3.pdf" if ($url =~ /^(fr):(\d+):(\d+)$/);
+	$url = "http://fs.knesset.gov.il/$2/law/$2_lsr_$1_$3.pdf" if ($url =~ /^(ec|vn):(\d+):(\d+)$/);
+	$url = "http://fs.knesset.gov.il/$2/law/$2_ls_$1_$3.pdf" if ($url =~ /^(fr|nv):(\d+):(\d+)$/);
 	$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^(?|ls([a-z_0-9]+)|([a-z_]+)):(\d+):(\d+)$/);
 	$url = '' if ($url =~ /^(\d+)(?|_(\d+)|())$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
