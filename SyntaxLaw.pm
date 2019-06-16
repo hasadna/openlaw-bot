@@ -489,10 +489,10 @@ sub parse_wikitable {
 				} elsif ( $cell_data[0] =~ /\[\[|\{\{/ ) {
 					$cell = "$previous<$last_tag>$cell";
 				} elsif ( @cell_data < 2 ) {
-					$cell = "$previous<$last_tag>" . $cell_data[0] || "&nsbp;";
+					$cell = "$previous<$last_tag>" . $cell_data[0] || "&nbsp;";
 				} else {
 					$attributes = $cell_data[0];
-					$cell = $cell_data[1] || "&nsbp;";
+					$cell = $cell_data[1] || "&nbsp;";
 					$cell = "$previous<$last_tag $attributes>$cell";
 				}
 				
