@@ -23,7 +23,7 @@ use constant { true => 1, false => 0 };
 
 # \bו?כ?ש?מ?[בהל]?(חוק|פקוד[הת]|תקנות|צו|חלק|פרק|סימן(?: משנה|)|תוספו?ת|טופס|לוח)
 our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
-our $extref_sig = $pre_sig . '(חוק(?: ה?יסוד:?|)|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודע[הת]|מנשר|כללים?|נוהל|קביעו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|החלטו?ת|הנחי[יו]ת|קווים מנחים)';
+our $extref_sig = $pre_sig . '(חוק(?: ה?יסוד:?|)|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודע[הת]|מנשר|כללים?|נוהל|קביעו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|החלטו?ת|הנחי[יו]ת|קווים מנחים|אמו?ת מידה)';
 our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]מידה|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+\.?)';
 our $heb_num2 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?)';
@@ -80,7 +80,7 @@ sub convert {
 	s/(\d)–(\d)/$1--$2/g; # Keep en-dash between numerals
 	
 	tr/\x{FEFF}//d;    # Unicode marker
-	tr/\x{2000}-\x{200A}\x{205F}/ /; # typographic spaces
+	tr/\x{2000}-\x{200A}\x{202F}\x{205F}\x{2060}/ /; # Typographic spaces
 	tr/\x{200B}-\x{200D}//d;         # Remove zero-width spaces
 	tr/־–—‒―/-/;        # typographic dashes
 	tr/\xAD\x96\x97/-/; # more typographic dashes
@@ -484,15 +484,15 @@ sub parse_wikitable {
 				my @cell_data = split( / *\| */, $cell, 2 );
 				
 				if (!defined $cell_data[0]) {
-					$cell = "$previous<$last_tag>"; 
+					$cell = "$previous<$last_tag>&nbsp;"; 
 					# print STDERR "Empty cell data at |" . join('|',@cells) . "|\n";
 				} elsif ( $cell_data[0] =~ /\[\[|\{\{/ ) {
 					$cell = "$previous<$last_tag>$cell";
 				} elsif ( @cell_data < 2 ) {
-					$cell = "$previous<$last_tag>$cell_data[0]";
+					$cell = "$previous<$last_tag>" . $cell_data[0] || "&nsbp;";
 				} else {
 					$attributes = $cell_data[0];
-					$cell = $cell_data[1];
+					$cell = $cell_data[1] || "&nsbp;";
 					$cell = "$previous<$last_tag $attributes>$cell";
 				}
 				
@@ -834,6 +834,7 @@ sub process_section {
 		when (/טבלה/) { $glob{tabl2} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
 	}
 	if (defined $type) {
+		return if ($type =~ 'טופס' && !$num);
 		$name = "סימן $glob{subs} $name" if ($type =~ 'משנה' && defined $glob{subs});
 		$name = "פרק $glob{sect} $name" if ($type =~ 'סימן|משנה' && defined $glob{sect});
 		$name = "חלק $glob{part} $name" if ($type =~ 'סימן|פרק|משנה' && ($glob{sect_type}==3 || defined $glob{supl}) && defined $glob{part});
