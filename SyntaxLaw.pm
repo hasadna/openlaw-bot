@@ -317,6 +317,7 @@ sub parse_link {
 	$str = "$pre<קישור" . ($helper ? " $helper" : '') . ">$txt</קישור>$post";
 	$str =~ s/([()])\1/$1\x00$1/g unless ($str =~ /\(\(.*\)\)/); # Avoid splitted comments
 	push_lookahead($2) if ($helper =~ /^([^a-zA-Z]*)\=([^a-zA-Z]+)$/);
+	push_lookahead($txt) if ($helper =~ /^([^a-zA-Z]*)\=$/);
 	return $str;
 }
 
@@ -711,7 +712,7 @@ sub fix_tags {
 
 sub dump_hash {
 	my $h = shift;
-	return join('; ', map("$_ => '" . ($h->{$_} // "[undef]") . "'", keys($h)));
+	return join('; ', map("$_ => '" . ($h->{$_} // "[undef]") . "'", keys(%{$h})));
 }
 
 
@@ -956,7 +957,9 @@ sub check_structure {
 #---------------------------------------------------------------------
 
 sub push_lookahead {
-	push @lookahead, shift;
+	my $_ = shift;
+	# print STDERR "Adding lookahead '$_'\n";
+	push @lookahead, $_;
 }
 
 sub process_href {
@@ -1020,7 +1023,7 @@ sub process_href {
 	} elsif ($helper =~ /^(.*?) *= *(.*)/) {
 		$type = 3;
 		$ext = $1; $helper = $2;
-		(undef, $helper) = find_href($text) if ($2 eq '');
+		(undef, $helper) = find_href($text,$text) if ($2 eq '');
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
 		(undef, $ext) = find_href($ext, $helper);
 		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext} && $glob{href}{marks}{$ext} ne "++$ext");
@@ -1068,10 +1071,11 @@ sub process_href {
 	
 	if ($update_mark) {
 		$glob{href}{marks}{$helper} = $glob{href}{marks}{"ה$helper"} = $ext;
+		# print STDERR "adding mark '$helper' to '$ext'\n";
 		unless ($helper =~ /$extref_sig/) {
 			$glob{href}{all_marks} .= "|ה?$helper";
 			$glob{href}{all_marks} =~ s/^\|//;
-			# print STDERR "adding '$helper' to all_marks = '$glob{href}{all_marks}'\n";¶
+			# print STDERR "adding '$helper' to all_marks = '$glob{href}{all_marks}'\n";
 		}
 		for (@{$glob{href}{marks_ahead}{$helper}}) {
 			$hrefs{$_} =~ s/\+[^#]*(.*)/$ext$1/;
@@ -1131,7 +1135,7 @@ sub find_href {
 	
 	s/(\b[לב]?(אותו|אותה)\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
 	
-	if (/^(.*?)\s*\b($pre_sig$extref_sig[- ]*([א-ת]+\b.*|.*תש.?["״]?.[-–]\d{4}|))$/) {
+	if (/^(.*?)\s*\b($pre_sig$extref_sig[- ]*([א-ת]+\b.*|[א-ת].*תש.?["״]?.[-–]\d{4}|))$/) {
 		$_ = $1;
 		$ext = find_ext_ref($2) unless ($ext);
 	} elsif (/^(.*?) *\b$pre_sig$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
