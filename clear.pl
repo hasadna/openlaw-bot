@@ -68,13 +68,24 @@ if (/\x{F8FF}/ and /\xD3/) { # Fix f*cked-up macos encoding
 	tr/\x{F8FF}/נ/;
 }
 
+if ((/[A-Z]/) and (/\[/) and !(/[א-ת]/)) {
+	tr/B-V/א-ת/;
+	tr/WXY\[Z\\/ץצקשרת/;
+	tr/=/–/;
+	tr/e/וּ/;
+	s/([א-ת])\n?\]/ִ$1/;
+	# print $_;
+	# exit;
+	s/([א-תוּ\x{05B0}-\x{05BD}])/$RLE$1$PDF/g;
+}
+
 s/([\x{05B0}-\x{05BD}]+)([א-ת])/$2$1/g if (/$RLE\x{05BC}[א-ת]/);
 
 # Keep ndash between hebrew words if not all words are seperated with ndash
 s/(?<=[א-ת])–(?=[א-ת])/&ndash;/g if /[א-ת][\־\-][א-ת]/;
 
 # General cleanup
-tr/\x{2000}-\x{200A}\x{205F}/ /; # Typographic spaces
+tr/\x{2000}-\x{200A}\x{202F}\x{205F}\x{2060}/ /; # Typographic spaces
 tr/\x{200B}-\x{200D}//d;      # Zero-width spaces
 tr/־–—‒―/-/;                  # Convert typographic dashes
 s/(?<![א-ת\x{05B0}-\x{05BD}])\x{05BF}/-/g; # Rafe (U+05BF) misused as dash
