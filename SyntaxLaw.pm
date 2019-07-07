@@ -23,7 +23,7 @@ use constant { true => 1, false => 0 };
 
 # \bו?כ?ש?מ?[בהל]?(חוק|פקוד[הת]|תקנות|צו|חלק|פרק|סימן(?: משנה|)|תוספו?ת|טופס|לוח)
 our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
-our $extref_sig = $pre_sig . '(חוק(?: ה?יסוד:?|)|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודע[הת]|מנשר|כללים?|נוהל|קביעו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|החלטו?ת|הנחי[יו]ת|קווים מנחים|אמו?ת מידה)';
+our $extref_sig = $pre_sig . '(חוק(?:[ -]ה?יסוד:?|)|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודע[הת]|מנשר|כללים?|נוהל|קביעו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|החלטו?ת|הנחי[יו]ת|קווים מנחים|אמו?ת מידה|היתר)';
 our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]מידה|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+\.?)';
 our $heb_num2 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?)';
@@ -75,6 +75,8 @@ sub convert {
 	
 	s/(?<=[0-9₀-₉])′/&#8242;/g; # Keep prime [feet/minutes] and double prime [inch/seconds]
 	s/(?<=[0-9₀-₉])″/&#8243;/g; # (restored later by unescape_text)
+	
+	# s/[»«⌸]/"&#".ord($1).";"/ge; # Escape special markers
 	
 	s/($HE)–($HE)/$1--$2/g; # Keep en-dash between Hebrew words
 	s/(\d)–(\d)/$1--$2/g; # Keep en-dash between numerals
@@ -168,11 +170,15 @@ sub convert {
 	s/(<(?:div|span|table|td|th|tr) [^>]+>)/&fix_tags($1)/egs;
 	
 	# Use thin spaces in dotted lines
-	s/(\.{21,})/'<span style="word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
+	s/(\.{21,})/'<span style⌸"word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
 	s/(\.{4,20})/'. 'x(length($1)-1) . '.'/ge;
 	
 	# use arial font for fraction slash (U+2044)
-	s/⁄/<font face="arial">⁄<\/font>/g;
+	s/⁄/<font face⌸"arial">⁄<\/font>/g;
+	
+	# Replace "=" (⌸) within templates with {{==}}
+	s/(\{\{(?:[^{}]+|(?R))*\}\})/ $1 =~ s|⌸|\{\{==\}\}|gr /eg;
+	tr/⌸/=/;
 	
 	s/\x00//g; # Remove nulls
 	s/\n{3,}/\n\n/g;
@@ -316,6 +322,7 @@ sub parse_link {
 	($helper,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$helper);
 	$str = "$pre<קישור" . ($helper ? " $helper" : '') . ">$txt</קישור>$post";
 	$str =~ s/([()])\1/$1\x00$1/g unless ($str =~ /\(\(.*\)\)/); # Avoid splitted comments
+	
 	push_lookahead($2) if ($helper =~ /^([^a-zA-Z]*)\=([^a-zA-Z]+)$/);
 	push_lookahead($txt) if ($helper =~ /^([^a-zA-Z]*)\=$/);
 	return $str;
@@ -1126,8 +1133,8 @@ sub find_href {
 	}
 	if (/^[-+]+$/) { return ('', $_); }
 	
-	s/\(\((.*?)\)\)/$1/g;
-	s/<הערה>(.*?)<\/הערה>/$1/g;
+	s/\(\((?|\[(.*?)\]|(.*?))\)\)/$1/g;
+	s/<הערה>(?|\[(.*?)\]|(.*?))<\/הערה>/$1/g;
 	
 	if (/דברי?[- ]ה?מלך/ and /(סימן|סימנים) \d/) {
 		s/(סימן|סימנים)/סעיף/;
@@ -1149,7 +1156,7 @@ sub find_href {
 	if ($ext =~ /^$extref_sig( *)(.*)$/) {
 		$ext = "$1$2$3";
 		$ext = '0' if ($3 =~ /^ה?(זאת|זו|זה|אלה|אלו)\b/) || ($3 eq '' and !defined $glob{href}{marks}{$1} and !$helper);
-		$ext = '-' if (defined $3 && $3 =~ /^[בלמ]?(האמור(|ה|ות|ים)|אות[הו]|שב[הו]|הה[וי]א)\b/);
+		$ext = '-' if (defined $3 && $3 =~ /^[בלמ]?([הכ]אמור(|ה|ות|ים)|אות[הו]|שב[הו]|הה[וי]א)\b/);
 		s/^ *(.*?) *$/$1/;
 	}
 	
