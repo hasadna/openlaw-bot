@@ -1145,7 +1145,9 @@ sub find_href {
 	
 	s/(\b[לב]?(אותו|אותה)\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
 	
-	if (/^(.*?)\s*\b($pre_sig$extref_sig[- ]*([א-ת]+\b.*|[א-ת].*תש.?["״]?.[-–]\d{4}|))$/) {
+	if (/\($pre_sig$extref_sig[- ]*[א-ת]+\b.*\)/) {
+		# Special case, just ignore
+	} elsif (/^(.*?)\s*\b($pre_sig$extref_sig[- ]*([א-ת]+\b.*|[א-ת].*תש.?["״]?.[-–]\d{4}|))$/) {
 		$_ = $1;
 		$ext = find_ext_ref($2) unless ($ext);
 	} elsif (/^(.*?) *\b$pre_sig$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
@@ -1196,11 +1198,10 @@ sub find_href {
 			when (/^$pre_sig(טופס|טפסים)/) { $class = 'form'; }
 			when (/^$pre_sig(לוח|לוחות)/) { $class = 'tabl'; }
 			when (/^$pre_sig(טבל[הא]|טבלאות)/) { $class = 'tabl2'; }
-			when (/^$pre_sig(סעיף|סעיפים|תקנה|תקנות)/) { $class = 'chap'; }
-			when (/^$pre_sig(אמו?ת[ -]ה?מידה)/) { $class = 'chap'; }
+			when (/^$pre_sig(סעיף|סעיפים|תקנה|תקנות|אמו?ת[ -]ה?מידה)/) { $class = 'chap'; }
 			when (/^$pre_sig(פריט|פרט)/) { $class = 'supchap'; }
 			when (/^$pre_sig(קט[נן]|פי?סקה|פסקאות|משנה|טור)/) { $class = 'small'; }
-			when ("(") { $class = 'small' unless ($class eq 'supchap'); }
+			when (/^\(/) { $class = 'small' unless ($class eq 'supchap'); }
 			when (/^ה?(זה|זו|זאת|this)/) {
 				given ($class) {
 					when (/^(supl|form|tabl|table2)$/) { $num = $glob{$class} || ''; }
