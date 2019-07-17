@@ -1145,12 +1145,13 @@ sub find_href {
 	
 	s/(\b[לב]?(אותו|אותה)\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
 	
-	if (/\($pre_sig$extref_sig[- ]*[א-ת]+\b.*\)/) {
-		# Special case, just ignore
-	} elsif (/^(.*?)\s*\b($pre_sig$extref_sig[- ]*([א-ת]+\b.*|[א-ת].*תש.?["״]?.[-–]\d{4}|))$/) {
-		$_ = $1;
-		$ext = find_ext_ref($2) unless ($ext);
-	} elsif (/^(.*?) *\b$pre_sig$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
+	if (/^(.*?)\s*\b($extref_sig[- ]*([א-ת]+\b.*|[א-ת].*תש.?["״]?.[-–]\d{4}|))$/) {
+		# Ignore in special case
+		unless (substr($1,-1) eq '(' and substr($2,-1) eq ')') {
+			$_ = $1;
+			$ext = find_ext_ref($2) unless ($ext);
+		}
+	} elsif (/^(.*?) *\b$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
 		$ext = "$2$3";
 		$_ = $1;
 	} elsif ($glob{href}{all_marks} and /^(.*?) *\b$pre_sig($glob{href}{all_marks})(.*?)$/) {
