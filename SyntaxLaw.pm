@@ -510,6 +510,9 @@ sub parse_wikitable {
 				$_ .= $cell;
 				push @td_history, true;
 			}
+		} else {
+			$_ .= "\n";
+			$out =~ s/&nbsp;\n?$//s;
 		}
 		$out .= $_;
 	}
@@ -1202,7 +1205,15 @@ sub find_href {
 			when (/^$pre_sig(סעיף|סעיפים|תקנה|תקנות|אמו?ת[ -]ה?מידה)/) { $class = 'chap'; }
 			when (/^$pre_sig(פריט|פרט)/) { $class = 'supchap'; }
 			when (/^$pre_sig(קט[נן]|פי?סקה|פסקאות|משנה|טור)/) { $class = 'small'; }
-			when (/^\(/) { $class = 'small' unless ($class eq 'supchap'); }
+			when (/^\(/) { 
+				if (($class ? $class : $glob{href}{last_class}) eq 'supchap') {
+					$class = 'supchap';
+				} elsif ($class eq 'chap') {
+					$class = 'chap_';
+				} else {
+					$class = 'small';
+				}
+			}
 			when (/^ה?(זה|זו|זאת|this)/) {
 				given ($class) {
 					when (/^(supl|form|tabl|table2)$/) { $num = $glob{$class} || ''; }
