@@ -1055,6 +1055,8 @@ sub process_href {
 		$type = ($ext) ? 3 : 1;
 	}
 	
+	print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
+	
 	if ($ext eq '+') {
 		$type = 2;
 		($int, $ext) = find_href("+#$text") unless ($found);
@@ -1085,11 +1087,11 @@ sub process_href {
 	if ($update_mark) {
 		$helper =~ s/[-: ]+/ /g;
 		$glob{href}{marks}{$helper} = $glob{href}{marks}{"ה$helper"} = $ext;
-		# print STDERR "adding mark '$helper' to '$ext'\n";
+		print STDERR "adding mark '$helper' to '$ext'\n";
 		unless ($helper =~ /$extref_sig/) {
 			$glob{href}{all_marks} .= "|ה?$helper";
 			$glob{href}{all_marks} =~ s/^\|//;
-			# print STDERR "adding '$helper' to all_marks = '$glob{href}{all_marks}'\n";
+			print STDERR "adding '$helper' to all_marks = '$glob{href}{all_marks}'\n";
 		}
 		for (@{$glob{href}{marks_ahead}{$helper}}) {
 			$hrefs{$_} =~ s/\+[^#]*(.*)/$ext$1/;
@@ -1166,7 +1168,7 @@ sub find_href {
 	if ($ext =~ /^$extref_sig( *)(.*)$/) {
 		my ($e1,$e3) = ("$1$2", $3);
 		my $e2 = $ext =~ s/[-– ]+/ /gr;
-		$ext = '0' if ($e3 =~ /^ה?(זאת|זו|זה|אלה|אלו)\b/) || ($e3 eq '' and !defined $glob{href}{marks}{$e2}); #and !$helper);
+		$ext = '0' if ($e3 =~ /^ה?(זאת|זו|זה|אלה|אלו)\b/) || ($e3 eq '' and !defined $glob{href}{marks}{$e2} and !$helper);
 		$ext = '-' if (defined $e3 && $e3 =~ /^[בלמ]?([הכ]אמור(|ה|ות|ים)|אות[הו]|שב[הו]|הה[וי]א)\b/);
 		s/^ *(.*?) *$/$1/;
 	}
