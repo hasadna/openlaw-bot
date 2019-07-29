@@ -180,7 +180,7 @@ sub convert {
 	s/⁄/<font face⌸"arial">⁄<\/font>/g;
 	
 	# Replace "=" (⌸) within templates with {{==}}
-	s/(\{\{(?:[^{}]+|(?R))*\}\})/ $1 =~ s|⌸|\{\{==\}\}|gr /eg;
+	s/(\{\{(?:[^{}\n]++|(?R))*\}\})/ $1 =~ s|⌸|\{\{==\}\}|gr /eg;
 	tr/⌸/=/;
 	
 	s/\x00//g; # Remove nulls
