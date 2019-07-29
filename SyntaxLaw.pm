@@ -1083,6 +1083,7 @@ sub process_href {
 	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
 	if ($update_mark) {
+		$helper =~ s/[-: ]+/ /g;
 		$glob{href}{marks}{$helper} = $glob{href}{marks}{"ה$helper"} = $ext;
 		# print STDERR "adding mark '$helper' to '$ext'\n";
 		unless ($helper =~ /$extref_sig/) {
@@ -1095,6 +1096,7 @@ sub process_href {
 		}
 		$glob{href}{marks_ahead}{$helper} = [];
 	}
+	
 	if ($ext) {
 		$helper = $ext =~ s/[-: ]+/ /gr;
 		$ext = $glob{href}{marks}{$helper} if ($glob{href}{marks}{$helper});
@@ -1147,14 +1149,13 @@ sub find_href {
 	}
 	
 	s/(\b[לב]?(אותו|אותה)\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
-	
 	if (/^(.*?)\s*\b($extref_sig[- ]*([א-ת]+\b.*|[א-ת].*תש.?["״]?.[-–]\d{4}|))$/) {
 		# Ignore in special case
 		unless (substr($1,-1) eq '(' and substr($2,-1) eq ')') {
 			$_ = $1;
 			$ext = find_ext_ref($2) unless ($ext);
 		}
-	} elsif (/^(.*?) *\b$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
+	} elsif (/^(.*?) *\b$pre_sig$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
 		$ext = "$2$3";
 		$_ = $1;
 	} elsif ($glob{href}{all_marks} and /^(.*?) *\b$pre_sig($glob{href}{all_marks})(.*?)$/) {
@@ -1163,9 +1164,10 @@ sub find_href {
 	}
 	
 	if ($ext =~ /^$extref_sig( *)(.*)$/) {
-		$ext = "$1$2$3";
-		$ext = '0' if ($3 =~ /^ה?(זאת|זו|זה|אלה|אלו)\b/) || ($3 eq '' and !defined $glob{href}{marks}{$1} and !$helper);
-		$ext = '-' if (defined $3 && $3 =~ /^[בלמ]?([הכ]אמור(|ה|ות|ים)|אות[הו]|שב[הו]|הה[וי]א)\b/);
+		my ($e1,$e3) = ("$1$2", $3);
+		my $e2 = $ext =~ s/[-– ]+/ /gr;
+		$ext = '0' if ($e3 =~ /^ה?(זאת|זו|זה|אלה|אלו)\b/) || ($e3 eq '' and !defined $glob{href}{marks}{$e2}); #and !$helper);
+		$ext = '-' if (defined $e3 && $e3 =~ /^[בלמ]?([הכ]אמור(|ה|ות|ים)|אות[הו]|שב[הו]|הה[וי]א)\b/);
 		s/^ *(.*?) *$/$1/;
 	}
 	
@@ -1210,6 +1212,8 @@ sub find_href {
 					$class = 'supchap';
 				} elsif ($class eq 'chap') {
 					$class = 'chap_';
+				} elsif ($class ne '' and !defined $elm{$class}) {
+					# Keep class
 				} else {
 					$class = 'small';
 				}
