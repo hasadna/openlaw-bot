@@ -1055,7 +1055,7 @@ sub process_href {
 		$type = ($ext) ? 3 : 1;
 	}
 	
-	print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
+	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
 	if ($ext eq '+') {
 		$type = 2;
@@ -1087,11 +1087,11 @@ sub process_href {
 	if ($update_mark) {
 		$helper =~ s/[-: ]+/ /g;
 		$glob{href}{marks}{$helper} = $glob{href}{marks}{"ה$helper"} = $ext;
-		print STDERR "adding mark '$helper' to '$ext'\n";
+		# print STDERR "adding mark '$helper' to '$ext'\n";
 		unless ($helper =~ /$extref_sig/) {
 			$glob{href}{all_marks} .= "|ה?$helper";
 			$glob{href}{all_marks} =~ s/^\|//;
-			print STDERR "adding '$helper' to all_marks = '$glob{href}{all_marks}'\n";
+			# print STDERR "adding '$helper' to all_marks = '$glob{href}{all_marks}'\n";
 		}
 		for (@{$glob{href}{marks_ahead}{$helper}}) {
 			$hrefs{$_} =~ s/\+[^#]*(.*)/$ext$1/;
