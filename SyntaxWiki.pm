@@ -42,7 +42,7 @@ sub main() {
 }
 
 sub convert {
-	my $_ = shift;
+	local $_ = shift;
 	clean_up();
 	
 	s/^ *(.*?) *$/$1/g;
@@ -56,15 +56,16 @@ sub convert {
 	s/(<סעיף.*?>.*?<\/סעיף>)\n?/&parse_chapter($1)/gse;
 	s/(<ת+( .*?)?>.*?<\/ת+>)\n?/&parse_line($1)/gse;
 	
-	s/{{(ח:תת++)(\|.*?|)}}[ \n]*{{\1(\|סוג=.*?)}}/{{$1$2$3}}/g;
-	s/{{ח:(ת++)(?|()|\|(.*?))}}[ \n]*{{ח:\1ת(?|()|\|(.*?))}}/{{ח:$1|$2|$3}}/g;
-	s/{{ח:(ת++)(?|()|\|(.*?\|.*?))}}[ \n]*{{ח:\1תת(?|()|\|(.*?))}}/{{ח:$1|$2|$3}}/g;
-	s/\n?({{ח:ת+(?:\|[^}]*?|)}})/\n$1/g;
+	s/{\{(ח:תת++)(\|.*?|)}}[ \n]*{\{\1(\|סוג=.*?)}}/{{$1$2$3}}/g;
+	s/{\{ח:(ת++)(?|()|\|(.*?))}\}[ \n]*{\{ח:\1ת(?|()|\|(.*?))}}/{{ח:$1|$2|$3}}/g;
+	s/{\{ח:(ת++)(?|()|\|(.*?\|.*?))}}[ \n]*{\{ח:\1תת(?|()|\|(.*?))}}/{{ח:$1|$2|$3}}/g;
+	s/\n?({\{ח:ת+(?:\|[^}]*?|)}})/\n$1/g;
 	
 	s/(<קישור.*?>.*?<\/קישור>)/&parse_link($1)/ge;
 	# s/<הגדרה *.*?>(.*?)<\/הגדרה>/&parse_template('ח:הגדרה', $1)/gse;
 	s/<הערה *.*?>(.*?)<\/הערה>/&parse_template('ח:הערה', $1)/gse;
 	s/<תמונה.*?>(.*?)<\/תמונה>/[[Image:$1|link=]]/gs;
+	s/(\<math.*?\>.*?\<[\\\/]math\>)/&fix_tags($1)/egs;
 	
 	s/<מפריד.*?>\n?/{{ח:מפריד}}\n/g;
 	
@@ -118,24 +119,24 @@ sub printBox {
 
 sub parse_bib {
 	# print STDERR "parse_bib got |$_[0]|\n";
-	my ($_, %attr) = parse_attr(shift);
+	my ($s, %attr) = parse_attr(shift);
 	# print STDERR "parse_bib got |$_| with \n\t\t" . dump_hash(%attr) . "\n";
-	s/(<תיבה.*?>.*?<\/תיבה>)/&printBox($1)/ge;
-	s/\.\n+/\.\n\n/g;
-	s/\n*$//s;
+	$s =~ s/(<תיבה.*?>.*?<\/תיבה>)/&printBox($1)/ge;
+	$s =~ s/\.\n+/\.\n\n/g;
+	$s =~ s/\n*$//s;
 	my $str = "{{ח:פתיח-התחלה}}\n";
 	$str .= "{{ח:מאגר|$id}} " if ($id);
-	$str .= "$_\n";
+	$str .= "$s\n";
 	$str .= "{{ח:סוגר}}\n";
 	$str .= "{{ח:מפריד}}\n";
 	return $str;
 }
 
 sub parse_preface {
-	my ($_, %attr) = parse_attr(shift);
+	my ($s, %attr) = parse_attr(shift);
 	my $str = "{{ח:מבוא}}\n";
-	$_ = trim($_);
-	$str .= "$_\n";
+	$s = trim($s);
+	$str .= "$s\n";
 	$str .= "{{ח:סוגר}}\n";
 	$str .= "{{ח:מפריד}}\n";
 	return $str;
@@ -144,24 +145,24 @@ sub parse_preface {
 sub parse_template {
 	my $str = shift;
 	my $cnt = 0;
-	while (my $_ = shift) {
+	while (my $s = shift) {
 		$cnt++;
 		# $str .= (/=/) ? "|$cnt=$_" : "|$_";
 		# s/({{==}}|=)(?!"[^"]+")/{{==}}/g;
-		s/({{==}}|=)/{{==}}/g;
-		$str .= "|$_";
+		$s =~ s/({\{==}}|=)/{{==}}/g;
+		$str .= "|$s";
 	}
 	return "{{$str}}";
 }
 
 sub parse_signatures {
-	my ($_, %attr) = parse_attr(shift);
-	($_, my %tags) = parse_tag_list($_, 'פרסום');
+	my ($s, %attr) = parse_attr(shift);
+	($s, my %tags) = parse_tag_list($s, 'פרסום');
 	my $pubdate = $tags{'פרסום'};
 	my $str = "{{ח:חתימות";
 	$str .= "|$pubdate" if ($pubdate);
 	$str .= "}}\n";
-	foreach my $line (split(/\n/, $_)) {
+	foreach my $line (split(/\n/, $s)) {
 		last unless ($line =~ /^ *\*/);
 		$line =~ s/^ *\* *(.*?) *$/$1/;
 		$line =~ s/ *\| */<br>/g;
@@ -238,6 +239,7 @@ sub parse_link {
 	my $href = $attr{'עוגן'};
 	return $str unless ($href);
 	$str = escape_template($str,2);
+	$str =~ s/(https?:\/\/)([^ ]*)/ "$1" . $2 =~ s|(?<=[\\\/])|<wbr>|gr /eg;
 	$href = escape_template($href,1);
 	# $href =~ s/"/&quot;/g;
 	return "{{ח:$type|$href|$str}}";
@@ -246,31 +248,31 @@ sub parse_link {
 ###################################################################################################
 
 sub trim {
-	my $_ = shift // '';
+	local $_ = shift // '';
 	s/^\s*(.*?)\s*$/$1/s;
 	return $_;
 }
 
 sub escape_template {
-	my $_ = shift // '';
+	local $_ = shift // '';
 	my $id = shift;
 	if (/=/ && (/\|/)<=1) {
 		# ($id) ? ($_ = "$id=$_") : (s/({{==}}|=)(?!"[^"]+")/{{==}}/g);
-		s/({{==}}|=)(?!"[^"]+")/{{==}}/g;
+		s/({\{==}}|=)(?!"[^"]+")/{{==}}/g;
 	}
 	s/\|/{{!}}/g;
-	s/(?={{[^}\s]+){{!}}/|/g;
+	s/(?=\{\{[^}\s]+)\{\{!}}/|/g;
 	return $_;
 }
 
 sub unquote {
-	my $_ = shift // '';
+	local $_ = shift // '';
 	s/^ *(["']) *(.*?) *\1 *$/$2/;
 	return $_;
 }
 
 sub unparent {
-	my $_ = unquote(shift);
+	local $_ = unquote(shift);
 	s/^\((.*?)\)$/$1/;
 	s/^\[(.*?)\]$/$1/;
 	s/^\{(.*?)\}$/$1/;
@@ -279,7 +281,7 @@ sub unparent {
 }
 
 sub escape_text {
-	my $_ = unquote(shift);
+	local $_ = unquote(shift);
 #	print STDERR "|$_|";
 	s/&/\&amp;/g;
 	s/</&lt;/g;
@@ -290,7 +292,7 @@ sub escape_text {
 }
 
 sub unescape_text {
-	my $_ = shift;
+	local $_ = shift;
 	my %table = ( 'quot' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", # No &amp; conversion here!
 		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'shy' => '&null;',
 		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 
@@ -305,8 +307,8 @@ sub unescape_text {
 }
 
 sub parse_attr {
-	my $_ = trim(shift);
-	s/(<(?:[^>]+|"[^"]*"|'[^']*')+>)\s*(.*)/$1/s;
+	local $_ = trim(shift);
+	s/(<(?:[^"'>]+|"[^"]*"|'[^']*')+>)\s*(.*)/$1/s;
 	my $str = $2;
 	my %attr;
 	s/<([^ >\/]+)(.*?)\/?>/$2/;
@@ -322,7 +324,7 @@ sub parse_tags {
 }
 
 sub parse_tag_list {
-	my $_ = trim(shift);
+	local $_ = trim(shift);
 	my %tags;
 	while (my $t = shift) {
 		$tags{$1} = $2 while (s/<($t).*?>(.*?)<\/\1.*?>\s*//);
@@ -330,11 +332,19 @@ sub parse_tag_list {
 	return ($_, %tags);
 }
 
+sub fix_tags {
+	local $_ = shift;
+	tr/–/-/;
+	tr/“”״/"/;
+	s/\{\{==\}\}/=/g;
+	return $_;
+}
+
 sub dump_hash {
 	# print STDERR Dumper(@_);
 	if (ref $_[0]) {
 		my $h = shift;
-		return join('; ', map("$_ => '" . ($h->{$_} // "[undef]") . "'", keys($h)));
+		return join('; ', map("$_ => '" . ($h->{$_} // "[undef]") . "'", keys(%{$h})));
 	} else {
 		my %h = @_;
 		return join('; ', map("$_ => '" . ($h{$_} // "[undef]") . "'", keys(%h)));

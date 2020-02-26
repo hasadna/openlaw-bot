@@ -95,6 +95,7 @@ tr/`׳’‘‚‛′‵/'/;               # Convert typographic single quotes
 tr/;/;/;                      # Convert wrong OCRed semicolon
 
 tr/\x{FEFF}\x{FFFC}-\x{FFFF}//d;    # Unicode placeholders and junk
+tr/\x{F000}-\x{F00F}/ /;
 
 # Hebrew ligatures and alternative forms
 tr/ﬠﬡﬢﬣﬤﬥﬦﬧﬨ/עאדהכלםרת/;
@@ -113,6 +114,8 @@ $_ = s_lut($_, {
 	'ﬀ' => 'ff', 'ﬁ' => 'fi', 'ﬂ' => 'fl', 'ﬃ' => 'ffi', 'ﬄ' => 'ffl', 'ﬅ' => 'ſt', 'ﬆ' => 'st', # '🙰' => 'et', '🙱' => 'et',
 	'Ǳ' => 'DZ', 'ǲ' => 'Dz', 'ǳ' => 'dz', 'Ǆ' => 'DŽ', 'ǅ' => 'Dž', 'ǆ' => 'dž', 
 	'Ĳ' => 'IJ', 'ĳ' => 'ij', 'Ǉ' => 'LJ', 'ǈ' => 'Lj', 'ǉ' => 'lj', 'Ǌ' => 'NJ', 'ǋ' => 'Nj', 'ǌ' => 'nj', 
+	# 'Œ' => 'OE', 'œ' => 'oe', 'Æ' => 'AE', 'æ' => 'ae',
+	# 'ƒ' => '<i>f</i>', 'Ƒ' => '<i>F</i>',
 });
 
 

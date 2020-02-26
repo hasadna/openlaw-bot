@@ -23,13 +23,14 @@ use constant { true => 1, false => 0 };
 
 # \bו?כ?ש?מ?[בהל]?(חוק|פקוד[הת]|תקנות|צו|חלק|פרק|סימן(?: משנה|)|תוספו?ת|טופס|לוח)
 our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
-our $extref_sig = $pre_sig . '(חוק(?:[ -]ה?יסוד:?|)|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודע[הת]|מנשר|כללים?|נוהל|קביעו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|החלטו?ת|הנחי[יו]ת|קווים מנחים|אמו?ת מידה|היתר)';
+our $extref_sig = $pre_sig . '(חוק(?:[ -]ה?יסוד:?|)|פקוד[הת]|תקנות|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודע[הת]|מנשר|כללים?|נוהל|קביעו?ת|אכרזו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|החלטו?ת|הנחי[יו]ת|קווים מנחים|אמו?ת מידה|היתר)';
 our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]מידה|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+\.?)';
 our $heb_num2 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?)';
 our $heb_num3 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?|[קרש](?:טו|טז|[יכלמנסעפצ]?[א-ט]?))';
 our $roman = '(?:[IVX]+|[ivx]+)';
 
+our $EN = '[A-Za-z]';
 our $HE = '(?:[א-ת][\x{05B0}-\x{05BD}]*+)';
 our $nikkud = '[\x{05B0}-\x{05BD}]';
 
@@ -56,7 +57,7 @@ sub main() {
 }
 
 sub convert {
-	my $_ = shift;
+	shift;
 	
 	# General cleanup
 	s/\n *<!--.*?--> *\n/\n/sg;  # Remove comments
@@ -80,7 +81,7 @@ sub convert {
 	# s/[»«⌸]/"&#".ord($1).";"/ge; # Escape special markers
 	
 	s/($HE)–($HE)/$1--$2/g; # Keep en-dash between Hebrew words
-	s/(\d)–(\d)/$1--$2/g; # Keep en-dash between numerals
+	s/(\d$HE*)–(\d)/$1--$2/g; # Keep en-dash between numerals
 	
 	tr/\x{FEFF}//d;    # Unicode marker
 	tr/\x{2000}-\x{200A}\x{202F}\x{205F}\x{2060}/ /; # Typographic spaces
@@ -99,6 +100,7 @@ sub convert {
 	s/(?<![=\n])\n(\=)/\n\n/gm;
 	
 	s/\[\[קטגוריה:.*?\]\] *\n?//g;  # Ignore categories (for now)
+	
 	
 	# Unescape HTML characters
 	$_ = unescape_text($_);
@@ -140,7 +142,7 @@ sub convert {
 	s/^(:+) *(\([^( ]+\)) *(\([^( ]{1,2}\))/$1 $2\n$1: $3/gm;
 	s/^:+-? *$//gm;
 	# s/^(:+) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(?| +(.*?)|([-–].*?)|())\n/&parse_line($1,$2,$3)/egm;
-	s/^(:+[-–]?) *((?:'''|)["”“]?(?:\([^( ]+\)|\[[^[ ]+\]|\(\(\(\d.?\)\)\)|\(\(\([א-י]\d?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|$heb_num2\d?\.|$roman\.?|[•□*]|[A-Za-z0-9א-ת]+ *\(\(\)\)|<sup>[0-9א-ת]{1,2}<\/sup>|)(?:'''|))(?| +(.*?)|())\n/&parse_line($1,$2,$3)/egm;
+	s/^(:+[-–]?) *((?:'''|)["”“]?(?:\([^( ]+\)|\[[^[ ]+\]|\(\(\(\d.?\)\)\)|\(\(\([א-י]\d?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|$heb_num2\d?\.|$roman\.?|[•■□-◿*]|[A-Za-z0-9א-ת]+\)? *\(\(\)\)|<sup>[0-9א-ת]{1,2}<\/sup>|)(?:'''|))(?| +(.*?)|())\n/&parse_line($1,$2,$3)/egm;
 	
 	# Move container tags if needed
 	my $barrier = '<\/?(?:מקור|הקדמה|ת+|קטע|סעיף|חתימות|td|tr)|__TOC__|$';
@@ -198,7 +200,7 @@ __PACKAGE__->main() unless (caller);
 ######################################################################
 
 sub parse_title {
-	my $_ = shift;
+	local $_ = shift;
 	my ($fix, $str);
 	$_ = unquote($_);
 	($_, $fix) = get_fixstr($_);
@@ -209,7 +211,8 @@ sub parse_title {
 }
 
 sub parse_section {
-	my ($level, $_) = @_;
+	my $level = shift;
+	local $_ = shift;
 	my ($type, $num, $fix, $extra, $str);
 	
 	$level = 2 unless defined $level;
@@ -244,15 +247,16 @@ sub parse_section {
 	$type = 'לוחהשוואה' if ($type =~ /השוואה/);
 	my $ankor = $type;
 	$ankor .= " $num" if ($type && $num ne '');
+	# $ankor = find_href($s);
 	
-	$_ = $str;
+	my $str2 = $str;
 	$str = "<קטע";
 	$str .= " דרגה=\"$level\"" if ($level);
 	$str .= " עוגן=\"$ankor\"" if ($type && $ankor);
 	$str .= ">";
 	$str .= "<תיקון>$fix</תיקון>" if ($fix);
 	$str .= "<אחר>[$extra]</אחר>" if ($extra);
-	$str .= $_;
+	$str .= $str2;
 	$str .= "</קטע>\n\n";
 	return $str;
 }
@@ -334,7 +338,7 @@ sub parse_link {
 }
 
 sub parse_remark {
-	my $_ = shift;
+	local $_ = shift;
 	s/^\(\((.*?)\)\)$/$1/s;
 	my ($text,$tip,$url) = ( /((?:\{\{.*?\}\}|\[\[.*?\]\]|[^\|])+)/g );
 	return $_ unless defined $text;
@@ -358,7 +362,7 @@ sub parse_remark {
 my $pubdate = '';
 
 sub parse_signatures {
-	my $_ = shift;
+	local $_ = shift;
 	chomp;
 	# print STDERR "Signatures = |$_|\n";
 	my $str = "<חתימות>\n";
@@ -384,7 +388,7 @@ sub parse_pubdate {
 }
 
 sub mark_linkset {
-	my $_ = shift;
+	shift;
 	s/\[\[(?|(.*?)\|(.*?)|()(.*?))\]\]/[[»$1|$2]]/g;
 	s/»([^»]+)$/«$1/;
 	# print STDERR "$_\n";
@@ -544,7 +548,7 @@ sub parse_comparetable {
 	my @lines = split(/\n/,shift);
 	my $col = 0;
 	my @table;
-	for my $_ (@lines) {
+	for (@lines) {
 		if (/^ *(.*?) *\| *(.*?) *$/) {
 			$table[$col][0] = $1;
 			$table[$col][1] = $2;
@@ -571,7 +575,7 @@ sub parse_comparetable {
 #---------------------------------------------------------------------
 
 sub get_fixstr {
-	my $_ = shift;
+	local $_ = shift;
 	my @fix = ();
 	my $fix_sig = '(?:תיקון|תקון|תיקונים):';
 	push @fix, unquote($1) while (s/(?| *\($fix_sig *(([^()]++|\(.*?\))+) *\)| *\[$fix_sig *(.*?) *\](?!\]))//);
@@ -581,23 +585,23 @@ sub get_fixstr {
 }
 
 sub get_extrastr {
-	my $_ = shift;
+	local $_ = shift;
 	my $extra = undef;
 	return ($_, $extra) if /\[נוסח $HE+\]/;
-	$extra = unquote($1) if (s/(?<=[^\[])\[ *([^\[\]]+) *\] *//) || (s/^\[ *([^\[\]]+) *\] *//);
+	$extra = unquote($1) if (s/(?<=[^\[\(])\[ *([^\[\]]+) *\] *//) || (s/^\[ *([^\[\]]+) *\] *//);
 	s/^ *(.*?) *$/$1/;
 	return ($_, $extra);
 }
 
 sub get_ankor {
-	my $_ = shift;
+	local $_ = shift;
 	my @ankor = ();
 	push @ankor, unquote($1) while (s/ *<עוגן:? *(.*?)>//);
 	return ($_, join(', ',@ankor));
 }
 
 sub get_numeral {
-	my $_ = shift;
+	local $_ = shift;
 	return '' if (!defined($_));
 	my $num = '';
 	my $token = '';
@@ -640,11 +644,11 @@ sub get_numeral {
 		}
 		if ($num ne '') {
 			# Remove token from rest of string
-			s/^$token//;
+			$_ =~ s/^$token//;
 			last;
 		} else {
 			# Fetch next token
-			s/^[הו]// || s/^[^ ()|]*[ ()|]+// || s/^.*//;
+			$_ =~ s/^[הו]// || $_ =~ s/^\<[^>]*\>// || $_ =~ s/^[^ ()|]*[ ()|]+// || last;
 		}
 	}
 	
@@ -656,46 +660,46 @@ sub get_numeral {
 }
 
 sub unquote {
-	my $_ = shift;
+	my $s = shift;
 	s/'''//g;
 	# my $Q1 = '["״”“„‟″‶]';
 	# my $Q2 = '[\'`׳’‘‚‛′‵]';
 	my $Q1 = '"';
 	my $Q2 = '\'';
-	s/^ *(?|$Q1 *(.*?) *$Q1|$Q2 *(.*?) *$Q2) *$/$1/;
-	return $_;
+	$s =~ s/^ *(?|$Q1 *(.*?) *$Q1|$Q2 *(.*?) *$Q2) *$/$1/;
+	return $s;
 }
 
 sub unparent {
-	my $_ = unquote(shift);
-	s/^\(\((.*?)\)\)$/$1/;
-	s/^<([a-z]+)>(.*)<\/\1>/$2/g;
-	s/^(?|\((.*?)\)|\[(.*?)\]|\{(.*?)\})$/$1/;
-	s/^ *(.*?) *$/$1/;
-	return $_;
+	my $s = unquote(shift);
+	$s =~ s/^\(\((.*?)\)\)$/$1/;
+	$s =~ s/^<([a-z]+)>(.*)<\/\1>/$2/g;
+	$s =~ s/^(?|\((.*?)\)|\[(.*?)\]|\{(.*?)\})$/$1/;
+	$s =~ s/^ *(.*?) *$/$1/;
+	return $s;
 }
 
 sub escape_quote {
-	my $_ = shift;
-	s/^ *(.*?) *$/$1/;
-	s/&/\&amp;/g;
-	s/"/&quot;/g;
-	return $_;
+	my $s = shift;
+	$s =~ s/^ *(.*?) *$/$1/;
+	$s =~ s/&/\&amp;/g;
+	$s =~ s/"/&quot;/g;
+	return $s;
 }
 
 sub escape_text {
-	my $_ = unquote(shift);
-#	print STDERR "|$_|";
-	s/&/\&amp;/g;
-	s/</&lt;/g;
-	s/>/&gt;/g;
-	s/([(){}"'\[\]<>\|])/"&#" . ord($1) . ";"/ge;
-#	print STDERR "$_|\n";
-	return $_;
+	my $s = unquote(shift);
+#	print STDERR "|$s|";
+	$s =~ s/&/\&amp;/g;
+	$s =~ s/</&lt;/g;
+	$s =~ s/>/&gt;/g;
+	$s =~ s/([(){}"'\[\]<>\|])/"&#" . ord($1) . ";"/ge;
+#	print STDERR "$s|\n";
+	return $s;
 }
 
 sub unescape_text {
-	my $_ = shift;
+	local $_ = shift;
 	my %table = ( 'quot' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", # &amp; later
 		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'shy' => '&null;',
 		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 
@@ -710,7 +714,7 @@ sub unescape_text {
 }
 
 sub canonic_name {
-	my $_ = shift;
+	local $_ = shift;
 	tr/–־/-/;
 	tr/״”“/"/;
 	tr/׳‘’/'/;
@@ -720,9 +724,10 @@ sub canonic_name {
 }
 
 sub fix_tags {
-	my $_ = shift;
+	local $_ = shift;
 	tr/–/-/;
 	tr/“”״/"/;
+	s/\{\{==\}\}/=/g;
 	return $_;
 }
 
@@ -747,7 +752,7 @@ sub cleanup {
 
 sub linear_parser {
 	cleanup();
-	my $_ = shift;
+	local $_ = shift;
 	
 	$glob{context} = '';
 	$glob{href}{last_class} = '';
@@ -973,9 +978,9 @@ sub check_structure {
 #---------------------------------------------------------------------
 
 sub push_lookahead {
-	my $_ = shift;
-	# print STDERR "Adding lookahead '$_'\n";
-	push @lookahead, $_;
+	my $s = shift;
+	# print STDERR "Adding lookahead '$s'\n";
+	push @lookahead, $s;
 }
 
 sub process_href {
@@ -1130,7 +1135,7 @@ sub process_href {
 }
 
 sub find_href {
-	my $_ = shift;
+	local $_ = shift;
 	my $helper = shift;
 	if (!$_) { return $_; }
 	
@@ -1194,7 +1199,7 @@ sub find_href {
 	my %elm = ();
 	
 	my @pos = ();
-	push @pos, $-[0] while (/([^ ,.\-\)]+)/g);
+	push @pos, $-[0] while ($_ =~ /([^ ,.\-\)]+)/g);
 	
 	for my $p (@pos) {
 		$_ = substr($href,$p);
@@ -1378,7 +1383,7 @@ sub find_reshumot_href {
 }
 
 sub find_ext_ref {
-	my $_ = shift;
+	local $_ = shift;
 	return $_ if (/^https?:\/\//);
 	return lc($_) if (/^HTTPS?:\/\//);
 	return $_ if (/^[+-]+$/);
@@ -1407,14 +1412,14 @@ sub find_ext_ref {
 ######################################################################
 
 sub convert_quotes {
-	my $_ = shift;
+	local $_ = shift;
 	# my $start = time(); my $end;
 	s/(תש[א-ת])"([א-ת])/$1״$2/g;
 	s/(תש)"([א-ת])/$1״$2/g;
 	# $end = time(); printf STDERR "\ttook %.2f sec.\n", $end-$start; $start = $end;
 	# s/(\s+[בהו]?-?)"([^\"\n]+)"/$1”$2“/g;
-	s/([\s\|]+[בהו]?-?(?:\(\(|\)\)|)|")"([^\"\n\s]+(?:[״"]$HE+[^\"\n\s]*| [^\"\n\s]+)*)"/$1”$2“/g;
-	s/([\s\|]+[בהו]?-?(?:\(\(|\)\)|))"([^\"\n\s]+(?:[״"]$HE+[^\"\n\s]*| [^\"\n\s]+)*)"/$1”$2“/g;
+	s/([\s\|]+[בהו]?-?(?:\(\(?|\)\)|'''|)|")"([^\"\n\s]+(?:[״"](?:$HE+|$EN+)[^\"\n\s]*| [^\"\n\s]+)*)"/$1”$2“/g;
+	s/([\s\|]+[בהו]?-?(?:\(\(?|\)\)|'''|))"([^\"\n\s]+(?:[״"](?:$HE+|$EN+)[^\"\n\s]*| [^\"\n\s]+)*)"/$1”$2“/g;
 	s/([\s\|]+[בהו]?-?)'($HE+[^"'\n\s]*)'(?!['א-ת])/$1’$2‘/g;
 	s/($HE+)"($HE)(?![א-ת])/$1״$2/g;
 	s/($HE+\(\()"(\)\)$HE)(?![א-ת])/$1״$2/g;
