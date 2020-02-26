@@ -57,7 +57,7 @@ sub main() {
 }
 
 sub convert {
-	shift;
+	local $_ = shift;
 	
 	# General cleanup
 	s/\n *<!--.*?--> *\n/\n/sg;  # Remove comments

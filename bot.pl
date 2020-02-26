@@ -11,6 +11,9 @@ use Data::Dumper;
 use MediaWiki::Bot;
 use Getopt::Long;
 
+use FindBin 1.51 qw( $RealBin );
+use lib $RealBin;
+
 use SyntaxLaw();
 use SyntaxWiki();
 
@@ -546,7 +549,7 @@ sub parse_actions {
 	my $line = -1;
 	foreach my $_ (@_) {
 		$line++;
-		next if !(/^ *\*/) || /{{v}}/ || /{{x}}/;
+		next if !(/^ *\*/) || /\{\{v\}\}/ || /\{\{x\}\}/;
 		if (/\[\[(.*?)\]\].*?\[\[(.*?)\]\]/) {
 			# print STDERR "MOVE '$1' to '$2'\n";
 			push @actions, { line => $line, action => 'move', what => [clean_name($1), clean_name($2)] };
