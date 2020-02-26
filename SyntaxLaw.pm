@@ -13,6 +13,7 @@ no if ($]>=5.018), warnings => 'experimental';
 use strict;
 no strict 'refs';
 use English;
+# use Roman;
 use utf8;
 use Time::HiRes 'time';
 
@@ -634,7 +635,7 @@ sub get_numeral {
 			($num,$token) = ("9",$1) when /^(תשיעית?|תשעה?)\b/;
 			($num,$token) = ("10",$1) when /^(עשירית?|עשרה?)\b/;
 			($num,$token) = ("20",$1) when /^(עשרים)\b/;
-			($num,$token) = ($1,$1) when /^([A-Ka-k])\b/;
+			# ($num,$token) = (arabic($1), $1) when /^($roman)\b/;
 			($num,$token) = ("$1-2","$1$2") when /^(\d+)([- ]?bis)\b/i;
 			($num,$token) = ("$1-3","$1$2") when /^(\d+)([- ]?ter)\b/i;
 			($num,$token) = ("$1-4","$1$2") when /^(\d+)([- ]?quater)\b/i;
@@ -661,12 +662,13 @@ sub get_numeral {
 
 sub unquote {
 	my $s = shift;
-	s/'''//g;
 	# my $Q1 = '["״”“„‟″‶]';
 	# my $Q2 = '[\'`׳’‘‚‛′‵]';
 	my $Q1 = '"';
 	my $Q2 = '\'';
+	$s =~ s/'''/‴/g;
 	$s =~ s/^ *(?|$Q1 *(.*?) *$Q1|$Q2 *(.*?) *$Q2) *$/$1/;
+	$s =~ s/‴/'''/g;
 	return $s;
 }
 
@@ -1210,7 +1212,8 @@ sub find_href {
 			when (/^$pre_sig(פרק|פרקים)/) { $class = 'sect'; }
 			when (/^$pre_sig(סימןמשנה)/) { $class = 'subsub'; }
 			when (/^$pre_sig(סימן|סימנים)/) { $class = 'subs'; }
-			when (/^$pre_sig(תוספת|תוספות|נספח|נספחים)/) { $class = 'supl'; $num = ""; }
+			when (/^$pre_sig(תוספת|תוספות)/) { $class = 'supl'; $num = ""; }
+			when (/^$pre_sig(נספח|נספחים)/) { $class = 'appn'; $num = ""; }
 			when (/^$pre_sig(טופס|טפסים)/) { $class = 'form'; }
 			when (/^$pre_sig(לוח|לוחות)/) { $class = 'tabl'; }
 			when (/^$pre_sig(טבל[הא]|טבלאות)/) { $class = 'tabl2'; }
@@ -1230,7 +1233,7 @@ sub find_href {
 			}
 			when (/^ה?(זה|זו|זאת|this)/) {
 				given ($class) {
-					when (/^(supl|form|tabl|table2)$/) { $num = $glob{$class} || ''; }
+					when (/^(supl|appn|form|tabl|table2)$/) { $num = $glob{$class} || ''; }
 					when (/^(part|sect|form|chap)$/) { $num = $glob{$class}; }
 					when (/^subs$/) {
 						$elm{subs} = $glob{subs} unless defined $elm{subs};
@@ -1314,11 +1317,13 @@ sub find_href {
 		$href .= " טופס $elm{form}" if (defined $elm{form});
 		$href .= " לוח $elm{tabl}" if (defined $elm{tabl});
 		$href .= " טבלה $elm{tabl2}" if (defined $elm{tabl2});
+		$href .= " נספח $elm{appn}" if (defined $elm{appn});;
 		$href .= " פרט $elm{supchap}" if (defined $elm{supchap});
-	} elsif (defined $elm{form} || defined $elm{tabl} || defined $elm{tabl2}) {
+	} elsif (defined $elm{form} || defined $elm{tabl} || defined $elm{tabl2} || defined $elm{appn}) {
 		$href = "טופס $elm{form}" if (defined $elm{form});
 		$href = "לוח $elm{tabl}" if (defined $elm{tabl});
 		$href = "טבלה $elm{tabl2}" if (defined $elm{tabl2});
+		$href = "נספח $elm{appn}"  if (defined $elm{appn});
 		$href .= " חלק $elm{part}" if (defined $elm{part});
 		$href .= " פרק $elm{sect}" if (defined $elm{sect});
 		$href .= " סימן $elm{subs}" if (defined $elm{subs});
