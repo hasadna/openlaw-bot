@@ -16,11 +16,12 @@ use English;
 # use Roman;
 use utf8;
 use Time::HiRes 'time';
-
+use Getopt::Long;
 use Data::Dumper;
 $Data::Dumper::Useperl = 1;
 
 use constant { true => 1, false => 0 };
+my $do_expand = 0;
 
 # \bו?כ?ש?מ?[בהל]?(חוק|פקוד[הת]|תקנות|צו|חלק|פרק|סימן(?: משנה|)|תוספו?ת|טופס|לוח)
 our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
@@ -37,6 +38,8 @@ our $nikkud = '[\x{05B0}-\x{05BD}]';
 
 
 sub main() {
+	GetOptions( "expand" => \$do_expand);
+	
 	if ($#ARGV>=0) {
 		my $fin = $ARGV[0];
 		my $fout = $fin;
@@ -181,14 +184,20 @@ sub convert {
 	s/(\.{4,20})/'. 'x(length($1)-1) . '.'/ge;
 	
 	# use arial font for fraction slash (U+2044)
+	$_ = s_lut($_, { 
+		'½' => '¹⁄₂', '⅓' => '¹⁄₃', '⅔' => '²⁄₃', '¼' => '¹⁄₄', '¾' => '³⁄₄', 
+		'⅕' => '¹⁄₅', '⅙' => '¹⁄₆', '⅐' => '¹⁄₇', '⅛' => '¹⁄₈', '⅑' => '¹⁄₉', '⅒' => '¹⁄₁₀'
+	});
 	s/⁄/<font face⌸"arial">⁄<\/font>/g;
 	
-	# Replace "=" (⌸) within templates with {{==}}
-	s/(\{\{(?:[^{}\n]++|(?R))*\}\})/ $1 =~ s|⌸|\{\{==\}\}|gr /eg;
+	# Replace "=" (⌸) within templates with {{=}}
+	s/(\{\{(?:[^{}\n]++|(?R))*\}\})/ $1 =~ s|⌸|\{\{=\}\}|gr /eg;
 	tr/⌸/=/;
 	
 	s/\x00//g; # Remove nulls
 	s/\n{3,}/\n\n/g;
+	
+	$_ = expand_templates($_) if ($do_expand);
 	
 	cleanup();
 	
@@ -572,6 +581,28 @@ sub parse_comparetable {
 	return $str;
 }
 
+#---------------------------------------------------------------------
+
+sub expand_templates {
+	local $_ = shift;
+	# Convert to single character brackets for simplier regexps
+	s/\{\{/⦃/g;
+	s/\}\}/⦄/g;
+	
+	s/(⦃(?:[^⦃⦄]++|(?R))*⦄)/ &expand_templates_2($1) /eg;
+	
+	s/⦃/\{\{/g;
+	s/⦄/\}\}/g;
+	return $_;
+}
+
+sub expand_templates_2 {
+	local $_ = shift;
+	# s/^⦃ *([^ |])(\|//;
+	# s/ *⦄$//;
+	# s/((?:[^⦃⦄]++|(?R))*⦄)/ &expand_templates_2($1) /eg;
+	return $_;
+}
 
 #---------------------------------------------------------------------
 
@@ -702,7 +733,7 @@ sub escape_text {
 
 sub unescape_text {
 	local $_ = shift;
-	my %table = ( 'quot' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", # &amp; later
+	my %table = ( 'quot' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", # &amp; subs later
 		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'shy' => '&null;',
 		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 
 		'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε'
@@ -711,8 +742,15 @@ sub unescape_text {
 	s/(&([a-z]+);)/($table{$2} || $1)/ge;
 	s/&null;//g;
 	s/&amp;/&/g;
-#	print STDERR "|$_|\n";
 	return $_;
+}
+
+sub s_lut {
+	my $str = shift;
+	my $table = shift;
+	my $keys = join('', keys(%{$table}));
+	$str =~ s/([$keys])/$table->{$1}/ge;
+	return $str;
 }
 
 sub canonic_name {
@@ -729,7 +767,7 @@ sub fix_tags {
 	local $_ = shift;
 	tr/–/-/;
 	tr/“”״/"/;
-	s/\{\{==\}\}/=/g;
+	s/\{\{==?\}\}/=/g;
 	return $_;
 }
 
@@ -1376,11 +1414,11 @@ sub find_href {
 sub find_reshumot_href {
 	my $url = shift;
 	$url =~ s/^ *(.*?) *$/$1/;
-	$url = "http://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
-	$url = "http://fs.knesset.gov.il/$2/law/$2_lsr_$1_$3.pdf" if ($url =~ /^(ec|vn):(\d+):(\d+)$/);
-	$url = "http://fs.knesset.gov.il/$2/law/$2_ls_$1_$3.pdf" if ($url =~ /^(fr|nv):(\d+):(\d+)$/);
-	$url = "http://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^(?|ls([a-z_0-9]+)|([a-z_]+)):(\d+):(\d+)$/);
-	$url = "https://supremedecisions.court.gov.il/Home/Download?path=HebrewVerdicts/$1/$3/$2/$4&fileName=$1$2$3_$4.pdf&type=4" if ($url =~ /^(\d\d)(\d\d\d)(\d\d\d)_([a-zA-Z]\d\d)$/);
+	$url = "https://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
+	$url = "https://fs.knesset.gov.il/$2/law/$2_lsr_$1_$3.pdf" if ($url =~ /^(ec|vn):(\d+):(\d+)$/);
+	$url = "https://fs.knesset.gov.il/$2/law/$2_ls_$1_$3.pdf" if ($url =~ /^(fr|nv):(\d+):(\d+)$/);
+	$url = "https://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^(?|ls([a-z_0-9]+)|([a-z_]+)):(\d+):(\d+)$/);
+	$url = "https://supremedecisions.court.gov.il/Home/Download?path=HebrewVerdicts/$1/$3/$2/$4&fileName=$1$2$3_$4.pdf&type=4" if ($url =~ /^(\d\d)(\d\d\d)(\d\d\d)[_.]([a-zA-Z]\d\d)$/);
 	$url = '' if ($url =~ /^(\d+)(?|_(\d+)|())$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
