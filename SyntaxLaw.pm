@@ -1463,7 +1463,7 @@ sub convert_quotes {
 	s/(תש)"([א-ת])/$1״$2/g;
 	# $end = time(); printf STDERR "\ttook %.2f sec.\n", $end-$start; $start = $end;
 	# s/(\s+[בהו]?-?)"([^\"\n]+)"/$1”$2“/g;
-	s/($nochar[\s\|]+[בהו]?-?$nochar(?:"$nochar)?)"($nochar[^\"\n\s]++(?:[״"](?:$HE+|$EN+)[^\"\n\s]*| [^\"\n\s]+)*)"/$1”$2“/g;
+	s/($nochar[\s\|(]+[בהו]?-?$nochar(?:"$nochar)?)"($nochar[^\"\n\s]++(?:[״"](?:$HE+|$EN+)[^\"\n\s]*| [^\"\n\s]+)*)"/$1”$2“/g;
 	s/([\s\|]+[בהו]?-?)'($HE+[^"'\n\s]*)'(?!['א-ת])/$1’$2‘/g;
 	s/($HE+$nochar)"($nochar$HE(ות|וֹת|ים|)$nochar)(?![א-ת])/$1״$2/g;
 	s/($pre_sig$nochar)"($nochar[^\"\n\s]++(?: [^\"\n\s]+)*)"(?=$nochar[\s,.;]|\]\])/$1”$2“/g;
