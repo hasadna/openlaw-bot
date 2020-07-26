@@ -93,6 +93,7 @@ tr/\xAD\x96\x97/-/;           # Convert more typographic dashes
 tr/״”“„‟″‶/"/;                # Convert typographic double quotes
 tr/`׳’‘‚‛′‵/'/;               # Convert typographic single quotes
 tr/;/;/;                      # Convert wrong OCRed semicolon
+tr/\x{F0A8}/□/;               # White square (special font)
 
 tr/\x{FEFF}\x{FFFC}-\x{FFFF}//d;    # Unicode placeholders and junk
 tr/\x{F000}-\x{F00F}/ /;
