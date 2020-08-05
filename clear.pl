@@ -88,7 +88,9 @@ s/(?<=[א-ת])–(?=[א-ת])/&ndash;/g if /[א-ת][\־\-][א-ת]/;
 tr/\x{2000}-\x{200A}\x{202F}\x{205F}\x{2060}/ /; # Typographic spaces
 tr/\x{200B}-\x{200D}//d;      # Zero-width spaces
 tr/־–—‒―/-/;                  # Convert typographic dashes
-s/(?<![א-ת\x{05B0}-\x{05BD}])\x{05BF}/-/g; # Rafe (U+05BF) misused as dash
+
+# s/(?<![א-ת\x{05B0}-\x{05BD}])\x{05BF}/-/g; # Rafe (U+05BF) misused as dash
+s/\x{05BF} ?/-/g;
 tr/\xAD\x96\x97/-/;           # Convert more typographic dashes
 tr/״”“„‟″‶/"/;                # Convert typographic double quotes
 tr/`׳’‘‚‛′‵/'/;               # Convert typographic single quotes
@@ -173,9 +175,13 @@ s/<\/p>/\n\n/gi;
 s/<\/?(?:".*?"|'.*?'|[^'">]*+)*>//g;
 $_ = unescape_text($_);
 
+# Replace vulgar fractions
+s/([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒↉])(\d+)/$2$1/g;
 $_ = s_lut($_, { 
 	'½' => '¹⁄₂', '⅓' => '¹⁄₃', '⅔' => '²⁄₃', '¼' => '¹⁄₄', '¾' => '³⁄₄', 
-	'⅕' => '¹⁄₅', '⅙' => '¹⁄₆', '⅐' => '¹⁄₇', '⅛' => '¹⁄₈', '⅑' => '¹⁄₉', '⅒' => '¹⁄₁₀'
+	'⅕' => '¹⁄₅', '⅖' => '²⁄₅', '⅗' => '³⁄₅', '⅘' => '⁴⁄₅', '⅙' => '¹⁄₆', '⅚' => '⁵⁄₆',  
+	'⅐' => '¹⁄₇', '⅛' => '¹⁄₈', '⅜' => '³⁄₈', '⅝' => '⁵⁄₈', '⅞' => '⁷⁄₈', 
+	'⅑' => '¹⁄₉', '⅒' => '¹⁄₁₀', '↉' => '⁰⁄₃'
 });
 
 # Clean WIKI markups
