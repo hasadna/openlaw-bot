@@ -68,6 +68,12 @@ if (/\x{F8FF}/ and /\xD3/) { # Fix f*cked-up macos encoding
 	tr/\x{F8FF}/נ/;
 }
 
+if (/[\xE0-\xFA]{5,}/) { # Convert Windows-1255 codepage
+	# Convert Windows-1255 to Unicode
+	tr/\xE0-\xFA/א-ת/;
+	tr/\xC0-\xCF/\x{05B0}-\x{05BF}/;
+}
+
 if ((/[A-Z]/) and (/\[/) and !(/[א-ת]/)) {
 	tr/B-V/א-ת/;
 	tr/WXY\[Z\\/ץצקשרת/;
@@ -237,7 +243,7 @@ sub s_lut {
 
 
 sub unescape_text {
-	my $_ = shift;
+	local $_ = shift;
 	my %table = ( 'quot' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", 
 		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'shy' => '&null;',
 		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε',
@@ -251,9 +257,9 @@ sub unescape_text {
 
 
 sub pop_embedded {
-	my $_ = shift; my $type = shift // '';
+	local $_ = shift; my $type = shift // '';
 	
-	# dump_stderr("pop_embedded :|$_|\n");
+	dump_stderr("pop_embedded: |$_|\n");
 	# 0x202A is [LRE]; 0x202B is [RLE]; 0x202C is [PDF].
 	if (/^([\x{202A}\x{202B}])(.*)[\x{202C}]$/) {
 		$type .= $1; $_ = $2;
@@ -287,7 +293,7 @@ sub pop_embedded {
 
 sub dump_stderr {
 	return if (!$debug);
-	my $_ = shift;
+	local $_ = shift;
 	
 	tr/\x00-\x1F\x7F/␀-␟␡/;
 	s/([␍␊]+)/\n/g;
