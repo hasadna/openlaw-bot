@@ -65,7 +65,7 @@ sub convert {
 	
 	# General cleanup
 	s/\n *<!--.*?--> *\n/\n/sg;  # Remove comments
-	s/<!--.*?-->//sg;  # Remove comments
+	s/ *<!--.*?-->//sg;  # Remove comments
 	s/\r//g;           # Unix style, no CR
 	s/[\t\xA0]/ /g;    # tab and hardspace are whitespaces
 	s/^[ ]+//mg;       # Remove redundant whitespaces
@@ -113,6 +113,9 @@ sub convert {
 	
 	# Replace with “Smart quotes”
 	$_ = convert_quotes($_);
+	
+	# em-dash as span float left
+	s/\s+—\s+([^\n]+) *$/ — <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<[\\\/](ויקי)?\>)/&escape_text($1)/egs;
 	
