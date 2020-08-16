@@ -96,11 +96,12 @@ tr/\x{200B}-\x{200D}//d;      # Zero-width spaces
 tr/־–—‒―/-/;                  # Convert typographic dashes
 
 # s/(?<![א-ת\x{05B0}-\x{05BD}])\x{05BF}/-/g; # Rafe (U+05BF) misused as dash
-s/\x{05BF} ?/-/g;
+s/\x{05BF} ?/-/g;             # Rafe (U+05BF) misused as dash
 tr/\xAD\x96\x97/-/;           # Convert more typographic dashes
 tr/״”“„‟″‶/"/;                # Convert typographic double quotes
 tr/`׳’‘‚‛′‵/'/;               # Convert typographic single quotes
 tr/;/;/;                      # Convert wrong OCRed semicolon
+tr/¸/,/;                      # Convert wring Cedilla used for comma
 tr/\x{F0A8}/□/;               # White square (special font)
 
 tr/\x{FEFF}\x{FFFC}-\x{FFFF}//d;    # Unicode placeholders and junk

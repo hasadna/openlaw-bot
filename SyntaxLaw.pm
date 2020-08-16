@@ -94,7 +94,6 @@ sub convert {
 	tr/\xAD\x96\x97/-/; # more typographic dashes
 	tr/״”“„‟″‶/"/;      # typographic double quotes
 	tr/`׳’‘‚‛′‵/'/;     # typographic single quotes
-	tr/;/;/;            # wrong OCRed semicolon
 	s/(?<=[ \n])-{2,4}(?=[ \n])/—/g;   # em-dash
 	s/[ ]{2,}/ /g;     # remove extra  spaces
 	
@@ -115,7 +114,7 @@ sub convert {
 	$_ = convert_quotes($_);
 	
 	# em-dash as span float left
-	s/\s+—\s+([^\n]+) *$/ — <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
+	s/ — ([^\n]+) *$/ — <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<[\\\/](ויקי)?\>)/&escape_text($1)/egs;
 	
