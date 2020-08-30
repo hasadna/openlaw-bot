@@ -21,7 +21,7 @@ binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 
 my @pages = ();
-my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $select, $start, $force_comment);
+my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $select, $start, $force_comment, $slow);
 my $botpage;
 my $locforce = 0;
 my $outfile;
@@ -42,6 +42,7 @@ GetOptions(
 	"recent" => sub { $recent = 1 },
 	"select=s" => \$select,
 	"start=s" => \$start,
+	"slow" => \$slow,
 	"comment=s" => \$force_comment,
 	"help|?" => \&HelpMessage,
 	"" => \$interactive
@@ -546,6 +547,14 @@ sub get_revid {
 sub parse_actions {
 	my @_ = split(/\n/, shift);
 	my @actions;
+	if ($slow) {
+		my $hour;
+		(undef,undef,$hour) = localtime();
+		if ($hour>0) {
+			print "Slow activated, skipping sine hour is $hour, wait until midnight.\n";
+			return ();
+		}
+	}
 	my $line = -1;
 	foreach my $_ (@_) {
 		$line++;
@@ -556,6 +565,10 @@ sub parse_actions {
 		} elsif (/\[\[(.*?)\]\]/) {
 			# print STDERR "ADD '$1'\n";
 			push @actions, { line => $line, action => 'add', what => clean_name($1) };
+		}
+		if ($slow) {
+			print "Slow activated, allowing one action per day.\n";
+			last;
 		}
 	}
 	return @actions;
