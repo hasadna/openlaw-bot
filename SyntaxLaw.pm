@@ -151,7 +151,7 @@ sub convert {
 	s/^(:+[-–]?) *((?:'''|)["”“]?(?:\([^( ]+\)|\[[^[ ]+\]|\(\(\(\d.?\)\)\)|\(\(\([א-י]\d?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|$heb_num2\d?\.|$roman\.?|[•■□-◿*]|[A-Za-z0-9א-ת]+\)? *\(\(\)\)|<sup>[0-9א-ת]{1,2}<\/sup>|)(?:'''|))(?| +(.*?)|())\n/&parse_line($1,$2,$3)/egm;
 	
 	# Move container tags if needed
-	my $barrier = '<\/?(?:מקור|הקדמה|ת+|קטע|סעיף|חתימות|td|tr)|__TOC__|$';
+	my $barrier = '<\/?(?:מקור|הקדמה|ת+|קטע|סעיף|חתימות|מידע נוסף|td|tr)|__TOC__|$';
 	s/(\n?<\/(?:הקדמה|מקור)>)(.*?)(?=\s*($barrier))/$2$1/sg;
 	s/(\n?<\/ת+>)(.*?)(?=\s*(<מפריד.*?>\s*)?($barrier))/$2$1/sg;
 	# Add <סעיף> marker after <קטע> if not found
@@ -179,7 +179,7 @@ sub convert {
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
 	s/<לוח_השוואה>\s*(.*?)<\/(לוח_השוואה|)>\n?/&parse_comparetable($1)/egs;
 	s/(\<math.*?\>.*?\<[\\\/]math\>)/&fix_tags($1)/egs;
-	s/(<(?:div|span|table|td|th|tr) [^>]+>)/&fix_tags($1)/egs;
+	s/(<(?:div|span|table|td|th|tr|מידע נוסף) [^>]+>)/&fix_tags($1)/egs;
 	
 	# Use thin spaces in dotted lines
 	s/(\.{21,})/'<span style⌸"word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
