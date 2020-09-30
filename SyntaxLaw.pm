@@ -729,12 +729,10 @@ sub escape_quote {
 
 sub escape_text {
 	my $s = unquote(shift);
-#	print STDERR "|$s|";
 	$s =~ s/&/\&amp;/g;
 	$s =~ s/</&lt;/g;
 	$s =~ s/>/&gt;/g;
 	$s =~ s/([(){}"'\[\]<>\|])/"&#" . ord($1) . ";"/ge;
-#	print STDERR "$s|\n";
 	return $s;
 }
 
@@ -767,6 +765,8 @@ sub canonic_name {
 	tr/׳‘’/'/;
 	tr/\x{05B0}-\x{05BD}//;
 	s/ - / – /g;
+	# s/\(\((?|\[(.*?)\]|(.*?))\)\)/$1/g;
+	# s/<הערה>(?|\[(.*?)\]|(.*?))<\/הערה>\)\)/$1/g;
 	return $_;
 }
 
@@ -1473,6 +1473,7 @@ sub convert_quotes {
 	s/([\s\|]+[בהו]?-?)'($HE+[^"'\n\s]*)'(?!['א-ת])/$1’$2‘/g;
 	s/($HE+$nochar)"($nochar$HE(ות|וֹת|ים|)$nochar)(?![א-ת])/$1״$2/g;
 	s/($pre_sig$nochar)"($nochar[^\"\n\s]++(?: [^\"\n\s]+)*)"(?=$nochar[\s,.;]|\]\])/$1”$2“/g;
+	s/”([A-Za-z][^א-ת“]*)“/“$1”/g;
 	s/(?<=[א-ת])'(?!['])/׳/g;
 	s/(?<=[א-ת]\(\()'(?=\)\))/׳/g;
 	s/(?<=[א-ת])-(?![\s.\-])/־/g;
