@@ -13,19 +13,23 @@ no if ($]>=5.018), warnings => 'experimental';
 use strict;
 no strict 'refs';
 use English;
-# use Roman;
 use utf8;
+# use Roman;
 use Time::HiRes 'time';
 use Getopt::Long;
 use Data::Dumper;
 $Data::Dumper::Useperl = 1;
 
+eval { require RomanX; RomanX->import(); };
+my $use_roman = defined $Roman::VERSION;
+
 use constant { true => 1, false => 0 };
+
 my $do_expand = 0;
 
 # \bו?כ?ש?מ?[בהל]?(חוק|פקוד[הת]|תקנות|צו|חלק|פרק|סימן(?: משנה|)|תוספו?ת|טופס|לוח)
 our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
-our $extref_sig = $pre_sig . '(חוק(?:[ -]ה?יסוד:?|)|פקוד[הת]|תקנות(?: שעת[ -]ה?חי?רום)?|צו|החלטה|הכרזה|תקנון|הוראו?ת|הודע[הת]|מנשר|כללים?|נוהל|קביעו?ת|אכרזו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|החלטו?ת|הנחי[יו]ת|קווים מנחים|אמו?ת מידה|היתר)';
+our $extref_sig = $pre_sig . '(חוק(?:[ -]ה?יסוד:?|)|פקוד[הת]|תקנות(?: שעת[ -]ה?חי?רום)?|צו|(?:החלט|הכרז|אחרז|הודע)(?:ה|ו?ת)|תקנון|הוראו?ת|מנשר|כללים?|נוהל|קביעו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|הנחי[יו]ת|קווים מנחים|אמו?ת מידה|היתר)';
 our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]מידה|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+\.?)';
 our $heb_num2 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?)';
@@ -116,7 +120,7 @@ sub convert {
 	# em-dash as span float left
 	s/ — ([^\n]+) *$/ — <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
 	
-	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<[\\\/](ויקי)?\>)/&escape_text($1)/egs;
+	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escape_text($1)/egs;
 	
 	s/(\{\|.*?\n\|\}) *\n?/&parse_wikitable($1)/egs;
 	
@@ -161,6 +165,7 @@ sub convert {
 	# s/(<(qq|ins|del)>.*?<\/\2>)/&parse_spans($2,$1)/egs;
 	
 	# Parse links and remarks
+	s/\[\[([ws]:)([^\[\]\|]*)\|\]\]/[[$1$2|$2]]/g;
 	s/\[\[(?:קובץ:|תמונה:|[Ff]ile:|[Ii]mage:)(.*?)\]\]/<תמונה>$1<\/תמונה>/gm;
 	
 	# s/(?<!\[)(\[\[(?:(?!\]\]|\[\[).)*\]\]\]?(?:(?:,|או|) \[\[(?:(?!\]\]|\[\[).)*\]\]\]?)++)/&mark_linkset($1)/egm;
@@ -175,10 +180,10 @@ sub convert {
 	s/ *__NOTOC__//g;
 	s/ *__NOSUB__//g;
 	
-	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<[\\\/](ויקי)?\>)/&unescape_text($1) . "<\/ויקי>"/egs;
+	s/(?<=\<ויקי\>)\s*(.*?)\s*(\<\/(ויקי)?\>)/&unescape_text($1) . "<\/ויקי>"/egs;
 	# s/\<תמונה\>\s*(.*?)\s*\<\/(תמונה)?\>/&unescape_text($1)/egs;
 	s/<לוח_השוואה>\s*(.*?)<\/(לוח_השוואה|)>\n?/&parse_comparetable($1)/egs;
-	s/(\<math.*?\>.*?\<[\\\/]math\>)/&fix_tags($1)/egs;
+	s/(\<math.*?\>.*?\<\/math\>)/&fix_tags($1)/egs;
 	s/(<(?:div|span|table|td|th|tr|מידע נוסף) [^>]+>)/&fix_tags($1)/egs;
 	
 	# Use thin spaces in dotted lines
@@ -625,9 +630,11 @@ sub get_fixstr {
 sub get_extrastr {
 	local $_ = shift;
 	my @extra = ();
-	return ($_, undef) if /\[נוסח $HE+\]/;
+	s/\[(נוסח $HE+)\]/⟦$1⟧/g;
+	s/(\(\(.*?\)\))/ $1 =~ tr|[]|⟦⟧|r /eg; # Terrible way to avoid [...] match within ((...)).
 	push @extra, unquote($1) while (s/(?<=[^\[\(])\[ *([^\[\]]+) *\] *//) || (s/^\[ *([^\[\]]+) *\] *//);
 	s/^ *(.*?) *$/$1/;
+	tr/⟦⟧/[]/;
 	return ($_, join(', ',@extra));
 }
 
@@ -672,7 +679,7 @@ sub get_numeral {
 			($num,$token) = ("9",$1) when /^(תשיעית?|תשעה?)\b/;
 			($num,$token) = ("10",$1) when /^(עשירית?|עשרה?)\b/;
 			($num,$token) = ("20",$1) when /^(עשרים)\b/;
-			# ($num,$token) = (arabic($1), $1) when /^($roman)\b/;
+			($num,$token) = ($use_roman ? arabic($1) : uc($1), $1) when /^($roman)\b/;
 			($num,$token) = ("$1-2","$1$2") when /^(\d+)([- ]?bis)\b/i;
 			($num,$token) = ("$1-3","$1$2") when /^(\d+)([- ]?ter)\b/i;
 			($num,$token) = ("$1-4","$1$2") when /^(\d+)([- ]?quater)\b/i;
@@ -765,6 +772,8 @@ sub canonic_name {
 	tr/׳‘’/'/;
 	tr/\x{05B0}-\x{05BD}//;
 	s/ - / – /g;
+	s/^ *(.*?) *$/$1/;
+	s/ {2,}/ /g;
 	# s/\(\((?|\[(.*?)\]|(.*?))\)\)/$1/g;
 	# s/<הערה>(?|\[(.*?)\]|(.*?))<\/הערה>\)\)/$1/g;
 	return $_;
@@ -1425,7 +1434,8 @@ sub find_reshumot_href {
 	$url = "https://fs.knesset.gov.il/$1/law/$1_lsr_$2.pdf" if ($url =~ /^(\d+):(\d+)$/);
 	$url = "https://fs.knesset.gov.il/$2/law/$2_lsr_$1_$3.pdf" if ($url =~ /^(ec|vn):(\d+):(\d+)$/);
 	$url = "https://fs.knesset.gov.il/$2/law/$2_ls_$1_$3.pdf" if ($url =~ /^(fr|nv):(\d+):(\d+)$/);
-	$url = "https://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^(?|ls([a-z_0-9]+)|([a-z_]+)):(\d+):(\d+)$/);
+	$url = "https://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^(?:ls|)([a-z]+):(\d+):(\d+)$/);
+	$url = "https://fs.knesset.gov.il/$2/law/$2_$1_$3.pdf" if ($url =~ /^([a-z]+_[a-z]+):(\d+):(\d+)$/);
 	$url = "https://supremedecisions.court.gov.il/Home/Download?path=HebrewVerdicts/$1/$3/$2/$4&fileName=$1$2$3_$4.pdf&type=4" if ($url =~ /^(\d\d)(\d\d\d)(\d\d\d)[_.]([a-zA-Z]\d\d)$/);
 	$url = '' if ($url =~ /^(\d+)(?|_(\d+)|())$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
@@ -1473,7 +1483,7 @@ sub convert_quotes {
 	s/([\s\|]+[בהו]?-?)'($HE+[^"'\n\s]*)'(?!['א-ת])/$1’$2‘/g;
 	s/($HE+$nochar)"($nochar$HE(ות|וֹת|ים|)$nochar)(?![א-ת])/$1״$2/g;
 	s/($pre_sig$nochar)"($nochar[^\"\n\s]++(?: [^\"\n\s]+)*)"(?=$nochar[\s,.;]|\]\])/$1”$2“/g;
-	s/”([A-Za-z][^א-ת“]*)“/“$1”/g;
+	# s/”([A-Za-z][^א-ת“]*)“/“$1”/g;
 	s/(?<=[א-ת])'(?!['])/׳/g;
 	s/(?<=[א-ת]\(\()'(?=\)\))/׳/g;
 	s/(?<=[א-ת])-(?![\s.\-])/־/g;
