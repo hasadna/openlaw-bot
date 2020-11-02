@@ -107,12 +107,12 @@ sub convert {
 	s/(?<![=\n])\n(\=)/\n\n/gm;
 	
 	s/\[\[קטגוריה:.*?\]\] *\n?//g;  # Ignore categories (for now)
-	
+	s/\[\[([ws]:)([^\[\]\|]*)\|\]\]/[[$1$2|$2]]/g;
+	s/(\[\[[ws]:.*?(?:\||\]\]))/ $1 =~ tr| |_|r /ge;
+	s/(\[\[(?:קובץ|תמונה|[Ff]ile|[Ii]mage):.*?\]\])/ $1 =~ tr| |_|r /ge;
 	
 	# Unescape HTML characters
 	$_ = unescape_text($_);
-	
-	s/(\[\[(?:[ws]|קובץ|תמונה|[Ff]ile|[Ii]mage):.*?\]\])/ $1 =~ tr| |_|r /ge;
 	
 	s/([ :])-([ \n])/$1–$2/g;
 	
@@ -167,7 +167,6 @@ sub convert {
 	# s/(<(qq|ins|del)>.*?<\/\2>)/&parse_spans($2,$1)/egs;
 	
 	# Parse links and remarks
-	s/\[\[([ws]:)([^\[\]\|]*)\|\]\]/[[$1$2|$2]]/g;
 	s/(\[\[[ws]:.*?\]\])/ $1 =~ tr|_| |r /ge;
 	s/\[\[(?:קובץ:|תמונה:|[Ff]ile:|[Ii]mage:)(.*?)\]\]/"<תמונה>" . $1 =~ tr|_| |r . "<\/תמונה>"/gem;
 	
@@ -373,6 +372,7 @@ sub parse_remark {
 		$tip = escape_quote($tip);
 		$str = "<תיבה טקסט=\"$tip\"";
 		if ($url) {
+			$url = '' if ($url =~ /^\d+(_\d+)?$/);
 			$url = find_reshumot_href($url);
 			$str .= " קישור=\"$url\"";
 		}
@@ -397,6 +397,7 @@ sub parse_signatures {
 		if (/\|/) {}
 		elsif (/,/) { tr/,/|/; }
 		else { s/ +(?=ה?(שר[הת]?|נשיאת?|ראש|יושבת?[\-־ ]ראש)\b)/|/; }
+		s/((?:אני )?[א-ת]+\.) *\|? */$1|/;
 		s/ *\| */ | /g;
 		$str .= "* $_\n";
 		# /^\*? *([^,|]*?)(?: *[,|] *(.*?) *)?$/;
@@ -1170,7 +1171,7 @@ sub process_href {
 	if ($ext) {
 		$helper = $ext =~ s/[-: ]+/ /gr;
 		$ext = $glob{href}{marks}{$helper} if ($glob{href}{marks}{$helper});
-		$text = ($int ? "$ext#$int" : $ext);
+		$text = ($int && ($ext !~ /^https?:\/\//) ? "$ext#$int" : $ext);
 		if ($type==3 || $update_lookahead) {
 			$glob{href}{last} = $ext;
 			if ($ext =~ /\+\+(.*)/) {
@@ -1179,9 +1180,10 @@ sub process_href {
 				push @{$glob{href}{marks_ahead}{$helper}}, $id if ($id>0);
 				push @{$glob{href}{marks_ahead}{$helper}}, @{$glob{href}{ahead}} if ($glob{href}{ahead});
 			} else {
-				for (@{$glob{href}{ahead}}) {
-					$hrefs{$_} =~ s/\+[^#]*(.*)/$ext$1/;
-					# print STDERR "## X |$hrefs{$_}|\n";
+				if ($ext !~ /^https?:\/\//) {
+					for (@{$glob{href}{ahead}}) { $hrefs{$_} =~ s/\+[^#]*(.*)/$ext$1/; }
+				} else {
+					for (@{$glob{href}{ahead}}) { $hrefs{$_} = $ext; }
 				}
 			}
 			$glob{href}{ahead} = [];
@@ -1200,10 +1202,11 @@ sub find_href {
 	if (!$_) { return $_; }
 	
 	my $ext = '';
+	$_ = find_reshumot_href($_);
 	
 	if (/^([wsWS]:|https?:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/) { return ('', $_); }
 	if (/^HTTPS?:/) { return ('', lc($_)); }
-	if (/^([a-z_]+:|)(\d+):(\d+)$/) { return ('', find_reshumot_href($_)); }
+	# if (/^([a-z_]+:|)(\d+):(\d+)$/) { return ('', find_reshumot_href($_)); }
 	
 	if (/^(.*?)#(.*)$/) {
 		$_ = $2;
@@ -1441,7 +1444,6 @@ sub find_reshumot_href {
 	$url = "https://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^(?:ls|)([a-z]+):(\d+):(\d+)$/);
 	$url = "https://fs.knesset.gov.il/$2/law/$2_$1_$3.pdf" if ($url =~ /^([a-z]+_[a-z]+):(\d+):(\d+)$/);
 	$url = "https://supremedecisions.court.gov.il/Home/Download?path=HebrewVerdicts/$1/$3/$2/$4&fileName=$1$2$3_$4.pdf&type=4" if ($url =~ /^(\d\d)(\d\d\d)(\d\d\d)[_.]([a-zA-Z]\d\d)$/);
-	$url = '' if ($url =~ /^(\d+)(?|_(\d+)|())$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
 	return $url;

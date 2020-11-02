@@ -66,7 +66,7 @@ sub convert {
 	# s/<הגדרה *.*?>(.*?)<\/הגדרה>/&parse_template('ח:הגדרה', $1)/gse;
 	s/<הערה *.*?>(.*?)<\/הערה>/&parse_template('ח:הערה', $1)/gse;
 	s/<תמונה.*?>(.*?)<\/תמונה>/[[Image:$1|link=]]/gs;
-	s/(\<math.*?\>.*?\<[\\\/]math\>)/&fix_tags($1)/egs;
+	s/(\<math.*?\>.*?\<\/math\>)/&fix_tags($1)/egs;
 	
 	s/<מפריד.*?>\n?/{{ח:מפריד}}\n/g;
 	
@@ -167,7 +167,8 @@ sub parse_signatures {
 		last unless ($line =~ /^ *\*/);
 		$line =~ s/^ *\* *(.*?) *$/$1/;
 		$line =~ s/ *\| */<br>/g;
-		$line =~ s/^(.*?)(?=\<br\>|$)/\'\'\'$1\'\'\'/;
+		$line =~ s/^(.*?)(?=\<br\>|$)/'''$1'''/;
+		$line =~ s/^'''((?:אני )?[א-ת]+\.)'''\<br\>(.*?)(?=\<br\>|$)/<span style="float: right; font-size: smaller; margin-right: 10px;">$1<\/span><br>'''$2'''/;
 		$str .= "* $line\n";
 	}
 	$str .= "{{ח:סוגר}}\n";
