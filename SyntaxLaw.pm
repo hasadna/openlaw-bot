@@ -1280,7 +1280,7 @@ sub find_href {
 			when (/^$pre_sig(טבל[הא]|טבלאות)/) { $class = 'tabl2'; }
 			when (/^$pre_sig(סעיף|סעיפים|תקנה|תקנות|אמו?ת[ -]ה?מידה)/) { $class = 'chap'; }
 			when (/^$pre_sig(פריט|פרט)/) { $class = 'supchap'; }
-			when (/^$pre_sig(קט[נן]|פי?סקה|פסקאות|משנה|טור)/) { $class = 'small'; }
+			when (/^$pre_sig(קט[נן]|פי?סק[האת]|פסקאות|משנה|טור)/) { $class = 'small'; }
 			when (/^\(/) { 
 				if (($class ? $class : $glob{href}{last_class}) eq 'supchap') {
 					$class = 'supchap';

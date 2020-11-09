@@ -225,11 +225,12 @@ sub parse_chapter {
 }
 
 sub parse_line {
-	my ($str, %attr) = parse_attr(shift);
+	my ($str, %attr, %tags);
+	($str, %attr) = parse_attr(shift);
+	($str, %tags) = parse_tag_list($str, 'מספר');
 	my $type = $attr{tag};
-	my $num = $attr{'מספר'};
-	my $kind = $attr{'סוג'};
-	$num = $1 if ($str =~ s/<מספר>(.*?)<\/מספר> *//);
+	my $num = $tags{'מספר'} // $attr{'מספר'};
+	my $kind = $attr{'סוג'} // '';
 	$str =~ s/^ *(.*?) *$/$1/;
 	return "{{ח:$type" . ($num ? "|$num" : "") . ($kind ? "|סוג=$kind" : "") . "}}" . ($str ? " $str\n" : " ");
 }
@@ -329,7 +330,7 @@ sub parse_tag_list {
 	local $_ = trim(shift);
 	my %tags;
 	while (my $t = shift) {
-		$tags{$1} = $2 while (s/<($t).*?>(.*?)<\/\1.*?>\s*//);
+		$tags{$t} = unescape_text($2) while (s/<($t).*?>(.*?)<\/\1.*?>\s*//);
 	}
 	return ($_, %tags);
 }
