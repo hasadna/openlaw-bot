@@ -102,7 +102,7 @@ tr/״”“„‟″‶/"/;                # Convert typographic double quotes
 tr/`׳’‘‚‛′‵/'/;               # Convert typographic single quotes
 tr/;/;/;                      # Convert wrong OCRed semicolon
 tr/¸/,/;                      # Convert wring Cedilla used for comma
-tr/\x{F0A8}/□/;               # White square (special font)
+tr/\x{F0A8}\x{F063}/□/;       # White square (special font)
 
 tr/\x{FEFF}\x{FFFC}-\x{FFFF}//d;    # Unicode placeholders and junk
 tr/\x{F000}-\x{F00F}/ /;
