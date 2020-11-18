@@ -11,18 +11,9 @@ RUN apt-get update \
         libhtml-treebuilder-xpath-perl \
         libroman-perl \
         # Packages needed for installation
-        curl \
-        gcc \
         make \
-        libperl5.22 \
         cpanminus \
     && cpanm --notest MediaWiki::Bot \
-    && apt-get remove -y --purge \
-        curl \
-        gcc \
-        make \
-        libperl5.22 \
-    && apt-get autoremove -y \
     && apt-get clean \
     && rm -Rf /var/lib/apt/lists/*
 
