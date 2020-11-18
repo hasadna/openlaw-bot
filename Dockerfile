@@ -15,7 +15,7 @@ RUN apt-get update \
         gcc \
         make \
         libperl5.22 \
-    && curl -L https://cpanmin.us/ | perl - --self-upgrade \
+        cpanminus \
     && cpanm --notest MediaWiki::Bot \
     && apt-get remove -y --purge \
         curl \
