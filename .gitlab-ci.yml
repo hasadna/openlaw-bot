@@ -6,6 +6,7 @@ default:
 
 before_script:
   - docker info
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
 
 variables:
   DOCKER_HOST: tcp://localhost:2375
@@ -14,9 +15,8 @@ variables:
 build_docker:
   stage: build
   script:
-    - docker build -t ${CI_REGISTRY}/${CI_PROJECT_PATH}:lates .
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker push ${CI_REGISTRY}/${CI_PROJECT_PATH}:latest
+    - docker build -t ${CI_REGISTRY_IMAGE}:lates .
+    - docker push ${CI_REGISTRY_IMAGE}:latest
   only:
     - tags
     - /v\d+\.\d+\.\d+/
@@ -26,9 +26,8 @@ build_docker:
 build_master_docker:
   stage: build
   script:
-    - docker build -t ${CI_REGISTRY}/${CI_PROJECT_PATH}:master .
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker push ${CI_REGISTRY}/${CI_PROJECT_PATH}:master
+    - docker build -t ${CI_REGISTRY_IMAGE}:master .
+    - docker push ${CI_REGISTRY_IMAGE}:master
   only:
     - master
     - triggers
@@ -36,9 +35,8 @@ build_master_docker:
 build_tagged_docker:
   stage: build
   script:
-    - docker build -t ${CI_REGISTRY}/${CI_PROJECT_PATH}:${CI_COMMIT_TAG} .
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker push ${CI_REGISTRY}/${CI_PROJECT_PATH}:${CI_COMMIT_TAG}
+    - docker build -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} .
+    - docker push ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}
   only:
     - tags
     - triggers
