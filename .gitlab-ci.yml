@@ -33,7 +33,7 @@ build_master_docker:
     - triggers
 
 build_tagged_docker:
-  stage: build
+  stage: publish
   script:
     - docker pull ${CI_REGISTRY_IMAGE}:latest
     - docker tag ${CI_REGISTRY_IMAGE}:latest ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}
@@ -46,3 +46,4 @@ build_tagged_docker:
 
 stages:
   - build
+  - publish
