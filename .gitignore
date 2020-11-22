@@ -21,3 +21,5 @@ wiki_botconf.txt
 # Various project files
 .settings
 .project
+
+inc

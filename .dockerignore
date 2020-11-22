@@ -1,0 +1,10 @@
+.git
+.idea
+.gitignore
+.gitlab-ci.yml
+.dockerignore
+Dockerfile
+
+wiki_credentials.txt
+wiki_botconf.txt
+.mediawiki*
