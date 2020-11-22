@@ -389,6 +389,13 @@ sub process_law {
 	}
 	
 	if (!$dryrun && $new) {
+		# Move page if not using canonic name
+		my $canonic = canonic_name($page_dst);
+		move_page($page_dst, $canonic) if ($canonic != $page_dst);
+		$page_dst = $canonic; $page_src = "מקור:$page_dst";
+	}
+	
+	if (!$dryrun && $new) {
 		my $src_text2 = auto_correct($src_text);
 		$bot->edit( {
 			page => $page_src, text => $src_text2, summary => 'בוט: תיקונים אוטומטיים',
@@ -402,7 +409,7 @@ sub process_law {
 
 sub auto_correct {
 	my $HE = '(?:[א-ת][\x{05B0}-\x{05BD}]*+)';
-	my $_ = shift;
+	local $_ = shift;
 	tr/\x{FEFF}//d;    # Unicode marker
 	tr/\x{2000}-\x{200A}\x{205F}/ /; # typographic spaces
 	tr/\x{200B}-\x{200D}//d;         # zero-width spaces
@@ -504,7 +511,7 @@ sub RunParsers {
 
 sub load_credentials {
 	my %obj;
-	my $_ = shift;
+	local $_ = shift;
 	open( my $FIN, $_ ) || die "Cannot open file \"$_\"!\n";
 	while (<$FIN>) {
 		if (m/^ *(.*?) *= *(.*?) *$/) {
@@ -565,17 +572,17 @@ sub parse_actions {
 		} elsif (/\[\[(.*?)\]\]/) {
 			# print STDERR "ADD '$1'\n";
 			push @actions, { line => $line, action => 'add', what => clean_name($1) };
-		}
-		if ($slow) {
-			print "Slow activated, allowing one action per day.\n";
-			last;
+			if ($slow) {
+				print "Slow activated, allowing one action per day.\n";
+				last;
+			}
 		}
 	}
 	return @actions;
 }
 
 sub clean_name {
-	my $_ = shift;
+	local $_ = shift;
 	s/\[\[(.*?)\|?.*?\]\]/$1/;
 	s/^ *(.*?) *$/$1/;
 	s/^מקור: *//;
@@ -584,8 +591,20 @@ sub clean_name {
 	return $_;
 }
 
+sub canonic_name {
+	local $_ = shift;
+	tr/–־/-/;
+	tr/״”“/"/;
+	tr/׳‘’/'/;
+	tr/\x{05B0}-\x{05BD}//;
+	s/ - / – /g;
+	s/^ *(.*?) *$/$1/;
+	s/ {2,}/ /g;
+	return $_;
+}
+
 sub convert_regexp {
-	my $_ = shift;
+	local $_ = shift;
 	s/([.()\[\]])/\\$1/g;
 	s/\*/.*/g;
 	s/\?/./g;
