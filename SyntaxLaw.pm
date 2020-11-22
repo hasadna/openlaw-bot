@@ -192,6 +192,10 @@ sub convert {
 	s/(\.{21,})/'<span style⌸"word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
 	s/(\.{4,20})/'. 'x(length($1)-1) . '.'/ge;
 	
+	s/(_{3,})/<span style⌸"font-face: Arial; font-size: 80%;">$1<\/span>/g;
+	
+	s/((?:[A-Za-zא-ת0-9]+[\\\/]){2,}[A-Za-zא-ת0-9]+)/ $1 =~ s|(?<=[\\\/])|<wbr>|gr /eg;
+	
 	# Replace vulgar fractions
 	s/([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒↉])(\d+)/$2$1/g;
 	$_ = s_lut($_, { 
@@ -200,8 +204,9 @@ sub convert {
 		'⅐' => '¹⁄₇', '⅛' => '¹⁄₈', '⅜' => '³⁄₈', '⅝' => '⁵⁄₈', '⅞' => '⁷⁄₈', 
 		'⅑' => '¹⁄₉', '⅒' => '¹⁄₁₀', '↉' => '⁰⁄₃'
 	});
+	
 	# use arial font for fraction slash (U+2044)
-	s/⁄/<font face⌸"arial">⁄<\/font>/g;
+	s/⁄/<span style⌸"font-family: Arial;">⁄<\/span>/g;
 	
 	# Replace "=" (⌸) within templates with {{=}}
 	s/(\{\{(?:[^{}\n]++|(?R))*\}\})/ $1 =~ s|⌸|\{\{=\}\}|gr /eg;
@@ -690,6 +695,7 @@ sub get_numeral {
 			($num,$token) = ($1,$1) when /^(\d+([._]\d+[א-ט]?)+)\b/;
 			($num,$token) = ($1,$1) when /^(\d+$heb_num2?\.$heb_num2\d?)\b/;
 			($num,$token) = ($1,$1) when /^(\d+($heb_num2?\d*|))\b/;
+			($num,$token) = ($1,$1) when /^(\d+$heb_num2\d+$heb_num2)\b/;
 			($num,$token) = ($1,$1) when /^($heb_num3(\d+[א-י]*|))\b/;
 		}
 		if ($num ne '') {
@@ -1308,7 +1314,7 @@ sub find_href {
 				}
 				$elm{supl} = $glob{supl} if ($glob{supl} && !defined($elm{supl}));
 			}
-			when (/^([מל]?אות[והםן]|הה[וי]א|הה[םן]|האמורה?|שב[הו])/) {
+			when (/^([מל]?אות[והםן]|הה[וי]א|הה[םן]|האמורה?|ש?ב[הו])/) {
 				$elm{$class} ||= $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
 				$ext = $glob{href}{ditto}{ext};
 				given ($class) {
