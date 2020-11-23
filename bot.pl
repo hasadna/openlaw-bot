@@ -391,7 +391,7 @@ sub process_law {
 	if (!$dryrun && $new) {
 		# Move page if not using canonic name
 		my $canonic = canonic_name($page_dst);
-		move_page($page_dst, $canonic) if ($canonic != $page_dst);
+		move_page($page_dst, $canonic) if ($canonic ne $page_dst);
 		$page_dst = $canonic; $page_src = "מקור:$page_dst";
 	}
 	
