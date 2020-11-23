@@ -558,7 +558,7 @@ sub parse_actions {
 		my $hour;
 		(undef,undef,$hour) = localtime();
 		if ($hour>0) {
-			print "Slow activated, skipping sine hour is $hour, wait until midnight.\n";
+			print "Slow mode: Hour is $hour, wait until midnight.\n";
 			return ();
 		}
 	}
@@ -573,7 +573,7 @@ sub parse_actions {
 			# print STDERR "ADD '$1'\n";
 			push @actions, { line => $line, action => 'add', what => clean_name($1) };
 			if ($slow) {
-				print "Slow activated, allowing one action per day.\n";
+				print "Slow mode: Allowing one action per day.\n";
 				last;
 			}
 		}
