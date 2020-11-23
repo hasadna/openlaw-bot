@@ -192,9 +192,9 @@ sub convert {
 	s/(\.{21,})/'<span style⌸"word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
 	s/(\.{4,20})/'. 'x(length($1)-1) . '.'/ge;
 	
-	s/(_{3,})/<span style⌸"font-face: Arial; font-size: 80%;">$1<\/span>/g;
+	s/(_{3,})/<span style⌸"font-family: Arial; font-size: 80%;">$1<\/span>/g;
 	
-	s/( ["”“]?(?:[A-Za-zא-ת0-9]+[\\\/]){2,}[A-Za-zא-ת0-9]+[,;."”“]?(?: |\n))/ $1 =~ s|(?<=[\\\/])|<wbr>|gr /eg;
+	s/( ["”“]?(?:[A-Za-zא-ת0-9]{3,}[\\\/]){2,}[A-Za-zא-ת0-9]{3,}[,;."”“]?(?: |\n))/ $1 =~ s|(?<=[\\\/])|<wbr>|gr /eg;
 	
 	# Replace vulgar fractions
 	s/([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒↉])(\d+)/$2$1/g;
