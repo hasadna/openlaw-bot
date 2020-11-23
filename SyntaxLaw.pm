@@ -1298,7 +1298,7 @@ sub find_href {
 					$class = 'small';
 				}
 			}
-			when (/^ה?(זה|זו|זאת|this)/) {
+			when (/^ה?(זה|זו|זאת|this)$/) {
 				given ($class) {
 					when (/^(supl|appn|form|tabl|table2)$/) { $num = $glob{$class} || ''; }
 					when (/^(part|sect|form|chap)$/) { $num = $glob{$class}; }
@@ -1314,7 +1314,7 @@ sub find_href {
 				}
 				$elm{supl} = $glob{supl} if ($glob{supl} && !defined($elm{supl}));
 			}
-			when (/^([מל]?אות[והםן]|הה[וי]א|הה[םן]|האמורה?|ש?ב[הו])/) {
+			when (/^([מל]?אות[והםן]|הה[וי]א|הה[םן]|האמורה?|ש?ב[הו])$/) {
 				$elm{$class} ||= $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
 				$ext = $glob{href}{ditto}{ext};
 				given ($class) {
