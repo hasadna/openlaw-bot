@@ -194,7 +194,7 @@ sub convert {
 	
 	s/(_{3,})/<span style⌸"font-face: Arial; font-size: 80%;">$1<\/span>/g;
 	
-	s/((?:[A-Za-zא-ת0-9]+[\\\/]){2,}[A-Za-zא-ת0-9]+)/ $1 =~ s|(?<=[\\\/])|<wbr>|gr /eg;
+	s/( ["”“]?(?:[A-Za-zא-ת0-9]+[\\\/]){2,}[A-Za-zא-ת0-9]+[,;."”“]?(?: |\n))/ $1 =~ s|(?<=[\\\/])|<wbr>|gr /eg;
 	
 	# Replace vulgar fractions
 	s/([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒↉])(\d+)/$2$1/g;
