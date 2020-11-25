@@ -409,7 +409,7 @@ sub process_law {
 
 sub auto_correct {
 	my $HE = '(?:[א-ת][\x{05B0}-\x{05BD}]*+)';
-	shift;
+	local $_ = shift;
 	tr/\x{FEFF}//d;    # Unicode marker
 	tr/\x{2000}-\x{200A}\x{205F}/ /; # typographic spaces
 	tr/\x{200B}-\x{200D}//d;         # zero-width spaces
@@ -488,7 +488,7 @@ sub possible_redirects {
 		$page =~ s/(\,? ה?תש.?["״].[-–]\d{4}|, *[^ ]*\d{4}|, מס['׳] \d+ לשנת \d{4}| [-–] ה?תש.?["״]. מיום \d+.*|\, *\d+ עד \d+| [-–] ה?תש.?["״].)$//;
 		
 		for (my $k = 0; $k < 32; $k++) {
-			$_ = $page;
+			my $_ = $page;
 			if ($k&1) { s/[–־]+/-/g; }; # else { s/(?<=[א-ת])[\-־](?=[א-ת])/־/g; }
 			if ($k&2) { s/ – / - /g; s/--/-/g;} else { s/--/–/g; s/ - / – /g; }
 			if ($k&4) { s/(?<=[א-ת])[\-־](?=[א-ת])/ /g; }
@@ -511,8 +511,8 @@ sub RunParsers {
 
 sub load_credentials {
 	my %obj;
-	my $file = shift;
-	open( my $FIN, $file ) || die "Cannot open file \"$file\"!\n";
+	local $_ = shift;
+	open( my $FIN, $_ ) || die "Cannot open file \"$_\"!\n";
 	while (<$FIN>) {
 		if (m/^ *(.*?) *= *(.*?) *$/) {
 			$obj{$1} = $2;
@@ -563,7 +563,7 @@ sub parse_actions {
 		}
 	}
 	my $line = -1;
-	foreach (@_) {
+	foreach my $_ (@_) {
 		$line++;
 		next if !(/^ *\*/) || /\{\{v\}\}/ || /\{\{x\}\}/;
 		if (/\[\[(.*?)\]\].*?\[\[(.*?)\]\]/) {
@@ -582,7 +582,7 @@ sub parse_actions {
 }
 
 sub clean_name {
-	shift;
+	local $_ = shift;
 	s/\[\[(.*?)\|?.*?\]\]/$1/;
 	s/^ *(.*?) *$/$1/;
 	s/^מקור: *//;
@@ -592,7 +592,7 @@ sub clean_name {
 }
 
 sub canonic_name {
-	shift;
+	local $_ = shift;
 	tr/–־/-/;
 	tr/״”“/"/;
 	tr/׳‘’/'/;
@@ -604,7 +604,7 @@ sub canonic_name {
 }
 
 sub convert_regexp {
-	shift;
+	local $_ = shift;
 	s/([.()\[\]])/\\$1/g;
 	s/\*/.*/g;
 	s/\?/./g;
