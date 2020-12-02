@@ -276,6 +276,7 @@ sub parse_section {
 	my $ankor = $type;
 	$ankor .= " $num" if ($type && $num ne '');
 	# $ankor = find_href($s);
+	# print STDERR "\t\$type=$type, \$num=$num, \$ankor=$ankor.\n";
 	
 	my $str2 = $str;
 	$str = "<קטע";
@@ -822,6 +823,7 @@ sub linear_parser {
 	
 	$glob{context} = '';
 	$glob{href}{last_class} = '';
+	$glob{level} = ['','','',''];
 	
 	foreach my $l (@lookahead) { process_href($l, '++'); }
 	undef @lookahead;
@@ -905,8 +907,8 @@ sub process_section {
 	my ($level,$name);
 	($level) = ($params =~ /(?|.*דרגה="(.*?)"|())/);
 	($name) = ($params =~ /(?|.*עוגן="(.*?)"|())/);
-	my ($type,$num) = split(/ /, $name || '');
-	# $num = get_numeral($num) if defined($num);
+	my ($type,$num) = split(/ /, $name || ' ');
+	# print STDERR "process_section with \$level=|$level|, \$type=|$type|, \$num=|$num|\n";
 	$type =~ s/\(\(.*?\)\)//g if (defined $type);
 	given ($type) {
 		when (undef) {}
@@ -921,6 +923,7 @@ sub process_section {
 		when (/לוח/) { $glob{tabl} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
 		when (/טבלה/) { $glob{tabl2} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
 	}
+	splice @{$glob{level}}, $level-1, 4-$level, $name;
 	if (defined $type) {
 		return if ($type =~ 'טופס' && !$num);
 		$name = "סימן $glob{subs} $name" if ($type =~ 'משנה' && defined $glob{subs});
@@ -1272,6 +1275,7 @@ sub find_href {
 	
 	for my $p (@pos) {
 		$_ = substr($href,$p);
+		# s/ .*//;
 		$num = undef;
 		given ($_) {
 			when (/לוחהשוואה/) { $class = 'comptable'; $num = ""; }
@@ -1298,7 +1302,7 @@ sub find_href {
 					$class = 'small';
 				}
 			}
-			when (/^ה?(זה|זו|זאת|this)$/) {
+			when (/^ה?(זה|זו|זאת|this)\b/) {
 				given ($class) {
 					when (/^(supl|appn|form|tabl|table2)$/) { $num = $glob{$class} || ''; }
 					when (/^(part|sect|form|chap)$/) { $num = $glob{$class}; }
@@ -1314,7 +1318,7 @@ sub find_href {
 				}
 				$elm{supl} = $glob{supl} if ($glob{supl} && !defined($elm{supl}));
 			}
-			when (/^([מל]?אות[והםן]|הה[וי]א|הה[םן]|האמורה?|ש?ב[הו])$/) {
+			when (/^([מל]?אות[והםן]|הה[וי]א|הה[םן]|האמורה?|ש?ב[הו])\b/) {
 				$elm{$class} ||= $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
 				$ext = $glob{href}{ditto}{ext};
 				given ($class) {
