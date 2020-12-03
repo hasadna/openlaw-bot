@@ -924,7 +924,7 @@ sub process_section {
 		when (/טבלה/) { $glob{tabl2} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
 	}
 	splice @{$glob{level}}, $level-1, 4-$level, $name;
-	if (defined $type) {
+	if ($type) {
 		return if ($type =~ 'טופס' && !$num);
 		$name = "סימן $glob{subs} $name" if ($type =~ 'משנה' && defined $glob{subs});
 		$name = "פרק $glob{sect} $name" if ($type =~ 'סימן|משנה' && defined $glob{sect});
