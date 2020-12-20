@@ -39,7 +39,8 @@ our $roman = '(?:[IVX]+|[ivx]+)';
 our $EN = '[A-Za-z]';
 our $HE = '(?:[א-ת][\x{05B0}-\x{05BD}]*+)';
 our $nikkud = '[\x{05B0}-\x{05BD}]';
-our $nochar = '(?:\(\(|\)\)|\'\'\'|\<\/?[bis]\>)*+';
+our $nochar = '(?:\'\'\'|\<\/?(?:[bis]|ins|del|qq)\>)*+';
+# our $nochar = '(?:\(\(|\)\)|\'\'\'|\<\/?(?:[bis]|ins|del|qq)\>)*+';
 
 sub main() {
 	GetOptions( "expand" => \$do_expand);
@@ -141,12 +142,12 @@ sub convert {
 	s/^(=+)(.*?)\1\n+/&parse_section(length($1),$2)/egm;
 	s/^<סעיף *(.*?)>(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
 	s/^(@.*?) +(:+ .*)$/$1\n$2/gm;
-	s/^@ *(\(תיקון: .*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
-	s/^@ *(\d\S*) *\n/&parse_chapter($1,"","סעיף")/egm;
-	s/^@ *($chp_sig) +(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
-	s/^@ *(\d[^ .]*\.) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
-	s/^@ *([^ \n.]+\.) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
-	s/^@ *(\([^()]*?\)) *(.*?)\n/&parse_chapter($1,$2,"סעיף*")/egm;
+	s/^@ *($nochar\(תיקון: .*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
+	s/^@ *($nochar\d\S*) *\n/&parse_chapter($1,"","סעיף")/egm;
+	s/^@ *($nochar$chp_sig) +(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
+	s/^@ *($nochar\d[^ .]*\.$nochar) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
+	s/^@ *($nochar[^ \n.]+\.$nochar) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
+	s/^@ *($nochar\([^()]*?\)$nochar) *(.*?)\n/&parse_chapter($1,$2,"סעיף*")/egm;
 	s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
 	s/(<(?:td|th)[^>]*>)(:)/$1␊\n$2/g;
 	s/(<\/(?:td|th)[^>]*>)/␊\n$1/g;
@@ -154,7 +155,7 @@ sub convert {
 	s/^(:+) *(\([^( ]+\)) *(\([^( ]{1,2}\))/$1 $2\n$1: $3/gm;
 	s/^:+-? *$//gm;
 	# s/^(:+) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(?| +(.*?)|([-–].*?)|())\n/&parse_line($1,$2,$3)/egm;
-	s/^(:+[-–]?) *((?:'''|)["”“]?(?:\([^( ]+\)|\[[^[ ]+\]|\(\(\(\d.?\)\)\)|\(\(\([א-י]\d?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|$heb_num2\d?\.|$roman\.?|[•■□-◿*]|[A-Za-z0-9א-ת]+\)? *\(\(\)\)|<sup>[0-9א-ת]{1,2}<\/sup>|)(?:'''|))(?| +(.*?)|())\n/&parse_line($1,$2,$3)/egm;
+	s/^(:+[-–]?) *($nochar["”“]?(?:\([^( ]+\)|\[[^[ ]+\]|\(\(\(\d.?\)\)\)|\(\(\([א-י]\d?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|$heb_num2\d?\.|$roman\.?|[•■□-◿*]|[A-Za-z0-9א-ת]+\)? *\(\(\)\)|<sup>[0-9א-ת]{1,2}<\/sup>|)$nochar)(?| +(.*?)|())\n/&parse_line($1,$2,$3)/egm;
 	
 	# Move container tags if needed
 	my $barrier = '<\/?(?:מקור|הקדמה|ת+|קטע|סעיף|חתימות|מידע נוסף|td|tr)|__TOC__|$';
@@ -270,6 +271,7 @@ sub parse_section {
 	
 	$type = $_;
 	$type =~ s/\(\(.*?\)\)//g;
+	$type =~ s/<\/?[A-Za-z]+>//g;
 	$type = ($type =~ /^(?:|[א-ת]+ )$type_sig\b/ ? $1 : '');
 	$type = 'משנה' if ($type =~ /סימ(ן|ני) משנה/);
 	$type = 'לוחהשוואה' if ($type =~ /השוואה/);
@@ -606,7 +608,7 @@ sub parse_comparetable {
 
 sub expand_templates {
 	local $_ = shift;
-	# Convert to single character brackets for simplier regexps
+	# Convert to single character brackets for simpler regexps
 	s/\{\{/⦃/g;
 	s/\}\}/⦄/g;
 	
@@ -895,6 +897,12 @@ sub parse_element {
 			# print STDERR "GOT href at $href_idx = |$hrefs{$href_idx}|\n";
 			$glob{context} = '';
 		}
+		when (/^(\/?)הערה/) {
+			# Insert comment mark "((...))" into href text
+			if ($glob{context} eq 'href') {
+				$glob{href}{txt} .= $1 ? '))' : '((';
+			}
+		}
 		default {
 			# print STDERR "GOT element $element.\n";
 		}
@@ -917,13 +925,14 @@ sub process_section {
 		when (/סימן/) { $glob{subs} = $num; $glob{subsub} = undef; }
 		when (/משנה/) { $glob{subsub} = $num; }
 		when (/לוחהשוואה/) { delete @glob{"part", "sect", "subs", "subsub", "supl", "appn", "form", "tabl", "tabl2"}; }
-		when (/תוספת/) { $glob{supl} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub", "appn", "form", "tabl", "tabl2"}; }
-		when (/נספח/) { $glob{appn} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
-		when (/טופס/) { $glob{form} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
-		when (/לוח/) { $glob{tabl} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
-		when (/טבלה/) { $glob{tabl2} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; }
+		when (/תוספת/) { $glob{supl} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub", "appn", "form", "tabl", "tabl2"}; $glob{level}[0] = ''; }
+		when (/נספח/) { $glob{appn} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; $glob{level}[0] = ''; }
+		when (/טופס/) { $glob{form} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; $glob{level}[0] = ''; }
+		when (/לוח/) { $glob{tabl} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; $glob{level}[0] = ''; }
+		when (/טבלה/) { $glob{tabl2} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; $glob{level}[0] = ''; }
 	}
-	splice @{$glob{level}}, $level-1, 4-$level, $name;
+	splice @{$glob{level}}, $level-1, 4-$level, ($name, '', '', '');
+	# print STDERR "process_section: |$glob{level}[0]|$glob{level}[1]|$glob{level}[2]|$glob{level}[3]|\n";
 	if ($type) {
 		return if ($type =~ 'טופס' && !$num);
 		$name = "סימן $glob{subs} $name" if ($type =~ 'משנה' && defined $glob{subs});
@@ -1073,6 +1082,7 @@ sub process_href {
 	$helper =~ s/\$/ $text /;
 	
 	my ($int,$ext) = find_href($text);
+	# my ($helper_int,$helper_ext) = find_href($helper);
 	my $marker = '';
 	my $found = false;
 	my $hash = false;
@@ -1120,15 +1130,14 @@ sub process_href {
 		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext} && $glob{href}{marks}{$ext} ne "++$ext");
 		$update_mark = true;
 	} elsif ($helper) {
+		my ($helper_int,$helper_ext) = find_href($helper);
 		if ($found) {
-			(undef, $ext) = find_href($helper);
-			$ext = $helper if ($ext eq '');
+			$ext = $helper_ext || $helper;
 		} elsif (defined $glob{href}{marks}{$helper}) {
 			$ext = $glob{href}{marks}{$helper};
 		} else {
-			my ($int2, $ext2) = find_href($helper);
-			$int = $int2 and $found = true if ($int2);
-			$ext = $ext2;
+			$int = $helper_int and $found = true if ($helper_int);
+			$ext = $helper_ext;
 		}
 		$type = ($ext) ? 3 : 1;
 	}
@@ -1151,7 +1160,7 @@ sub process_href {
 		# $helper = '';
 	} elsif ($ext eq '-') {
 		$type = 2;
-		$ext = $glob{href}{last};
+		$ext = $glob{href}{last} // '';
 		($int, undef) = find_href("-#$text") unless ($found);
 		$update_lookahead = true;
 		if ($ext =~ /\+\+(.*)/) {
@@ -1223,8 +1232,8 @@ sub find_href {
 	}
 	if (/^[-+]+$/) { return ('', $_); }
 	
-	s/\(\((?|\[(.*?)\]|(.*?))\)\)/$1/g;
-	s/<הערה>(?|\[(.*?)\]|(.*?))<\/הערה>/$1/g;
+	s/\(\(\((.*?)\)\)\)/(([$1]))/g;
+	s/\(\((?|\[במקור: .*?()\]|\[(?:צ["״]ל: *)?(.*?)\]|(.*?))\)\)/$1/g;
 	
 	if (/דברי?[- ]ה?מלך/ and /(סימן|סימנים) \d/) {
 		s/(סימן|סימנים)/סעיף/;
@@ -1318,7 +1327,7 @@ sub find_href {
 				}
 				$elm{supl} = $glob{supl} if ($glob{supl} && !defined($elm{supl}));
 			}
-			when (/^([מל]?אות[והםן]|הה[וי]א|הה[םן]|האמורה?|ש?ב[הו])\b/) {
+			when (/^([מל]?אות[והםן]|הה[וי]א|הה[םן]|האמור(ה|ים|ות|)|ש?ב[הו])\b/) {
 				$elm{$class} ||= $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
 				$ext = $glob{href}{ditto}{ext};
 				given ($class) {
@@ -1465,6 +1474,7 @@ sub find_ext_ref {
 	return lc($_) if (/^HTTPS?:\/\//);
 	return $_ if (/^[+-]+$/);
 	
+
 	s/^(.*?)#(.*)$/$1/;
 	$_ = "$1$2" if /$extref_sig(.*)/;
 	
@@ -1475,6 +1485,7 @@ sub find_ext_ref {
 	s/ [-——]+ / – /g;
 	s/ {2,}/ /g;
 	
+	s/ *\(\(.*?\)\)//g;
 	s/ *\(נוסח (חדש|משולב)\)//g;
 	s/,? *\[.*?\]//g;
 	s/\.[^\.]*$//;
