@@ -446,7 +446,8 @@ sub parse_wikitable {
 		
 		if (/^\{\|(.*)$/) {
 			$attributes = $1;
-			$_ = "<table$1>\n";
+			$attributes =~ s/wikitable *//; $attributes =~ s/ ?class=[“”"']{2}//;
+			$_ = "<table$attributes>\n";
 			push @td_history, false;
 			push @last_tag_history, '';
 			push @tr_history, false;
