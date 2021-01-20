@@ -982,7 +982,7 @@ sub current_position {
 sub insert_TOC {
 	# str = "== תוכן ==\n";
 	my $str = "<קטע דרגה=\"2\">תוכן עניינים</קטע>\n\n<סעיף></סעיף>\n";
-	$str .= "<div style=\"columns: 2 auto; -moz-columns: 2 auto; -webkit-columns: 2 auto; text-align: right; padding-bottom: 1em;\">\n";
+	$str .= "<div class=\"law-toc\">\n";
 	my ($name, $indent, $text, $next, $style, $skip);
 	for (sort {$a <=> $b} keys %sections) {
 		$text = $next = '';
@@ -1104,10 +1104,12 @@ sub process_href {
 		$int = $helper = '';
 		$found = true;
 	} elsif ($helper =~ /^(.*?)#(.*)/) {
+		my ($helper_int,$helper_ext) = find_href($helper);
 		$type = 3;
 		$helper = $1 || $ext;
 		# $ext = '' if ($1 ne '');
-		$ext = $1; $int = $2;
+		$int = $helper_int; $ext = $helper_ext;
+		# (undef,$ext) = find_href($1); $int = $2;
 		($int, undef) = find_href("+#$2") if ($2);
 		$found = true;
 		$hash = ($2 eq '');
@@ -1133,7 +1135,7 @@ sub process_href {
 	} elsif ($helper) {
 		my ($helper_int,$helper_ext) = find_href($helper);
 		if ($found) {
-			$ext = $helper_ext || $helper;
+			$ext = ($helper_ext ne '' ? $helper_ext : $helper);
 		} elsif (defined $glob{href}{marks}{$helper}) {
 			$ext = $glob{href}{marks}{$helper};
 		} else {
@@ -1223,7 +1225,7 @@ sub find_href {
 	my $ext = '';
 	$_ = find_reshumot_href($_);
 	
-	if (/^([wsWS]:|https?:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/) { return ('', $_); }
+	if (/^([wsWS]:|https?:|mailto:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/) { return ('', $_); }
 	if (/^HTTPS?:/) { return ('', lc($_)); }
 	# if (/^([a-z_]+:|)(\d+):(\d+)$/) { return ('', find_reshumot_href($_)); }
 	
