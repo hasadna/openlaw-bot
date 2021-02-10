@@ -31,7 +31,7 @@ my $do_expand = 0;
 our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
 our $extref_sig = $pre_sig . '(חוק(?:[ -]ה?יסוד:?|)|פקוד[הת]|תקנות(?: שעת[ -]ה?חי?רום)?|צו|(?:החלט|הכרז|אכרז|הודע)(?:ה|ו?ת)|תקנון|הוראו?ת|מנשר|כללים?|נוהל|קביעו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|הנחי[יו]ת|קווים מנחים|אמו?ת מידה|היתר)';
 our $date_sig = '(?:\,? ה?תש.?["״].[-–]\d{4}|, *[^ ]*\d{4}|, מס[\'׳] \d+ לשנת \d{4}| [-–] ה?תש.?["״]. מיום \d+.*|\, *\d+ עד \d+)';
-our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]מידה|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
+our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]מידה|כלל(?:ים)|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+\.?)';
 our $heb_num2 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?)';
 our $heb_num3 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?|[קרש](?:טו|טז|[יכלמנסעפצ]?[א-ט]?))';
@@ -86,22 +86,22 @@ sub convert {
 	}
 	
 	s/(?<=[0-9₀-₉])′/&#8242;/g; # Keep prime [feet/minutes] and double prime [inch/seconds]
-	s/(?<=[0-9₀-₉])″/&#8243;/g; # (restored later by unescape_text)
+	s/(?<=[0-9₀-₉])″/&#8243;/g; # (those are restored later by unescape_text)
 	
 	# s/[»«⌸]/"&#".ord($1).";"/ge; # Escape special markers
 	
 	s/($HE['׳]?)–($HE)/$1--$2/g; # Keep en-dash between Hebrew words
 	s/(\d$HE*)–(\d)/$1--$2/g; # Keep en-dash between numerals
 	
-	tr/\x{FEFF}//d;    # Unicode marker
+	tr/\x{FEFF}//d;     # Unicode marker
 	tr/\x{2000}-\x{200A}\x{202F}\x{205F}\x{2060}/ /; # Typographic spaces
-	tr/\x{200B}-\x{200D}//d;         # Remove zero-width spaces
+	tr/\x{200B}-\x{200D}\xAD//d;       # Remove zero-width spaces and soft-hyphen
 	tr/־–—‒―/-/;        # typographic dashes
-	tr/\xAD\x96\x97/-/; # more typographic dashes
+	tr/\x96\x97/-/;     # more typographic dashes
 	tr/״”“„‟″‶/"/;      # typographic double quotes
 	tr/`׳’‘‚‛′‵/'/;     # typographic single quotes
 	s/(?<=[ \n])-{2,4}(?=[ \n])/—/g;   # em-dash
-	s/[ ]{2,}/ /g;     # remove extra  spaces
+	s/[ ]{2,}/ /g;      # remove extra  spaces
 	
 	s/\n+(=[^\n]*=)\n+/\n\n$1\n\n/g;
 	
@@ -121,16 +121,16 @@ sub convert {
 	# Replace with “Smart quotes”
 	$_ = convert_quotes($_);
 	
-	# em-dash as span float left
-	s/ — ([^\n]+) *$/ — <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
-	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escape_text($1)/egs;
 	
 	s/(\{\|.*?\n\|\}) *\n?/&parse_wikitable($1)/egs;
 	
+	# em-dash as span float left
+	s/ — ([^\n]+) *$/ — <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
+	
 	# Parse various elements
 	s/^(?|<שם> *\n?(.*)|=([^=].*)=)\n*/&parse_title($1)/em; # Once!
-	s/<שם (קודם|אחר)> .*\n*//g;
+	s/<שם[^>\n]*> .*\n*//g;
 	s/<מאגר (\d*) תיקון (\d*)>\n?/<מאגר מזהה="$1" תיקון="$2"\/>\n/;
 	s/^<פרסום> *\n?(.*)\n/&parse_pubdate($1)/egm;
 	s/^<חתימ(?:ות|ה)> *\n?(((\*.*\n)+)|(.*\n))/&parse_signatures($1)/egm;
@@ -836,10 +836,13 @@ sub linear_parser {
 	check_structure(@sec_list);
 	# print STDERR "part_type = $glob{part_type}; sect_type = $glob{sect_type}; subs_type = $glob{subs_type};\n";
 	
-	@line = split(/(<(?: "[^"]*"|[^>])*>)/, $_);
+	@line = split(/(<(?: "[^"]*"|[^>])*>|__[A-Z]+__)/, $_);
 	$idx = 0;
 	for (@line) {
-		if (/<(.*)>/) {
+		if (/__TOC__/) {
+			# Clear all section references above TOC.
+			undef %sections;
+		} elsif (/<(.*)>/) {
 			parse_element($1);
 		} elsif ($glob{context} eq 'href') {
 			$glob{href}{txt} .= $_;
@@ -981,7 +984,7 @@ sub current_position {
 #---------------------------------------------------------------------
 
 sub insert_TOC {
-	# str = "== תוכן ==\n";
+	local $_;
 	my $str = "<קטע דרגה=\"2\">תוכן עניינים</קטע>\n\n<סעיף></סעיף>\n";
 	$str .= "<div class=\"law-toc\">\n";
 	my ($name, $indent, $text, $next, $style, $skip);
@@ -1246,14 +1249,14 @@ sub find_href {
 		s/(סימן|סימנים)/סעיף/;
 	}
 	
-	s/(\b[לב]?(אותו|אותה)\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
-	if (/^(.*?)\s*\b($extref_sig[- ]*([א-ת]+\b.*|[א-ת].*תש.?["״]?.[-–]\d{4}|))$/) {
+	s/(\b[בלמ]?(אות[הוםן])\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
+	if (/^(.*?) *\b($extref_sig\b[- ]*(?:[א-ת]+\b.*|[א-ת].*תש.?["״]?.[-–]\d{4}|))$/) {
 		# Ignore in special case
 		unless (substr($1,-1) eq '(' and substr($2,-1) eq ')') {
 			$_ = $1;
 			$ext = find_ext_ref($2) unless ($ext);
 		}
-	} elsif (/^(.*?) *\b$pre_sig$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
+	} elsif (/^(.*?) *\b$extref_sig(.*?)$/ and $glob{href}{marks}{"$2$3"}) {
 		$ext = "$2$3";
 		$_ = $1;
 	} elsif ($glob{href}{all_marks} and /^(.*?) *\b$pre_sig($glob{href}{all_marks})(.*?)$/) {
@@ -1304,7 +1307,7 @@ sub find_href {
 			when (/^$pre_sig(טופס|טפסים)/) { $class = 'form'; }
 			when (/^$pre_sig(לוח|לוחות)/) { $class = 'tabl'; }
 			when (/^$pre_sig(טבל[הא]|טבלאות)/) { $class = 'tabl2'; }
-			when (/^$pre_sig(סעיף|סעיפים|תקנה|תקנות|אמו?ת[ -]ה?מידה)/) { $class = 'chap'; }
+			when (/^$pre_sig(סעיף|סעיפים|תקנה|תקנות|אמו?ת[ -]ה?מידה|כלל|כללים)/) { $class = 'chap'; }
 			when (/^$pre_sig(פריט|פרט)/) { $class = 'supchap'; }
 			when (/^$pre_sig(קט[נן]|פי?סק[האת]|פסקאות|משנה|טור)/) { $class = 'small'; }
 			when (/^\(/) { 
