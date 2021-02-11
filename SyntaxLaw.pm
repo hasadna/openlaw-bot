@@ -69,6 +69,8 @@ sub main() {
 sub convert {
 	local $_ = shift;
 	
+	cleanup();
+	
 	# General cleanup
 	s/\n *<!--.*?--> *\n/\n/sg;  # Remove comments
 	s/ *<!--.*?-->//sg;  # Remove comments
@@ -243,7 +245,7 @@ sub parse_title {
 sub parse_section {
 	my $level = shift;
 	local $_ = shift;
-	my ($type, $num, $fix, $extra, $str);
+	my ($fix, $extra, $str, $ankor);
 	
 	$level = 2 unless defined $level;
 	
@@ -258,33 +260,17 @@ sub parse_section {
 	s/(?|\(\(\(([^()]*?)\)\)\)|\(\(([^()]*?)\)\))/$1/g;
 	
 	if (/^\((.*?)\)$/) {
-		$num = '';
-	# } elsif (/^\((.*?)\) */) {
-	#	$num = $1;
-	#	$str =~ s/^\((.*?)\) *//;
-	} elsif (/^(.+?)( *:| +[-])/) {
-		$num = get_numeral($1);
-	} elsif (/^((?:[^ (]+( +|$)){2,3})/) {
-		$num = get_numeral($1);
+		$ankor = '';
+	} elsif (/^(?|(.+?)(?: *:| +[-])|((?:[^ (]+( +|$)){1,3}))/) {
+		($ankor,undef) = find_href($1);
 	} else {
-		$num = '';
+		$ankor = '';
 	}
-	
-	$type = $_;
-	$type =~ s/\(\(.*?\)\)//g;
-	$type =~ s/<\/?[A-Za-z]+>//g;
-	$type = ($type =~ /^(?:|[א-ת]+ )$type_sig\b/ ? $1 : '');
-	$type = 'משנה' if ($type =~ /סימ(ן|ני) משנה/);
-	$type = 'לוחהשוואה' if ($type =~ /השוואה/);
-	my $ankor = $type;
-	$ankor .= " $num" if ($type && $num ne '');
-	# $ankor = find_href($s);
-	# print STDERR "\t\$type=$type, \$num=$num, \$ankor=$ankor.\n";
 	
 	my $str2 = $str;
 	$str = "<קטע";
 	$str .= " דרגה=\"$level\"" if ($level);
-	$str .= " עוגן=\"$ankor\"" if ($type && $ankor);
+	$str .= " עוגן=\"$ankor\"" if ($ankor);
 	$str .= ">";
 	$str .= "<תיקון>$fix</תיקון>" if ($fix);
 	$str .= "<אחר>[$extra]</אחר>" if ($extra);
@@ -325,7 +311,7 @@ sub parse_line {
 	my $len = length($1);
 	my $def = length($2)>0;
 	my $id;
-	# print STDERR "|$num|$line|\n";
+	
 	$num =~ s/"/&quot;/g;
 	$num =~ s/ *\(\(\)\)$//;
 	if (($num =~ /'''/)%2) {
@@ -819,15 +805,15 @@ our (@line, $idx);
 sub cleanup {
 	undef %glob; undef %hrefs; undef %sections; undef @line;
 	undef $pubdate;
+	$glob{context} = '';
+	$glob{href}{last_class} = '';
+	$glob{level} = ['','','',''];
+	$glob{part_type} = $glob{sect_type} = $glob{subs_type} = 0;
 }
 
 sub linear_parser {
 	cleanup();
 	local $_ = shift;
-	
-	$glob{context} = '';
-	$glob{href}{last_class} = '';
-	$glob{level} = ['','','',''];
 	
 	foreach my $l (@lookahead) { process_href($l, '++'); }
 	undef @lookahead;
@@ -921,7 +907,7 @@ sub process_section {
 	($level) = ($params =~ /(?|.*דרגה="(.*?)"|())/);
 	($name) = ($params =~ /(?|.*עוגן="(.*?)"|())/);
 	my ($type,$num) = split(/ /, $name || ' ');
-	# print STDERR "process_section with \$level=|$level|, \$type=|$type|, \$num=|$num|\n";
+	# print STDERR "process_section with \$level=|$level|, \$type=|$type|, \$num=|$num|, \$name=|$name|\n";
 	$type =~ s/\(\(.*?\)\)//g if (defined $type);
 	given ($type) {
 		when (undef) {}
@@ -944,7 +930,7 @@ sub process_section {
 		$name = "פרק $glob{sect} $name" if ($type =~ 'סימן|משנה' && defined $glob{sect});
 		$name = "חלק $glob{part} $name" if ($type =~ 'סימן|פרק|משנה' && ($glob{sect_type}==3 || defined $glob{supl}) && defined $glob{part});
 		$name = "תוספת $glob{supl} $name" if ($type ne 'תוספת' && defined $glob{supl});
-		$name = "לוח השוואה" if ($type eq 'לוחהשוואה');
+		$name = "לוחהשוואה" if ($type eq 'לוחהשוואה');
 		$name =~ s/  / /g;
 		$sections{$idx} = $name;
 	}
@@ -1231,7 +1217,6 @@ sub find_href {
 	
 	if (/^([wsWS]:|https?:|mailto:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/) { return ('', $_); }
 	if (/^HTTPS?:/) { return ('', lc($_)); }
-	# if (/^([a-z_]+:|)(\d+):(\d+)$/) { return ('', find_reshumot_href($_)); }
 	
 	if (/^(.*?)#(.*)$/) {
 		$_ = $2;
@@ -1242,6 +1227,7 @@ sub find_href {
 	# s/\(\(\((.*?)\)\)\)/(([$1]))/g;                 # Better to keep parenthesis inside a comment,
 	s/\(\(\(((?:במקור|צ["״]ל:).*?)\)\)\)/(([$1]))/g;  # unless it's a special case
 	s/\(\(\[במקור: .*?\]\)\)//g;
+	s/<s>.*?<\/s>//g;
 	s/$date_sig *\(\(\[צ["״]ל:$date_sig\]\)\)$//;
 	s/\(\((?|\[(?:צ["״]ל: *)?(.*?)\]|(.*?))\)\)/$1/g;
 	
@@ -1396,7 +1382,7 @@ sub find_href {
 	
 	$href = '';
 	if (defined $elm{comptable}) {
-		$href = "לוח השוואה";
+		$href = "לוחהשוואה";
 	} elsif (defined $elm{supl}) {
 		$elm{supl} = $elm{supl} || $glob{supl} || '' if ($ext eq '');
 		$elm{supchap} = $elm{supchap} || $elm{chap};
