@@ -267,7 +267,7 @@ sub parse_section {
 		$ankor = '';
 	}
 	
-	$fix =~ s/(?<=[\-־])(?=\d{2,}\b)/<wbr>/g if ($fix);
+	# $fix =~ s/(?<=[\-־])(?=\d{2,}\b)/<wbr>/g if ($fix);
 	
 	my $str2 = $str;
 	$str = "<קטע";
@@ -293,7 +293,7 @@ sub parse_chapter {
 	
 	$desc =~ s/(?<=–)(?! |$)/<wbr>/g;
 	$extra =~ s/(?=\()/\<wbr\>/g if ($extra);
-	$fix =~ s/(?<=[\-־])(?=\d{2,}\b)/<wbr>/g if ($fix);
+	# $fix =~ s/(?<=[\-־])(?=\d{2,}\b)/<wbr>/g if ($fix);
 	
 	$type =~ s/\*$//;
 	$ankor = ((!$ankor && $num) ? $id : $ankor);
