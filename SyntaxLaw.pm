@@ -267,6 +267,8 @@ sub parse_section {
 		$ankor = '';
 	}
 	
+	$fix =~ s/(?<=[\-־])(?=\d{2,}\b)/<wbr>/g if ($fix);
+	
 	my $str2 = $str;
 	$str = "<קטע";
 	$str .= " דרגה=\"$level\"" if ($level);
@@ -290,7 +292,8 @@ sub parse_chapter {
 	$id = get_numeral($num);
 	
 	$desc =~ s/(?<=–)(?! |$)/<wbr>/g;
-	$extra =~ s/(?=\()/\<wbr\>/g if defined $extra;
+	$extra =~ s/(?=\()/\<wbr\>/g if ($extra);
+	$fix =~ s/(?<=[\-־])(?=\d{2,}\b)/<wbr>/g if ($fix);
 	
 	$type =~ s/\*$//;
 	$ankor = ((!$ankor && $num) ? $id : $ankor);
@@ -890,9 +893,11 @@ sub parse_element {
 		}
 		when (/^(\/?)הערה/) {
 			# Insert comment mark "((...))" into href text
-			if ($glob{context} eq 'href') {
-				$glob{href}{txt} .= $1 ? '))' : '((';
-			}
+			$glob{href}{txt} .= ($1 ? '))' : '((') if ($glob{context} eq 'href');
+		}
+		when (/^\/?(s|strike)$/) {
+			# Insert <s>...</s> into href text, so href can ignore the strikethrough text
+			$glob{href}{txt} .= "<$element>" if ($glob{context} eq 'href');
 		}
 		default {
 			# print STDERR "GOT element $element.\n";
@@ -1227,7 +1232,7 @@ sub find_href {
 	# s/\(\(\((.*?)\)\)\)/(([$1]))/g;                 # Better to keep parenthesis inside a comment,
 	s/\(\(\(((?:במקור|צ["״]ל:).*?)\)\)\)/(([$1]))/g;  # unless it's a special case
 	s/\(\(\[במקור: .*?\]\)\)//g;
-	s/<s>.*?<\/s>//g;
+	s/<(s|strike)>.*?<\/\1>//g;
 	s/$date_sig *\(\(\[צ["״]ל:$date_sig\]\)\)$//;
 	s/\(\((?|\[(?:צ["״]ל: *)?(.*?)\]|(.*?))\)\)/$1/g;
 	
