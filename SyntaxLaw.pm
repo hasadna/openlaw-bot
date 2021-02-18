@@ -20,7 +20,7 @@ use Getopt::Long;
 use Data::Dumper;
 $Data::Dumper::Useperl = 1;
 
-eval { require RomanX; RomanX->import(); };
+eval { require Roman; Roman->import(); };
 my $use_roman = defined $Roman::VERSION;
 
 use constant { true => 1, false => 0 };
@@ -31,7 +31,7 @@ my $do_expand = 0;
 our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
 our $extref_sig = $pre_sig . '(חוק(?:[ -]ה?יסוד:?|)|פקוד[הת]|תקנות(?: שעת[ -]ה?חי?רום)?|צו|(?:החלט|הכרז|אכרז|הודע)(?:ה|ו?ת)|תקנון|הוראו?ת|מנשר|כללים?|נוהל|קביעו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|הנחי[יו]ת|קווים מנחים|אמו?ת מידה|היתר)';
 our $date_sig = '(?:\,? ה?תש.?["״].[-–]\d{4}|, *[^ ]*\d{4}|, מס[\'׳] \d+ לשנת \d{4}| [-–] ה?תש.?["״]. מיום \d+.*|\, *\d+ עד \d+)';
-our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]מידה|כלל(?:ים)|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא])';
+our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]מידה|כלל(?:ים)|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא]|מפ(?:ה|ות))';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+\.?)';
 our $heb_num2 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?)';
 our $heb_num3 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?|[קרש](?:טו|טז|[יכלמנסעפצ]?[א-ט]?))';
@@ -86,6 +86,19 @@ sub convert {
 		# Throw away BIDI characters if LRE/RLE/PDF exists
 		tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 	}
+	
+	# Replace vulgar fractions
+	s/([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒↉])(\d+)/$2$1/g;
+	$_ = s_lut($_, { 
+		'½'=>'¹⁄₂', '⅓'=>'¹⁄₃', '⅔'=>'²⁄₃', '¼'=>'¹⁄₄', '¾'=>'³⁄₄', '⅕'=>'¹⁄₅', '⅖'=>'²⁄₅', '⅗'=>'³⁄₅', '⅘'=>'⁴⁄₅', 
+		'⅙'=>'¹⁄₆', '⅚' =>'⁵⁄₆', '⅐'=>'¹⁄₇', '⅛'=>'¹⁄₈', '⅜'=>'³⁄₈', '⅝'=>'⁵⁄₈', '⅞'=>'⁷⁄₈', '⅑'=>'¹⁄₉', '⅒'=>'¹⁄₁₀', '↉'=>'⁰⁄₃' 
+	});
+	
+	# Convert Roman numerals
+	$_ = s_lut($_, {
+		'Ⅰ'=>'I', 'Ⅱ'=>'II', 'Ⅲ'=>'III', 'Ⅳ'=>'IV', 'Ⅴ'=>'V', 'Ⅵ'=>'VI', 'Ⅶ'=>'VII', 'Ⅷ'=>'VIII', 'Ⅸ'=>'IX', 'Ⅹ'=>'X', 'Ⅺ'=>'XI', 'Ⅻ'=>'XII', 
+		'ⅰ'=>'i', 'ⅱ'=>'ii', 'ⅲ'=>'iii', 'ⅳ'=>'iv', 'ⅴ'=>'v', 'ⅵ'=>'vi', 'ⅶ'=>'vii', 'ⅷ'=>'viii', 'ⅸ'=>'ix', 'ⅹ'=>'x', 'ⅺ'=>'xi', 'ⅻ'=>'xii', 
+	});
 	
 	s/(?<=[0-9₀-₉])′/&#8242;/g; # Keep prime [feet/minutes] and double prime [inch/seconds]
 	s/(?<=[0-9₀-₉])″/&#8243;/g; # (those are restored later by unescape_text)
@@ -200,15 +213,6 @@ sub convert {
 	
 	s/( ["”“]?(?:[A-Za-zא-ת0-9]{3,}[\\\/]){2,}[A-Za-zא-ת0-9]{3,}[,;."”“]?(?: |\n))/ $1 =~ s|(?<=[\\\/])|<wbr>|gr /eg;
 	
-	# Replace vulgar fractions
-	s/([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒↉])(\d+)/$2$1/g;
-	$_ = s_lut($_, { 
-		'½' => '¹⁄₂', '⅓' => '¹⁄₃', '⅔' => '²⁄₃', '¼' => '¹⁄₄', '¾' => '³⁄₄', 
-		'⅕' => '¹⁄₅', '⅖' => '²⁄₅', '⅗' => '³⁄₅', '⅘' => '⁴⁄₅', '⅙' => '¹⁄₆', '⅚' => '⁵⁄₆',  
-		'⅐' => '¹⁄₇', '⅛' => '¹⁄₈', '⅜' => '³⁄₈', '⅝' => '⁵⁄₈', '⅞' => '⁷⁄₈', 
-		'⅑' => '¹⁄₉', '⅒' => '¹⁄₁₀', '↉' => '⁰⁄₃'
-	});
-	
 	# use arial font for fraction slash (U+2044)
 	s/⁄/<span style⌸"font-family: Arial;">⁄<\/span>/g;
 	
@@ -263,11 +267,10 @@ sub parse_section {
 		$ankor = '';
 	} elsif (/^(?|(.+?)(?: *:| +[-])|((?:[^ (]+( +|$)){1,3}))/) {
 		($ankor,undef) = find_href($1);
+		$ankor = '' if ($ankor =~ /סעיף/);
 	} else {
 		$ankor = '';
 	}
-	
-	# $fix =~ s/(?<=[\-־])(?=\d{2,}\b)/<wbr>/g if ($fix);
 	
 	my $str2 = $str;
 	$str = "<קטע";
@@ -293,7 +296,8 @@ sub parse_chapter {
 	
 	$desc =~ s/(?<=–)(?! |$)/<wbr>/g;
 	$extra =~ s/(?=\()/\<wbr\>/g if ($extra);
-	# $fix =~ s/(?<=[\-־])(?=\d{2,}\b)/<wbr>/g if ($fix);
+	# [Don't] Use Roman symbols for numerals
+	# $num = roman_ligatures($num);
 	
 	$type =~ s/\*$//;
 	$ankor = ((!$ankor && $num) ? $id : $ankor);
@@ -327,6 +331,9 @@ sub parse_line {
 	$len++ if ($num);
 	$type = "ת" x $len;
 	$line =~ s/^ *(.*?) *$/$1/;
+	# [Don't] Use Roman symbols for numerals
+	# $num = roman_ligatures($num);
+	
 	my $str;
 	$str = "<$type";
 	$str .= " מספר=\"$id\"" if ($id);
@@ -762,10 +769,25 @@ sub unescape_text {
 }
 
 sub s_lut {
+	my ($str, $regexp, $table);
+	if (scalar(@_)==2) {
+		($str,$table) = @_;
+		$regexp = '([' . join('', keys(%{$table})) . '])';
+	} else {
+		($str, $regexp, $table) = @_;
+	}
+	$str =~ s|$regexp| $table->{$1} // $1 |ge;
+	return $str;
+}
+
+sub roman_ligatures {
 	my $str = shift;
-	my $table = shift;
-	my $keys = join('', keys(%{$table}));
-	$str =~ s/([$keys])/$table->{$1}/ge;
+	$str = s_lut($str, '([ivx]+|[IVX]+)', {
+		'I'=>'Ⅰ', 'II'=>'Ⅱ', 'III'=>'Ⅲ', 'IV'=>'Ⅳ', 'V'=>'Ⅴ', 'VI'=>'Ⅵ', 'VII'=>'Ⅶ', 'VIII'=>'Ⅷ', 'IX'=>'Ⅸ', 'X'=>'Ⅹ', 
+		'XI'=>'Ⅺ', 'XII'=>'Ⅻ', 'XIII'=>'ⅩⅢ', 'XIV'=>'ⅩⅣ', 'XV'=>'ⅩⅤ', 'XVI'=>'ⅩⅥ', 'XVII'=>'ⅩⅦ', 'XVIII'=>'ⅩⅧ', 'XIX'=>'ⅩⅨ', 'XX'=>'ⅩⅩ', 
+		'i'=>'ⅰ', 'ii'=>'ⅱ', 'iii'=>'ⅲ', 'iv'=>'ⅳ', 'v'=>'ⅴ', 'vi'=>'ⅵ', 'vii'=>'ⅶ', 'viii'=>'ⅷ', 'ix'=>'ⅸ', 'x'=>'ⅹ', 
+		'xi'=>'ⅺ', 'xii'=>'ⅻ', 'xiii'=>'ⅹⅲ', 'xiv'=>'ⅹⅳ', 'xv'=>'ⅹⅴ', 'xvi'=>'ⅹⅵ', 'xvii'=>'ⅹⅶ', 'xviii'=>'ⅹⅷ', 'xix'=>'ⅹⅸ', 'xx'=>'ⅹⅹ', 
+	});
 	return $str;
 }
 
@@ -1259,7 +1281,7 @@ sub find_href {
 		my ($e1,$e3) = ("$1$2", $3);
 		my $e2 = $ext =~ s/[-– ]+/ /gr;
 		$ext = '0' if ($e3 =~ /^ה?(זאת|זו|זה|אלה|אלו)\b/) || ($e3 eq '' and !defined $glob{href}{marks}{$e2} and !$helper);
-		$ext = '-' if (defined $e3 && $e3 =~ /^[בלמ]?([הכ]אמור(|ה|ות|ים)|אות[הו]|שב[הו]|הה[וי]א)\b/);
+		$ext = '-' if (defined $e3 && $e3 =~ /^[בלמ]?([הכ]אמור(|ה|ות|ים)|אות[הוםן]|שב[הו]|הה[וי]א)\b/);
 		s/^ *(.*?) *$/$1/;
 	}
 	
@@ -1298,6 +1320,7 @@ sub find_href {
 			when (/^$pre_sig(טופס|טפסים)/) { $class = 'form'; }
 			when (/^$pre_sig(לוח|לוחות)/) { $class = 'tabl'; }
 			when (/^$pre_sig(טבל[הא]|טבלאות)/) { $class = 'tabl2'; }
+			when (/^$pre_sig(מפה|מפות)/) { $class = 'map'; }
 			when (/^$pre_sig(סעיף|סעיפים|תקנה|תקנות|אמו?ת[ -]ה?מידה|כלל|כללים)/) { $class = 'chap'; }
 			when (/^$pre_sig(פריט|פרט)/) { $class = 'supchap'; }
 			when (/^$pre_sig(קט[נן]|פי?סק[האת]|פסקאות|משנה|טור)/) { $class = 'small'; }
@@ -1314,7 +1337,7 @@ sub find_href {
 			}
 			when (/^ה?(זה|זו|זאת|this)\b/) {
 				given ($class) {
-					when (/^(supl|appn|form|tabl|table2)$/) { $num = $glob{$class} || ''; }
+					when (/^(supl|appn|form|tabl|table2|map)$/) { $num = $glob{$class} || ''; }
 					when (/^(part|sect|form|chap)$/) { $num = $glob{$class}; }
 					when (/^subs$/) {
 						$elm{subs} = $glob{subs} unless defined $elm{subs};
@@ -1398,13 +1421,15 @@ sub find_href {
 		$href .= " טופס $elm{form}" if (defined $elm{form});
 		$href .= " לוח $elm{tabl}" if (defined $elm{tabl});
 		$href .= " טבלה $elm{tabl2}" if (defined $elm{tabl2});
-		$href .= " נספח $elm{appn}" if (defined $elm{appn});;
+		$href .= " נספח $elm{appn}" if (defined $elm{appn});
+		$href .= " מפה $elm{map}" if (defined $elm{map});
 		$href .= " פרט $elm{supchap}" if (defined $elm{supchap});
-	} elsif (defined $elm{form} || defined $elm{tabl} || defined $elm{tabl2} || defined $elm{appn}) {
+	} elsif (defined $elm{form} || defined $elm{tabl} || defined $elm{tabl2} || defined $elm{appn} || defined $elm{map}) {
 		$href = "טופס $elm{form}" if (defined $elm{form});
 		$href = "לוח $elm{tabl}" if (defined $elm{tabl});
 		$href = "טבלה $elm{tabl2}" if (defined $elm{tabl2});
 		$href = "נספח $elm{appn}"  if (defined $elm{appn});
+		$href = "מפה $elm{map}"  if (defined $elm{map});
 		$href .= " חלק $elm{part}" if (defined $elm{part});
 		$href .= " פרק $elm{sect}" if (defined $elm{sect});
 		$href .= " סימן $elm{subs}" if (defined $elm{subs});

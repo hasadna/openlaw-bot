@@ -286,12 +286,10 @@ sub unparent {
 
 sub escape_text {
 	local $_ = unquote(shift);
-#	print STDERR "|$_|";
 	s/&/\&amp;/g;
 	s/</&lt;/g;
 	s/>/&gt;/g;
 	s/([(){}"'\[\]<>\|])/"&#" . ord($1) . ";"/ge;
-#	print STDERR "$_|\n";
 	return $_;
 }
 
@@ -306,7 +304,6 @@ sub unescape_text {
 	s/(&([a-z]+);)/($table{$2} || $1)/ge;
 	s/&null;//g;
 	s/&amp;/&/g;
-#	print STDERR "|$_|\n";
 	return $_;
 }
 
