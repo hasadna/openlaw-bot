@@ -968,7 +968,7 @@ sub process_chapter {
 	$params =~ /עוגן="(?:סעיף |)([^"]+)"/;
 	my $num = $1 // '';
 	$glob{chap} = $num;
-	if ((defined $glob{supl} || defined $glob{tabl}) && $num) {
+	if ((defined $glob{supl} || defined $glob{appn} || defined $glob{tabl}) && $num) {
 		my $ankor = $num;
 		$ankor = "פרט $ankor" if ($ankor =~ /^\d|^$heb_num3(\d+[א-י]*)?$/);
 		$ankor = "סימן $glob{subs} $ankor" if (defined $glob{part} && defined $glob{subs});
