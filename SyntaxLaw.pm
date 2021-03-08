@@ -265,7 +265,7 @@ sub parse_section {
 	
 	if (/^\((.*?)\)$/) {
 		$ankor = '';
-	} elsif (/^(?|(.+?)(?: *:| +[-])|($type_sig (?:[^ (]+( +|$)){0,2}))/) {
+	} elsif (/^(?|(.+?)(?: *:| +[-])|($type_sig *(?:[^ (]+( +|$)){0,2}))/) {
 		($ankor,undef) = find_href($1);
 		$ankor = '' if ($ankor =~ /סעיף/);
 	} else {
