@@ -138,7 +138,8 @@ sub convert {
 	
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escape_text($1)/egs;
 	
-	s/(\{\|.*?\n\|\}) *\n?/&parse_wikitable($1)/egs;
+	# Parse wikitables
+	s/(\{\|(?:(?R)|.*?)*\n\|\}) *\n?/&parse_wikitable($1)/egs;
 	
 	# em-dash as span float left
 	s/ — ([^\n]+) *$/ — <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
@@ -418,7 +419,7 @@ sub parse_pubdate {
 }
 
 sub mark_linkset {
-	shift;
+	local $_ = shift;
 	s/\[\[(?|(.*?)\|(.*?)|()(.*?))\]\]/[[»$1|$2]]/g;
 	s/»([^»]+)$/«$1/;
 	# print STDERR "$_\n";
@@ -429,11 +430,12 @@ sub mark_linkset {
 
 sub parse_wikitable {
 	# Based on [mediawiki/core.git]/includes/parser/Parser.php doTableStuff()
-	my @lines = split(/\n/,shift);
+	local $_ = shift;
+	my @lines = split(/\n/,$_);
 	my $out = '';
-	my ($last_tag, $previous);
+	my ($last_tag, $previous, $indent_level, $attributes);
 	my (@td_history, @last_tag_history, @tr_history, @tr_attributes, @has_opened_tr);
-	my ($indent_level, $attributes);
+	
 	for (@lines) {
 		s/^ *(.*?) *$/$1/;
 		if ($_ eq '') {
@@ -441,10 +443,11 @@ sub parse_wikitable {
 			next;
 		}
 		
-		if (/^\{\|(.*)$/) {
-			$attributes = $1;
+		if (/^(.*)\{\|(.*)$/) {
+			$previous = $1;
+			$attributes = $2;
 			$attributes =~ s/wikitable *//; $attributes =~ s/ ?class=[“”"']{2}//;
-			$_ = "<table$attributes>\n";
+			$_ = "$previous<table$attributes>\n";
 			push @td_history, false;
 			push @last_tag_history, '';
 			push @tr_history, false;
@@ -569,7 +572,7 @@ sub parse_wikitable {
 	if ( $out eq "<table>\n<tr><td></td></tr>\n</table>" ) {
 		$out = '';
 	}
-	
+	$out =~ s/\n\n/\n/g;
 	return $out;
 }
 
