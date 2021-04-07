@@ -170,9 +170,18 @@ if ((%new_pages) && !($onlycheck || $dryrun)) {
 	$page = 'עמוד_ראשי/טקסטים_חדשים';
 	$text = $bot->get_text($page);
 	if ($text) {
+		my $new = '';
+		foreach my $p (keys(%new_pages)) {
+			if ($p =~ /^(חוק|פקודת)/) {
+				$new .= "[[$p]] {{*}}\n";
+			} elsif ($text =~ /<!-- בוט שורה אחת -->/g) {
+				$text =~ s/^(.*\G.*)$/[[$p]] <!-- בוט שורה אחת --> {{*}}/m;
+			} else {
+				$new .= "[[$p]] <!-- בוט שורה אחת --> {{*}}\n";
+			}
+			delete $new_pages{$p} unless ($p =~ /^(חוק|פקודת)/);
+		}
 		$text =~ /\}\}\n+/g || $text =~ /\n(?=\[\[)?/g || $text =~ s/ *\n*$/ {{*}}\n/gs;
-		my $new = join("\n", (keys(%new_pages), ''));
-		$new =~ s/(.+)/[[$1]] {{*}}/mg;
 		$text =~ s/\G/$new/;
 		$bot->edit({
 			page => $page, text => $text, summary => 'טקסטים חדשים',
@@ -357,7 +366,8 @@ sub process_law {
 	my $lawid = $1 // '';
 	
 	$res = "v " . ($new ? "נוצר" : "עודכן") ." [[$page_dst]]";
-	$new_pages{$page_dst} = $lawid if ($new && $page_dst =~ /^(חוק|פקודת)/);
+	$new_pages{$page_dst} = $lawid if ($new);
+	# $new_pages{$page_dst} = $lawid if ($new && $page_dst =~ /^(חוק|פקודת)/);
 	
 	# Check all possible redirections
 	if ($recent) {
