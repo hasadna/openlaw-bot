@@ -142,7 +142,8 @@ sub convert {
 	s/(\{\|(?:(?R)|.*?)*\n\|\}) *\n?/&parse_wikitable($1)/egs;
 	
 	# em-dash as span float left
-	s/ — ([^\n]+) *$/ — <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
+	s/ \[(?:—|-{2,4})\] ([^\n]+) *$/ <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
+	s/ (?:—|-{2,4}) ([^\n]+) *$/ — <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
 	
 	# Parse various elements
 	s/^(?|<שם> *\n?(.*)|=([^=].*)=)\n*/&parse_title($1)/em; # Once!
@@ -158,7 +159,7 @@ sub convert {
 	# Parse structured elements
 	s/^(=+)(.*?)\1\n+/&parse_section(length($1),$2)/egm;
 	s/^<סעיף *(.*?)>(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
-	s/^(@.*?) +(:+ .*)$/$1\n$2/gm;
+	s/^(@.*?) +(:+[-–]? .*)$/$1\n$2/gm;
 	s/^@ *($nochar\(תיקון: .*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
 	s/^@ *($nochar\d\S*) *\n/&parse_chapter($1,"","סעיף")/egm;
 	s/^@ *($nochar$chp_sig) +(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
@@ -536,7 +537,6 @@ sub parse_wikitable {
 				
 				if (!defined $cell_data[0]) {
 					$cell = "$previous<$last_tag>&nbsp;"; 
-					# print STDERR "Empty cell data at |" . join('|',@cells) . "|\n";
 				} elsif ( $cell_data[0] =~ /\[\[|\{\{/ ) {
 					$cell = "$previous<$last_tag>$cell";
 				} elsif ( @cell_data < 2 ) {
