@@ -565,7 +565,7 @@ sub parse_actions {
 	my @_ = split(/\n/, shift);
 	my @actions;
 	if ($slow) {
-		my ($hour,$$minute);
+		my ($hour,$minute);
 		(undef,$minute,$hour) = localtime();
 		unless (($hour==0 || $hour==12) && $minute<15) {
 			print "Slow mode: Hour is $hour, wait until midnight/midday.\n";
