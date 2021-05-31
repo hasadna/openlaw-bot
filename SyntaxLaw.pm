@@ -176,7 +176,7 @@ sub convert {
 	s/^(:+[-–]?) *($nochar["”“]?(?:\([^( ]+\)|\[[^[ ]+\]|[A-Za-z0-9א-ת.]*\)? *\(\(\.?\)\)|\(\(\(\d+.?\)\)\)|\(\(\([א-י]\d?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|$heb_num2\d?\.|$roman\.?|[•■□-◿*]|<sup>[0-9א-ת]{1,2}<\/sup>|)$nochar)(?| +(.*?)|())\n/&parse_line($1,$2,$3)/egm;
 	
 	# Move container tags if needed
-	my $barrier = '<\/?(?:מקור|הקדמה|ת+|קטע|סעיף|חתימות|מידע נוסף|td|tr)|__TOC__|$';
+	my $barrier = '<\/?(?:מקור|הקדמה|ת+|קטע|סעיף|חתימות|מידע נוסף|td|tr|table)|__TOC__|$';
 	s/(\n?<\/(?:הקדמה|מקור)>)(.*?)(?=\s*($barrier))/$2$1/sg;
 	s/(\n?<\/ת+>)(.*?)(?=\s*(<מפריד.*?>\s*)?($barrier))/$2$1/sg;
 	# Add <סעיף> marker after <קטע> if not found
@@ -258,6 +258,7 @@ sub parse_section {
 	$_ = unquote($_);
 	($_, $fix) = get_fixstr($_);
 	($_, $extra) = get_extrastr($_);
+	($_, $ankor) = get_ankor($_);
 	
 	$str = $_;
 	
@@ -265,7 +266,9 @@ sub parse_section {
 	s/\(\([^()]*?\[\[[^()]*?\)\)//g;
 	s/(?|\(\(\(([^()]*?)\)\)\)|\(\(([^()]*?)\)\))/$1/g;
 	
-	if (/^\((.*?)\)$/) {
+	if ($ankor) {
+		($ankor,undef) = find_href($ankor);
+	} elsif (/^\((.*?)\)$/) {
 		$ankor = '';
 	} elsif (/^(?|(.+?)(?: *:| +[-])|($type_sig *(?:[^ (]+( +|$)){0,2}))/) {
 		($ankor,undef) = find_href($1);
