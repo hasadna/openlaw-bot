@@ -1204,9 +1204,9 @@ sub process_href {
 		unless ($helper =~ /$extref_sig/) {
 			$glob{href}{all_marks} .= "|ה?$helper";
 			$glob{href}{all_marks} =~ s/^\|//;
-			# print STDERR "adding '$helper' to all_marks = '$glob{href}{all_marks}'\n";
+			# print STDERR "adding mark 'ה$helper' to '$ext'\n";
 		}
-		for (@{$glob{href}{marks_ahead}{$helper}}) {
+		for (@{$glob{href}{marks_ahead}{$helper}}, @{$glob{href}{marks_ahead}{"ה$helper"}}) {
 			$hrefs{$_} =~ s/\+[^#]*(.*)/$ext$1/;
 		}
 		$glob{href}{marks_ahead}{$helper} = [];
@@ -1264,9 +1264,9 @@ sub find_href {
 	s/$date_sig *\(\(\[צ["״]ל:$date_sig\]\)\)$//;
 	s/\(\((?|\[(?:צ["״]ל: *)?(.*?)\]|(.*?))\)\)/$1/g;
 	
-	if (/דברי?[- ]ה?מלך/ and /(סימן|סימנים) \d/) {
-		s/(סימן|סימנים)/סעיף/;
-	}
+	# Avoid special cases of internal hrefs
+	s/(סימן|סימנים)/סעיף/ if (/דברי?[- ]ה?מלך/ and /(סימן|סימנים) \d/);
+	s/$pre_sigתקנו?ת[ -]משנה//g;
 	
 	s/(\b[בלמ]?(אות[הוםן])\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
 	if (/^(.*?) *\b($extref_sig\b[- ]*(?:[א-ת]+\b.*|[א-ת].*תש.?["״]?.[-–]\d{4}|))$/) {
