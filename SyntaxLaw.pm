@@ -139,7 +139,7 @@ sub convert {
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escape_text($1)/egs;
 	
 	# Parse wikitables
-	s/(\{\|(?:(?R)|.*?)*+\n\|\}) *\n?/&parse_wikitable($1)/egs;
+	s/(\{\|(?:(?R)|.*?)*\n\|\}) *\n?/&parse_wikitable($1)/egs;
 	
 	# em-dash as span float left
 	s/ \[(?:—|-{2,4})\] ([^\n]+) *$/ <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
@@ -1266,7 +1266,7 @@ sub find_href {
 	
 	# Avoid special cases of internal hrefs
 	s/(סימן|סימנים)/סעיף/ if (/דברי?[- ]ה?מלך/ and /(סימן|סימנים) \d/);
-	s/$pre_sig(תקנו?ת[ -]משנה)/פסקאות/g;
+	s/$pre_sig(תקנו?ת[ -]משנה)//g;
 	
 	s/(\b[בלמ]?(אות[הוםן])\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
 	if (/^(.*?) *\b($extref_sig\b[- ]*(?:[א-ת]+\b.*|[א-ת].*תש.?["״]?.[-–]\d{4}|))$/) {
