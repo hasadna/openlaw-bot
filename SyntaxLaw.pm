@@ -139,7 +139,7 @@ sub convert {
 	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escape_text($1)/egs;
 	
 	# Parse wikitables
-	s/(\{\|(?:(?R)|.*?)*\n\|\}) *\n?/&parse_wikitable($1)/egs;
+	s/(\{\|(?:(?R)|.*?)*+\n\|\}) *\n?/&parse_wikitable($1)/egs;
 	
 	# em-dash as span float left
 	s/ \[(?:—|-{2,4})\] ([^\n]+) *$/ <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
