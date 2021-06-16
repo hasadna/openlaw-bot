@@ -105,7 +105,7 @@ sub convert {
 	
 	# s/[»«⌸]/"&#".ord($1).";"/ge; # Escape special markers
 	
-	s/($HE['׳]?)–($HE)/$1--$2/g; # Keep en-dash between Hebrew words
+	s/($HE['׳]?)–($HE|\d)/$1--$2/g; # Keep en-dash between Hebrew words
 	s/(\d$HE*)–(\d)/$1--$2/g; # Keep en-dash between numerals
 	
 	tr/\x{FEFF}//d;     # Unicode marker
