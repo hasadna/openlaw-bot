@@ -125,6 +125,11 @@ sub convert {
 	
 	# s/(\d+(?:[.,]\d+)*(?:&#824[23];)?) ([×\\\/—+−±]) (?=\d+(?:[.,]\d+)*)/$1\x{202F}$2\x{202F}/g;
 	
+	# Unescape HTML characters
+	$_ = unescape_text($_);
+	
+	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escape_text($1)/egs;
+	
 	s/(?<!\[)\[(https?:\/\/[^ |\[\]\n]++) ([^|\[\]\n]++)\](?!\])/[[$1|$2]]/g;
 	s/(?<!\[)\[(https?:\/\/[^ |\[\]\n]++)\](?!\])/[[$1]]/g;
 	s/\[\[קטגוריה:.*?\]\] *\n?//g;  # Ignore categories (for now)
@@ -132,15 +137,11 @@ sub convert {
 	s/(\[\[[ws]:.*?(?:\||\]\]))/ $1 =~ tr| |_|r /ge;
 	s/(\[\[(?:קובץ|תמונה|[Ff]ile|[Ii]mage):.*?\]\])/ $1 =~ tr| |_|r /ge;
 	
-	# Unescape HTML characters
-	$_ = unescape_text($_);
 	
 	s/([ :])-([ \n])/$1–$2/g;
 	
 	# Replace with “Smart quotes”
 	$_ = convert_quotes($_);
-	
-	s/(?<=\<ויקי\>)\s*(.*?)\s*(?=\<\/(ויקי)?\>)/&escape_text($1)/egs;
 	
 	# Parse wikitables
 	s/(\{\|(?:(?R)|.*?)*\n\|\}) *\n?/&parse_wikitable($1)/egs;
