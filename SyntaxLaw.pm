@@ -26,6 +26,7 @@ my $use_roman = defined $Roman::VERSION;
 use constant { true => 1, false => 0 };
 
 my $do_expand = 0;
+my $div_table = 0;
 
 # \bו?כ?ש?מ?[בהל]?(חוק|פקוד[הת]|תקנות|צו|חלק|פרק|סימן(?: משנה|)|תוספו?ת|טופס|לוח)
 our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
@@ -70,6 +71,8 @@ sub convert {
 	local $_ = shift;
 	
 	cleanup();
+	
+	$div_table = 1 if (s/<מידע נוסף טבל(אות|א|ה) שקופ(ות|ה)>\n?//);
 	
 	# General cleanup
 	s/\n( *<!--.*?--> *\n)+/\n/sg;  # Remove comments
@@ -137,7 +140,6 @@ sub convert {
 	s/(\[\[[ws]:.*?(?:\||\]\]))/ $1 =~ tr| |_|r /ge;
 	s/(\[\[(?:קובץ|תמונה|[Ff]ile|[Ii]mage):.*?\]\])/ $1 =~ tr| |_|r /ge;
 	
-	
 	s/([ :])-([ \n])/$1–$2/g;
 	
 	# Replace with “Smart quotes”
@@ -147,8 +149,12 @@ sub convert {
 	s/(\{\|(?:(?R)|.*?)*\n\|\}) *\n?/&parse_wikitable($1)/egs;
 	
 	# em-dash as span float left
-	s/ \[(?:—|-{2,4})\] ([^\n]+) *$/ <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
-	s/ (?:—|-{2,4}) ([^\n]+) *$/ — <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
+	s/ (—|-{2,4}) (?=[^\n]+)/ – \[---\] /gm;
+	unless ($div_table) {
+		s/ \[(?:—|-{2,4})\] ([^\n]+) *$/ <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
+		s/ \[(?:—|-{2,4})\] ([^\n]+) *$/ <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
+		s/ \[(?:—|-{2,4})\] / /gm;
+	}
 	
 	# Parse various elements
 	s/^(?|<שם> *\n?(.*)|=([^=].*)=)\n*/&parse_title($1)/em; # Once!
@@ -178,7 +184,7 @@ sub convert {
 	s/^(:+) *(\([^( ]+\)|[א-י]\. ) *(\([^( ]{1,2}\)|[א-י]\. )/$1 $2\n$1: $3/gm;
 	s/^:+-? *$//gm;
 	# s/^(:+) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(?| +(.*?)|([-–].*?)|())\n/&parse_line($1,$2,$3)/egm;
-	s/^(:+[-–]?) *($nochar["”“]?(?:\([^( ]+\)|\[[^[ ]+\]|[A-Za-z0-9א-ת.]*\)? *\(\(\.?\)\)|\(\(\(\d+.?\)\)\)|\(\(\([א-י]\d?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|$heb_num2\d?\.|$roman\.?|[•■□-◿*]|<sup>[0-9א-ת]{1,2}<\/sup>|)$nochar)(?| +(.*?)|())\n/&parse_line($1,$2,$3)/egm;
+	s/^(:+[-–]?) *($nochar["”“]?(?:\([^( ]+\)|\[[A-Za-z0-9א-ת][^\[\] ]*\]|[A-Za-z0-9א-ת.]*\)? *\(\(\.?\)\)|\(\(\(\d+.?\)\)\)|\(\(\([א-י]\d?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|$heb_num2\d?\.|$roman\.?|[•■□-◿*]|<sup>[0-9א-ת]{1,2}<\/sup>|)$nochar)(?| +(.*?)|())\n/&parse_line($1,$2,$3)/egm;
 	
 	# Move container tags if needed
 	my $barrier = '<\/?(?:מקור|הקדמה|ת+|קטע|סעיף|חתימות|מידע נוסף|td|tr|table)|__TOC__|$';
@@ -341,8 +347,13 @@ sub parse_line {
 	$len++ if ($num);
 	$type = "ת" x $len;
 	$line =~ s/^ *(.*?) *$/$1/;
-	# [Don't] Use Roman symbols for numerals
-	# $num = roman_ligatures($num);
+	
+	if ($div_table) {
+		my $local_align = ($line =~ /\[(?:—|-{2,4})\] .*\<u\>/);
+		$line =~ s/(?|(.*) |^())\[(?:—|-{2,4})\] (.*) \[(?:—|-{2,4})\] (.*)$/{{טור לשמאל|$1|$2|$3}}/m;
+		$line =~ s/(?|(.*) |^())\[(?:—|-{2,4})\] (.*)$/{{טור לשמאל|$1|$2}}/m;
+		$line =~ s/(\{\{טור לשמאל)(?=\|)/$1|ישור=מרכז/m if $local_align;
+	}
 	
 	my $str;
 	$str = "<$type";
