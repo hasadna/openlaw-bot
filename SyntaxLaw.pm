@@ -146,7 +146,8 @@ sub convert {
 	$_ = convert_quotes($_);
 	
 	# Parse wikitables
-	s/(\{\|(?:(?R)|.*?)*\n\|\}) *\n?/&parse_wikitable($1)/egs;
+	$_ = parse_wikitable($_) if /\{\|/;
+	# s/(\{\|(?:(?R)|.*?)*\n\|\}) *\n?/&parse_wikitable($1)/egs;
 	
 	# em-dash as span float left
 	s/ (—|-{2,4}) (?=[^\n]+)/ – \[---\] /gm;
@@ -466,7 +467,7 @@ sub parse_wikitable {
 		if (/^(.*)\{\|(.*)$/) {
 			$previous = $1;
 			$attributes = $2;
-			$attributes =~ s/wikitable *//; $attributes =~ s/ ?class=[“”"']{2}//;
+			$attributes =~ s/wikitable *//; $attributes =~ s/ ?class=([“”]{2}|""|'')//;
 			$_ = "$previous<table$attributes>\n";
 			push @td_history, false;
 			push @last_tag_history, '';
@@ -591,7 +592,7 @@ sub parse_wikitable {
 	if ( $out eq "<table>\n<tr><td></td></tr>\n</table>" ) {
 		$out = '';
 	}
-	$out =~ s/\n\n/\n/g;
+	# $out =~ s/\n\n/\n/g;
 	return $out;
 }
 
@@ -700,6 +701,15 @@ sub get_numeral {
 			($num,$token) = ("17",$1) when /^(שבעה[- ]עשר|שבע[- ]עשרה)\b/;
 			($num,$token) = ("18",$1) when /^(שמונה[- ]עשרה?)\b/;
 			($num,$token) = ("19",$1) when /^(תשעה[- ]עשר|תשע[- ]עשרה)\b/;
+			($num,$token) = ("21",$1) when /^(עשרים[- ]ו?אח[דת])\b/;
+			($num,$token) = ("22",$1) when /^(עשרים[- ]ו?ש[נת]יי?ם)\b/;
+			($num,$token) = ("23",$1) when /^(עשרים[- ]ו?שלושה?)\b/;
+			($num,$token) = ("24",$1) when /^(עשרים[- ]ו?ארבעה?)\b/;
+			($num,$token) = ("25",$1) when /^(עשרים[- ]ו?חמי?שה?)\b/;
+			($num,$token) = ("26",$1) when /^(עשרים[- ]ו?שי?שה?)\b/;
+			($num,$token) = ("27",$1) when /^(עשרים[- ]ו?שבעה)\b/;
+			($num,$token) = ("28",$1) when /^(עשרים[- ]ו?שמונה)\b/;
+			($num,$token) = ("29",$1) when /^(עשרים[- ]ו?תשעה?)\b/;
 			($num,$token) = ("1",$1) when /^(ראשו(ן|נה)|אחד|אחת])\b/;
 			($num,$token) = ("2",$1) when /^(שניי?ה?|ש[תנ]יי?ם)\b/;
 			($num,$token) = ("3",$1) when /^(שלישית?|שלושה?)\b/;
@@ -1413,7 +1423,7 @@ sub find_href {
 	$elm{chap} = $elm{chap_} if (defined $elm{chap_} and !defined $elm{chap});
 	$elm{ext} = $ext // '';
 	
-	$glob{href}{last_class} = $elm{supchap} ? 'supchap' : $elm{chap} ? 'chap' : $elm{subsub} ? 'subsub' : $elm{subs} ? 'subs' : $elm{sect} ? 'sect' : $elm{part} ? 'part' : $class eq 'small' ? '' : $class;
+	$glob{href}{last_class} = $elm{supchap} ? 'supchap' : $elm{chap} ? 'chap' : $elm{form} ? 'form' : $elm{subsub} ? 'subsub' : $elm{subs} ? 'subs' : $elm{sect} ? 'sect' : $elm{part} ? 'part' : $class eq 'small' ? '' : $class;
 	
 	$glob{href}{ditto}{ext} = $ext if (defined $glob{href}{ditto}{ext} and ($ext) and $glob{href}{ditto}{ext} eq '+');
 	
