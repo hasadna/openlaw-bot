@@ -106,7 +106,7 @@ tr/\x{F0A8}\x{F063}/□/;       # White square (special font)
 tr/º/°/;                      # ordinal indicatior should be degree sign
 s/(\x{FFFD}{2,})/' ' . ',' x length($1) . ' '/ge;
 tr/\x{FEFF}\x{FFFC}-\x{FFFF}//d;    # Unicode placeholders and junk
-tr/\x{F000}-\x{F031}/□/;      # Replacement font code, cannot recover without OCR.
+tr/\x{F000}-\x{F031}/□/;      # Replacement font codes, cannot recover without OCR.
 
 # Hebrew ligatures and alternative forms
 tr/ﬠﬡﬢﬣﬤﬥﬦﬧﬨ/עאדהכלםרת/;
