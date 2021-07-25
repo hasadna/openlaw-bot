@@ -825,7 +825,7 @@ sub roman_ligatures {
 sub canonic_name {
 	local $_ = shift;
 	tr/–־/-/;
-	tr/״”“/"/;
+	tr/״”“„/"/;
 	tr/׳‘’/'/;
 	tr/\x{05B0}-\x{05BD}//;
 	s/ - / – /g;
