@@ -226,7 +226,7 @@ sub convert {
 	
 	s/( ["”“]?(?:[A-Za-zא-ת0-9]{3,}[\\\/]){2,}[A-Za-zא-ת0-9]{3,}[,;."”“]?(?: |\n))/ $1 =~ s|(?<=[\\\/])|<wbr>|gr /eg;
 	
-	# use arial font for fraction slash (U+2044)
+	# use Arial font for fraction slash (U+2044)
 	s/⁄/<span style⌸"font-family: Arial;">⁄<\/span>/g;
 	
 	# Replace "=" (⌸) within templates with {{=}}
@@ -1547,6 +1547,8 @@ sub find_ext_ref {
 	s/\.[^\.]*$//;
 	# s/\, *[^ ]*\d+$//;
 	s/$date_sig$//;
+	s/\(פרק .*?\)$//g;
+	
 	s/ \(מס' \d\d+\)$//; # Keep single digit "מס' 0"
 	s/^ *(.*?) *$/$1/;
 	
