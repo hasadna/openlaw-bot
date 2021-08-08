@@ -219,8 +219,9 @@ sub convert {
 	s/(<(?:div|span|table|td|th|tr|מידע נוסף) [^>]+>)/&fix_tags($1)/egs;
 	
 	# Use thin spaces in dotted lines
-	s/(\.{21,})/'<span style⌸"word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
-	s/(\.{4,20})/'. 'x(length($1)-1) . '.'/ge;
+	# s/(\.{21,})/'<span style⌸"word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
+	s/(\.{21,})/'. ' x 10 . ('<wbr>' . '. ' x 10) x (int((length($1)-20)\/10)) . '<wbr>' . '. ' x (length($1) % 10) . (length($1) % 10 ? '<wbr>' : '') . '. 'x9 . '.'/ge;
+	s/(\.{4,20})/'. ' x (length($1)-1) . '.'/ge;
 	
 	s/(_{3,})/<span style⌸"font-family: Arial; font-size: 80%;">$1<\/span>/g;
 	
