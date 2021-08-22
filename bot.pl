@@ -552,6 +552,11 @@ sub get_revid {
 	my $comment = $hist_s[0]->{comment} // $hist_t[0]->{comment};
 	my $minor = $hist_s[0]->{minor};
 	
+	if ($comment =~ /^‏OpenLawBot העביר את הדף/ && scalar(@hist_s)>1) {
+		$comment = $hist_s[1]->{comment};
+		$minor = $hist_s[1]->{minor};
+	}
+	
 	foreach my $rec (@hist_t) {
 		if ($rec->{user} eq 'OpenLawBot' && $rec->{comment} =~ /^ *\[(\d+)\]/) {
 			$revid_t = $1;
