@@ -1,27 +1,14 @@
+image: docker:latest
+
 services:
   - docker:dind
 
-default:
-  image: docker:latest
+stages:
+  - build
 
 before_script:
   - docker info
   - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-
-variables:
-  DOCKER_HOST: tcp://localhost:2375
-  DOCKER_TLS_CERTDIR: ""
-
-build_latest_docker:
-  stage: build
-  script:
-    - docker build -t ${CI_REGISTRY_IMAGE}:latest .
-    - docker push ${CI_REGISTRY_IMAGE}:latest
-  only:
-    - tags
-    - /v\d+\.\d+\.\d+/
-    - triggers
-    - schedules
 
 build_master_docker:
   stage: build
@@ -30,20 +17,17 @@ build_master_docker:
     - docker push ${CI_REGISTRY_IMAGE}:master
   only:
     - master
-    - triggers
+  except:
+    - tags
 
 build_tagged_docker:
-  stage: publish
+  stage: build
   script:
-    - docker pull ${CI_REGISTRY_IMAGE}:latest
-    - docker tag ${CI_REGISTRY_IMAGE}:latest ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}
+    - docker build -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} .
+    - docker tag ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} ${CI_REGISTRY_IMAGE}:latest
     - docker push ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}
+    - docker push ${CI_REGISTRY_IMAGE}:latest
   only:
-    - tags
-    - triggers
-  dependencies:
-    - build_latest_docker
-
-stages:
-  - build
-  - publish
+    - /v\d+\.\d+\.\d+/
+  except:
+    - branches
