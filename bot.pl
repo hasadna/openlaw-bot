@@ -21,7 +21,7 @@ binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 
 my @pages = ();
-my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $select, $start, $force_comment, $slow);
+my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $select, $start, $force_comment, $slow, $slow_count);
 my $botpage;
 my $locforce = 0;
 my $outfile;
@@ -42,11 +42,17 @@ GetOptions(
 	"recent" => sub { $recent = 1 },
 	"select=s" => \$select,
 	"start=s" => \$start,
-	"slow" => \$slow,
+	"slow:i" => \$slow_count,
 	"comment=s" => \$force_comment,
 	"help|?" => \&HelpMessage,
 	"" => \$interactive
 ) or die("Error in command line arguments\n");
+
+$slow = (($slow_count // '') eq '0');
+
+# print "\$slow is \"$slow\"; \$slow_count is \"$slow_count\"\n";
+# exit 1;
+
 
 @pages = map {decode_utf8($_)} @ARGV;
 
@@ -101,7 +107,7 @@ if ($recent) {
 	# Get recently changed pages in namespace
 	$recent = 1;
 	my %cat = map { $_ => undef } @pages;
-	@pages = $bot->recentchanges({ns => 116, limit => $credentials{limit} // 100}); # Namespace 116 is 'מקור'
+	@pages = $bot->recentchanges({ns => 116, limit => $credentials{limit} // 200}); # Namespace 116 is 'מקור'
 	@pages = map { $_->{title} } @pages;
 	map { s/^\s*(?:מקור:|)\s*(.*?)\s*$/$1/ } @pages;
 	# Intersect list with category list
@@ -411,7 +417,7 @@ sub process_law {
 			page => $page_src, text => $src_text2, summary => 'בוט: תיקונים אוטומטיים',
 			bot => 1, minor => 1, assertion => 'bot'}
 		) if ($src_text2 ne $src_text);
-		# Update of $page_dst will take place on next run, providing user time to check automatic updates.
+		# Update of $page_dst will take place on next run, providing sufficient time to check automatic corrections.
 	}
 	
 	return $res;
@@ -575,7 +581,7 @@ sub parse_actions {
 		my ($hour,$minute);
 		(undef,$minute,$hour) = localtime();
 		unless (($hour==0 || $hour==12) && $minute<15) {
-			print "Slow mode: Hour is $hour, wait until midnight/midday.\n";
+			printf("Slow mode: It's now %02d:%02d, new page will be added at midnight/noon.\n", $hour, $minute);
 			return ();
 		}
 	}
@@ -593,6 +599,9 @@ sub parse_actions {
 			if ($slow) {
 				print "Slow mode: Allowing one action per day.\n";
 				last;
+			} elsif ($slow_count && (--$slow_count<1)) {
+				print "Limited number of actions.\n";
+				last;
 			}
 		}
 	}
@@ -604,7 +613,8 @@ sub clean_name {
 	s/\[\[(.*?)\|?.*?\]\]/$1/;
 	s/^ *(.*?) *$/$1/;
 	s/^מקור: *//;
-	s/, (ה?תש.?".?-)?\d{4}$//;
+	s/(?:\,? ה?תש.?["״].[-–]\d{4}|, *[^ ]*\d{4}|, מס[\'׳] \d+ לשנת \d{4}| [-–] ה?תש.?["״]. מיום \d+.*|\, *\d+ עד \d+|\ \(\d{4}\)|\ [-–] \d{4})$//;
+	# s/, (ה?תש.?".?-)?\d{4}$//;
 	s/ {2,}/ /g;
 	return $_;
 }
