@@ -482,6 +482,7 @@ sub move_page {
 	# return "x לא ניתן להעביר את [[$src]] אל [[$dst]]" unless $bot->get_id("Mediawiki:Editnotice-0-$src");
 	print "MOVE '$src' to '$dst'.\n";
 	unless ($dryrun) {
+		$bot->delete($dst, "מחיקה לצורך העברה") if $bot->get_id($dst);
 		$bot->move("מקור:$src", "מקור:$dst", "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1 });
 		$bot->move($src, $dst, "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1 });
 		$bot->edit({page => "שיחת מקור:$dst", text => "#הפניה [[שיחה:$dst]]", summary => "הפניה", minor => 1 });
