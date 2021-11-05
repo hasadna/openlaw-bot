@@ -161,7 +161,7 @@ exit 0;
 
 sub load_credentials {
 	my %obj;
-	my $_ = shift;
+	local $_ = shift;
 	open( my $FIN, $_ ) || die "Cannot open file \"$_\"!\n";
 	while (<$FIN>) {
 		if (m/^ *(.*?) *= *(.*?) *$/) {
@@ -223,13 +223,13 @@ EOP
 #-------------------------------------------------------------------------------
 
 sub trim {
-	my $_ = shift // '';
+	local $_ = shift // '';
 	s/^[ \t\xA0\n]*(.*?)[ \t\xA0\n]*$/$1/s;
 	return $_;
 }
 
 sub decode_url {
-	my $_ = shift;
+	local $_ = shift;
 	s/%([0-9A-Fa-f]{2})/pack('H2',$1)/ge;
 	return $_;
 }
@@ -270,7 +270,7 @@ sub sort_laws {
 #-------------------------------------------------------------------------------
 
 sub law_name {
-	my $_ = shift;
+	local $_ = shift;
 	s/^[ \n]*(.*?)[ \n]*$/$1/;
 	s/''/"/g;
 	s/, (ה?תש.?".[-–])?\d{4}//;
@@ -811,7 +811,7 @@ sub process_law {
 			});
 			
 			$text = $bot->get_text($talk_page) // "";
-			unless ($text && $text =~ /{{(מטלות|משימות)}}/) {
+			unless ($text && $text =~ /\{\{(מטלות|משימות)\}\}/) {
 				$text = "{{מטלות}}\n\n$text";
 				$bot->edit({
 					page => $talk_page, text => $text, summary => "תבנית מטלות",
