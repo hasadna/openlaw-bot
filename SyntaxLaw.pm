@@ -1472,6 +1472,7 @@ sub find_href {
 		$href .= " מפה $elm{map}" if (defined $elm{map});
 		$href .= " פרט $elm{supchap}" if (defined $elm{supchap});
 	} elsif (defined $elm{form} || defined $elm{tabl} || defined $elm{tabl2} || defined $elm{appn} || defined $elm{map}) {
+		$elm{supchap} = $elm{supchap} || $elm{chap};
 		$href = "טופס $elm{form}" if (defined $elm{form});
 		$href = "לוח $elm{tabl}" if (defined $elm{tabl});
 		$href = "טבלה $elm{tabl2}" if (defined $elm{tabl2});
