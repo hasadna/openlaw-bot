@@ -313,7 +313,7 @@ sub parse_chapter {
 	($desc, $fix) = get_fixstr($desc);
 	($desc, $extra) = get_extrastr($desc);
 	($desc, $ankor) = get_ankor($desc);
-	if ($num eq '' && $ankor eq '' && $desc =~ /^(סעיף|תקנה|פרט|املادة) (\d+[^ .:\-]*)(?::| [-–])(?: |$)/) {
+	if ($num eq '' && $ankor eq '' && $desc =~ /^(סעיף|תקנה|פרט|املادة|المادة) (\d+[^ .:\-]*)(?::| [-–])(?: |$)/) {
 		$num = $2;
 		$type =~ s/\*$//;
 	}
