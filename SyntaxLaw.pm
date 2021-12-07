@@ -1176,27 +1176,21 @@ sub process_href {
 	
 	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
 	
-	if ($helper =~ /^= *(.*)/) {
-		$type = 3;
-		$helper = $1;
-		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
-		(undef, $ext) = find_href($text, $helper);
-		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext} && $glob{href}{marks}{$ext} ne "++$ext");
-		$update_mark = true;
-	} elsif ($helper =~ /^(.*?) *= *(.*)/) {
+	if ($helper =~ /^(.*?) *= *(.*)/) {
 		$type = 3;
 		$ext = $1; $helper = $2;
-		(undef, $helper) = find_href($text,$text) if ($2 eq '');
+		(undef, $ext) = find_href($text, $helper) if ($ext eq '');
+		(undef, $helper) = find_href($text, $text) if ($helper eq '');
 		$helper =~ s/^ה//; $helper =~ s/[-: ]+/ /g;
 		(undef, $ext) = find_href($ext, $helper);
-		$ext = $glob{href}{marks}{$ext} if (defined $glob{href}{marks}{$ext} && $glob{href}{marks}{$ext} ne "++$ext");
+		$ext = find_href_mark($ext);
 		$update_mark = true;
 	} elsif ($helper) {
 		my ($helper_int,$helper_ext) = find_href($helper);
 		if ($found) {
 			$ext = ($helper_ext ne '' ? $helper_ext : $helper);
-		} elsif (defined $glob{href}{marks}{$helper}) {
-			$ext = $glob{href}{marks}{$helper};
+		} elsif (defined $glob{href}{marks}{$helper =~ s/[-: ]+/ /gr}) {
+			$ext = find_href_mark($helper);
 		} else {
 			$int = $helper_int and $found = true if ($helper_int);
 			$ext = $helper_ext;
@@ -1540,6 +1534,13 @@ sub find_reshumot_href {
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
 	return $url;
+}
+
+sub find_href_mark {
+	my $ext = shift;
+	my $helper = $ext =~ s/[-: ]+/ /gr;
+	$ext = $glob{href}{marks}{$helper} if ($glob{href}{marks}{$helper} && $glob{href}{marks}{$helper} ne "++$ext");
+	return $ext;
 }
 
 sub find_ext_ref {

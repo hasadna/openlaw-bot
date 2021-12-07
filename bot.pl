@@ -168,7 +168,7 @@ foreach my $page_dst (@pages) {
 	
 	if ($page_dst =~ /\[\[(.*?)\]\].*?\[\[(.*?)\]\]/) {
 		move_page($1, $2);
-	} elsif ($page_dst =~ /\[\[(.*?)\]\]/)
+	} elsif ($page_dst =~ /\[\[(.*?)\]\]/) {
 		process_law($1);
 	} else {
 		process_law($page_dst);
