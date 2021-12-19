@@ -488,11 +488,17 @@ sub move_page {
 	# return "x לא ניתן להעביר את [[$src]] אל [[$dst]]" unless $bot->get_id("Mediawiki:Editnotice-0-$src");
 	print "MOVE '$src' to '$dst'.\n";
 	unless ($dryrun) {
-		$bot->delete($dst, "מחיקה לצורך העברה") if $bot->get_id($dst);
-		$bot->move("מקור:$src", "מקור:$dst", "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1 });
-		$bot->move($src, $dst, "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1 });
-		$bot->edit({page => "שיחת מקור:$dst", text => "#הפניה [[שיחה:$dst]]", summary => "הפניה", minor => 1 });
-		$bot->edit({page => "$src", text => "#הפניה [[$dst]]", summary => "הפניה", minor => 1 });
+		if ($bot->get_id($dst)) {
+			eval { $bot->delete($dst, "מחיקה לצורך העברה"); };
+			if ($@) {
+				$bot->move($dst, "$dst למחיקה", "העברה", { movetalk => 0, noredirect => 1, movesubpages => 0, ignorewarnings => 1 });
+				$bot->edit({page => "$dst מחיקה", text => "{{מחיקה|הפנייה מיותרת}}", summary => "מחיקה מהירה", minor => 1 });
+			}
+		}
+		eval { $bot->move("מקור:$src", "מקור:$dst", "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1, ignorewarnings => 1 }); };
+		eval { $bot->move($src, $dst, "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1, ignorewarnings => 1 }); };
+		eval { $bot->edit({page => "שיחת מקור:$dst", text => "#הפניה [[שיחה:$dst]]", summary => "הפניה", minor => 1 }); };
+		eval { $bot->edit({page => "$src", text => "#הפניה [[$dst]]", summary => "הפניה", minor => 1 }); };
 		my @redirects = $bot->what_links_here($src, 'redirects');
 		@redirects = map { $_->{title} } @redirects;
 		# my @redirects = possible_redirects($src, $dst);
