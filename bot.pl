@@ -481,6 +481,7 @@ sub s_lut {
 sub move_page {
 	my $src = shift;
 	my $dst = shift;
+	my $res;
 	return "x לא ניתן להעביר דף אל עצמו" if ($src eq $dst);
 	return "x הדף [[$src]] לא קיים" unless $bot->get_id($src);
 	return "x הדף [[מקור:$src]] לא קיים" unless $bot->get_id("מקור:$src");
@@ -488,17 +489,18 @@ sub move_page {
 	# return "x לא ניתן להעביר את [[$src]] אל [[$dst]]" unless $bot->get_id("Mediawiki:Editnotice-0-$src");
 	print "MOVE '$src' to '$dst'.\n";
 	unless ($dryrun) {
-		if ($bot->get_id($dst)) {
-			eval { $bot->delete($dst, "מחיקה לצורך העברה"); };
-			if ($@) {
-				$bot->move($dst, "$dst למחיקה", "העברה", { movetalk => 0, noredirect => 1, movesubpages => 0, ignorewarnings => 1 });
-				$bot->edit({page => "$dst מחיקה", text => "{{מחיקה|הפנייה מיותרת}}", summary => "מחיקה מהירה", minor => 1 });
-			}
+		# $res = $bot->delete($dst, "מחיקה לצורך העברה") if ($bot->get_id($dst));
+		$bot->{error}->{code} = 0;
+		$res = $bot->move("מקור:$src", "מקור:$dst", "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1, ignorewarnings => 1 });
+		$bot->{error}->{code} = 0;
+		$res = $bot->move($src, $dst, "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1, ignorewarnings => 1 });
+		unless (defined $res) {
+			$bot->move($dst, "$dst למחיקה", "העברה", { movetalk => 0, noredirect => 1, movesubpages => 0, ignorewarnings => 1 });
+			$bot->edit({page => "$dst למחיקה", text => "{{מחיקה|הפנייה מיותרת}}", summary => "מחיקה מהירה", minor => 1 });
+			$res = $bot->move($src, $dst, "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1, ignorewarnings => 1 });
 		}
-		eval { $bot->move("מקור:$src", "מקור:$dst", "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1, ignorewarnings => 1 }); };
-		eval { $bot->move($src, $dst, "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1, ignorewarnings => 1 }); };
-		eval { $bot->edit({page => "שיחת מקור:$dst", text => "#הפניה [[שיחה:$dst]]", summary => "הפניה", minor => 1 }); };
-		eval { $bot->edit({page => "$src", text => "#הפניה [[$dst]]", summary => "הפניה", minor => 1 }); };
+		$bot->edit({page => "שיחת מקור:$dst", text => "#הפניה [[שיחה:$dst]]", summary => "הפניה", minor => 1 });
+		$bot->edit({page => "$src", text => "#הפניה [[$dst]]", summary => "הפניה", minor => 1 });
 		my @redirects = $bot->what_links_here($src, 'redirects');
 		@redirects = map { $_->{title} } @redirects;
 		# my @redirects = possible_redirects($src, $dst);
