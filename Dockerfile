@@ -2,6 +2,8 @@ FROM ubuntu:xenial
 
 MAINTAINER Yehuda Deutsch <yeh@uda.co.il>
 
+WORKDIR /code
+
 RUN apt-get update \
     && apt-get install -y \
         # Packages to keep
@@ -15,7 +17,9 @@ RUN apt-get update \
         cpanminus \
     && cpanm --notest MediaWiki::Bot \
     && apt-get clean \
-    && rm -Rf /var/lib/apt/lists/*
+    && rm -Rf /var/lib/apt/lists/* \
+    && useradd -m -s /bin/bash resource \
+    && chown -R resource:resource /code
 
-WORKDIR /code
-COPY * /code/
+USER resource
+COPY --chown=resource:resource *.pl *.pm /code/
