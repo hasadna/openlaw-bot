@@ -151,9 +151,9 @@ sub convert {
 	
 	# [---] as span float left
 	unless ($div_table) {
-		s/ \[(?:—|-{2,4})\] ([^\n]+) *$/ <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
-		s/ \[(?:—|-{2,4})\] ([^\n]+) *$/ <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
-		s/ \[(?:—|-{2,4})\] / /gm;
+		s/ \[(?:—|-{2,4})\] *([^\n]*) *$/ <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
+		s/ \[(?:—|-{2,4})\] *([^\n]*) *$/ <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
+		s/ \[(?:—|-{2,4})\] */ /gm;
 	}
 	
 	# Parse various elements
@@ -1538,8 +1538,10 @@ sub find_reshumot_href {
 
 sub find_href_mark {
 	my $ext = shift;
-	my $helper = $ext =~ s/[-: ]+/ /gr;
-	$ext = $glob{href}{marks}{$helper} if ($glob{href}{marks}{$helper} && $glob{href}{marks}{$helper} ne "++$ext");
+	my $helper = $ext;
+	$helper =~ s/[-: ]+/ /g;
+	$helper = $glob{href}{marks}{$helper};
+	$ext = $helper if ($helper && $helper !~ /^\+\+/);
 	return $ext;
 }
 
