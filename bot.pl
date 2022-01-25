@@ -50,10 +50,6 @@ GetOptions(
 
 $slow = (($slow_count // '') eq '0');
 
-# print "\$slow is \"$slow\"; \$slow_count is \"$slow_count\"\n";
-# exit 1;
-
-
 @pages = map {decode_utf8($_)} @ARGV;
 
 print "=== [RUNNING bot.pl @ ", POSIX::strftime("%F %T", localtime), "] ===\n";
@@ -186,8 +182,14 @@ if ((%new_pages) && !($onlycheck || $dryrun)) {
 		foreach my $p (keys(%new_pages)) {
 			if ($p =~ /^(חוק|פקודת)/) {
 				$new .= "[[$p]] {{*}}\n";
-			} elsif ($text =~ /<!-- בוט שורה אחת -->/g) {
-				$text =~ s/^(.*\G.*)$/[[$p]] <!-- בוט שורה אחת --> {{*}}/m;
+			} elsif ($text =~ /<!-- בוט שורה אחת -->/) {
+				$text =~ s/^(.*?) *<!-- בוט שורה אחת -->.*$/[[$p]] <!-- בוט שורה אחת --> {{*}}/m;
+				my $second = $1 // '';
+				if ($text =~ /<!-- בוט שורה שתיים-->/) {
+					$text =~ s/^.*<!-- בוט שורה שתיים-->.*$/$second <!-- בוט שורה שתיים --> {{*}}/m;
+				} else {
+					$text =~ s/(<!-- בוט שורה אחת -->.*)\n/$1\n$second <!-- בוט שורה שתיים --> {{*}}\n/;
+				}
 			} else {
 				$new .= "[[$p]] <!-- בוט שורה אחת --> {{*}}\n";
 			}
@@ -411,19 +413,19 @@ sub process_law {
 	}
 	
 	if (!$dryrun && $new) {
-		# Move page if not using canonic name
-		my $canonic = canonic_name($page_dst);
-		move_page($page_dst, $canonic) if ($canonic ne $page_dst);
-		$page_dst = $canonic; $page_src = "מקור:$page_dst";
-	}
-	
-	if (!$dryrun && $new) {
 		my $src_text2 = auto_correct($src_text);
 		$bot->edit( {
 			page => $page_src, text => $src_text2, summary => 'בוט: תיקונים אוטומטיים',
 			bot => 1, minor => 1, assertion => 'bot'}
 		) if ($src_text2 ne $src_text);
 		# Update of $page_dst will take place on next run, providing sufficient time to check automatic corrections.
+	}
+	
+	if (!$dryrun && $new) {
+		# Move page if not using canonic name
+		my $canonic = canonic_name($page_dst);
+		move_page($page_dst, $canonic) if ($canonic ne $page_dst);
+		$page_dst = $canonic; $page_src = "מקור:$page_dst";
 	}
 	
 	return $res;
@@ -490,13 +492,17 @@ sub move_page {
 	print "MOVE '$src' to '$dst'.\n";
 	unless ($dryrun) {
 		# $res = $bot->delete($dst, "מחיקה לצורך העברה") if ($bot->get_id($dst));
+		print "MOVE 'מקור:$src' to 'מקור:$dst'\n" if ($verbose);
 		$bot->{error}->{code} = 0;
 		$res = $bot->move("מקור:$src", "מקור:$dst", "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1, ignorewarnings => 1 });
+		print "MOVE '$src' to '$dst'\n" if ($verbose);
 		$bot->{error}->{code} = 0;
 		$res = $bot->move($src, $dst, "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1, ignorewarnings => 1 });
 		unless (defined $res) {
+			print "MOVE '$dst' to '$dst למחיקה'\n" if ($verbose);
 			$bot->move($dst, "$dst למחיקה", "העברה", { movetalk => 0, noredirect => 1, movesubpages => 0, ignorewarnings => 1 });
 			$bot->edit({page => "$dst למחיקה", text => "{{מחיקה|הפנייה מיותרת}}", summary => "מחיקה מהירה", minor => 1 });
+			print "MOVE '$src' to '$dst'\n" if ($verbose);
 			$res = $bot->move($src, $dst, "העברה", { movetalk => 1, noredirect => 1, movesubpages => 1, ignorewarnings => 1 });
 		}
 		$bot->edit({page => "שיחת מקור:$dst", text => "#הפניה [[שיחה:$dst]]", summary => "הפניה", minor => 1 });
@@ -505,6 +511,7 @@ sub move_page {
 		@redirects = map { $_->{title} } @redirects;
 		# my @redirects = possible_redirects($src, $dst);
 		foreach my $page (@redirects) {
+			next if ($page eq $dst);
 			$bot->edit({page => $page, text => "#הפניה [[$dst]]", summary => "הפניה", minor => 1});
 		}
 	}
