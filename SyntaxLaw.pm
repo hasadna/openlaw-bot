@@ -230,7 +230,7 @@ sub convert {
 	# use Arial font for fraction slash (U+2044)
 	s/⁄/<span style⌸"font-family: Arial;">⁄<\/span>/g;
 	
-	# Compact form for comments stars
+	# Compact form for comments mark
 	s/(\*{2,})/<span style⌸"letter-spacing: -2pt; padding-inline-end: 2pt;">$1<\/span>/g;
 	
 	# Replace "=" (⌸) within templates with {{=}}
@@ -870,6 +870,8 @@ our @lookahead;
 our (@line, $idx);
 
 sub cleanup {
+	$do_expand = 0;
+	$div_table = 0;
 	undef %glob; undef %hrefs; undef %sections; undef @line;
 	undef $pubdate;
 	$glob{context} = '';
