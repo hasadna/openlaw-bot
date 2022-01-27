@@ -601,7 +601,7 @@ sub parse_actions {
 	if ($slow) {
 		my ($hour,$minute);
 		(undef,$minute,$hour) = localtime();
-		// unless (($hour==0 || $hour==12) && $minute<15) {
+		# unless (($hour==0 || $hour==12) && $minute<15) {
 		unless (($hour==0 || $hour==8 || $hour==16) && $minute<15) {
 			printf("Slow mode: It's now %02d:%02d, new page will be added at midnight/noon.\n", $hour, $minute);
 			return ();
