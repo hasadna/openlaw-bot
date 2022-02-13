@@ -338,6 +338,9 @@ sub process_law {
 	if (defined $force_comment) {
 		$comment = $force_comment;
 		$minor = 1;
+	} elsif ($comment eq '') {
+		$text =~ /^ *<שם.*?> *(.*) *\n/s;
+		$comment = $1;
 	} else {
 		$comment =~ s/^[^\]]*\]\][^\]]*\]\].*?\: *// || $comment =~ s/ \[.*/.../ if ($comment =~ /העבירה? את הדף/);
 		if ($comment =~ /^יצירת דף עם התוכן "/) {
@@ -347,6 +350,15 @@ sub process_law {
 	}
 	
 	$locforce = 0;
+	
+	if (!$dryrun && $new) {
+		# Move page if not using canonic name
+		my $canonic = canonic_name($page_dst);
+		if ($canonic ne $page_dst) {
+			$bot->move("מקור:$page_dst", "מקור:$canonic", '', { movetalk => 0, noredirect => 1, movesubpages => 0 });
+			$page_dst = $canonic; $page_src = "מקור:$page_dst";
+		}
+	}
 	
 	my $src_text = $bot->get_text($page_src, $revid_s);
 	eval {
@@ -421,12 +433,12 @@ sub process_law {
 		# Update of $page_dst will take place on next run, providing sufficient time to check automatic corrections.
 	}
 	
-	if (!$dryrun && $new) {
-		# Move page if not using canonic name
-		my $canonic = canonic_name($page_dst);
-		move_page($page_dst, $canonic) if ($canonic ne $page_dst);
-		$page_dst = $canonic; $page_src = "מקור:$page_dst";
-	}
+#	if (!$dryrun && $new) {
+#		# Move page if not using canonic name
+#		my $canonic = canonic_name($page_dst);
+#		move_page($page_dst, $canonic) if ($canonic ne $page_dst);
+#		$page_dst = $canonic; $page_src = "מקור:$page_dst";
+#	}
 	
 	return $res;
 }
