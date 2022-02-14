@@ -338,7 +338,7 @@ sub process_law {
 	if (defined $force_comment) {
 		$comment = $force_comment;
 		$minor = 1;
-	} elsif ($comment eq '') {
+	} elsif ($comment eq '' && $new) {
 		$text =~ /^ *<שם.*?> *(.*) *\n/s;
 		$comment = $1;
 	} else {
