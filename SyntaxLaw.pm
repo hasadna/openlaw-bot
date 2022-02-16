@@ -320,7 +320,8 @@ sub parse_chapter {
 	$id = get_numeral($num);
 	
 	$desc =~ s/(?<=[־–])(?! |$)/<wbr>/g;
-	$extra =~ s/(?=\()/\<wbr\>/g if ($extra);
+	$desc =~ s/(?<=[ |].)<wbr>//g;
+	$extra =~ s/(?=\()/<wbr>/g if ($extra);
 	# [Don't] Use Roman symbols for numerals
 	# $num = roman_ligatures($num);
 	
@@ -387,6 +388,7 @@ sub parse_link {
 	elsif ($txt =~ s/(?<=\d{4})(\])$//) { $post = $1; }
 	
 	($helper,$txt) = ($txt,$1) if ($txt =~ /^[ws]:(?:[a-z]{2}:)?(.*)$/ && !$helper);
+	$helper =~ s/<\/?.*?>//g;
 	$str = "$pre<קישור" . ($helper ? " $helper" : '') . ">$txt</קישור>$post";
 	$str =~ s/([()])\1/$1\x00$1/g unless ($str =~ /\(\(.*\)\)/); # Avoid splitted comments
 	
@@ -694,14 +696,14 @@ sub get_numeral {
 	my $num = '';
 	my $token = '';
 	s/&quot;/"/g;
-	s/[,"'״׳]//g; # s/[.,"']//g;
+	s/[,"'״׳]//g;
 	s/־/-/g;
 	s/([א-ת]{3})(\d)/$1-$2/;
 	$_ = unparent($_);
-	while ($_) {
+	while ($_ ne '') {
 		$token = '';
 		given ($_) {
-			($num,$token) = ("0",$1) when /^(מקדמית?)\b/;
+			($num,$token) = ("0",$1) when /^(מקדמית?|אפס)\b/;
 			($num,$token) = ("11",$1) when /^(אחד[- ]עשר|אחת[- ]עשרה)\b/;
 			($num,$token) = ("12",$1) when /^(שניי?ם[- ]עשר|שתיי?ם[- ]עשרה)\b/;
 			($num,$token) = ("13",$1) when /^(שלושה[- ]עשר|שלוש[- ]עשרה)\b/;
@@ -1283,18 +1285,17 @@ sub find_href {
 	if (/^([wsWS]:|https?:|mailto:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/) { return ('', $_); }
 	if (/^HTTPS?:/) { return ('', lc($_)); }
 	
+	# s/\(\(\((.*?)\)\)\)/(([$1]))/g;                 # Better to keep parenthesis inside a comment,
+	s/\(\(\(((?:במקור|צ["״]ל:).*?)\)\)\)/(([$1]))/g;  # unless it's a special case
+	s/\(\(\[במקור: .*?\]\)\)//g;
+	s/$date_sig *\(\(\[צ["״]ל:$date_sig\]\)\)$//;
+	s/\(\((?|\[(?:צ["״]ל: *)?(.*?)\]|(.*?))\)\)/$1/g;
+	
 	if (/^(.*?)#(.*)$/) {
 		$_ = $2;
 		$ext = find_ext_ref($1);
 	}
 	if (/^[-+]+$/) { return ('', $_); }
-	
-	# s/\(\(\((.*?)\)\)\)/(([$1]))/g;                 # Better to keep parenthesis inside a comment,
-	s/\(\(\(((?:במקור|צ["״]ל:).*?)\)\)\)/(([$1]))/g;  # unless it's a special case
-	s/\(\(\[במקור: .*?\]\)\)//g;
-	s/<(s|strike)>.*?<\/\1>//g;
-	s/$date_sig *\(\(\[צ["״]ל:$date_sig\]\)\)$//;
-	s/\(\((?|\[(?:צ["״]ל: *)?(.*?)\]|(.*?))\)\)/$1/g;
 	
 	s/$pre_sig(הגדר(ה|ו?ת)|מונח(ים)?) ["”“][^"”“]+["”“] ((ו[-־]?|או )["”“][^"”“]+["”“])*//g;
 	
