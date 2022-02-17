@@ -152,7 +152,7 @@ sub parse_preface {
 sub parse_template {
 	my $str = shift;
 	my $cnt = 0;
-	while (my $s = shift) {
+	while (defined (my $s = shift)) {
 		$cnt++;
 		# $str .= (/=/) ? "|$cnt=$_" : "|$_";
 		# s/({{==?}}|=)(?!"[^"]+")/{{==}}/g;
