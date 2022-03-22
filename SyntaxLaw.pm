@@ -31,7 +31,7 @@ my $div_table = 0;
 # \bו?כ?ש?מ?[בהל]?(חוק|פקוד[הת]|תקנות|צו|חלק|פרק|סימן(?: משנה|)|תוספו?ת|טופס|לוח)
 our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
 our $extref_sig = $pre_sig . '(חוק(?:[ -]ה?יסוד:?|)|פקוד[הת]|תקנות(?: שעת[ -]ה?חי?רום)?|צו|(?:החלט|הכרז|אכרז|הודע)(?:ה|ו?ת)|תקנון|הוראו?ת|מנשר|כללים?|נוהל|קביעו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|הנחי[יו]ת|קווים מנחים|אמות מידה|היתר)';
-our $date_sig = '(?:\,? ה?תש.?["״].[-–]\d{4}|, *[^ ]*\d{4}|, מס[\'׳] \d+ לשנת \d{4}| [-–] ה?תש.?["״]. מיום \d+.*|\, *\d+ עד \d+|\ \(\d{4}\)|\ [-–] \d{4})';
+our $date_sig = '(?:\,? ה?תש.?["״].[-–]\d{4}|, *[^ ]*\d{4}|, (חוק |פקודה |צו |)מס([\'׳]|פר) \d+ לשנת \d{4}| [-–] ה?תש.?["״]. מיום \d+.*|\, *\d+ עד \d+|\ \(\d{4}\)|\ [-–] \d{4})';
 our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]ה?מידה|כלל|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא]|מפ(?:ה|ות))';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+[א-י]?\.?)';
 our $heb_num2 = '(?:[א-ט]|טו|טז|[יכלמנסעפצ][א-ט]?)';
@@ -313,7 +313,7 @@ sub parse_chapter {
 	($desc, $fix) = get_fixstr($desc);
 	($desc, $extra) = get_extrastr($desc);
 	($desc, $ankor) = get_ankor($desc);
-	if ($num eq '' && $ankor eq '' && $desc =~ /^(סעיף|תקנה|פרט|املادة|المادة) (\d+[^ .:\-]*)(?::| [-–])(?: |$)/) {
+	if ($num eq '' && $ankor eq '' && $desc =~ /^(סעיף|תקנה|פרט|املادة|المادة) (\d+[^ .:\-]*)(?::| [-–]|$)/) {
 		$num = $2;
 		$type =~ s/\*$//;
 	}
@@ -984,16 +984,16 @@ sub process_section {
 	$type =~ s/\(\(.*?\)\)//g if (defined $type);
 	given ($type) {
 		when (undef) {}
-		when (/חלק/) { $glob{part} = $num; $glob{sect} = $glob{subs} = $glob{subsub} = undef; }
-		when (/פרק/) { $glob{sect} = $num; $glob{subs} = $glob{subsub} = undef; }
-		when (/סימן/) { $glob{subs} = $num; $glob{subsub} = undef; }
-		when (/משנה/) { $glob{subsub} = $num; }
+		when (/חלק/) { $glob{href}{prev}{part} = $glob{part}; $glob{part} = $num; $glob{sect} = $glob{subs} = $glob{subsub} = undef; }
+		when (/פרק/) { $glob{href}{prev}{sect} = $glob{sect}; $glob{sect} = $num; $glob{subs} = $glob{subsub} = undef; }
+		when (/סימן/) { $glob{href}{prev}{subs} = $glob{subs}; $glob{subs} = $num; $glob{subsub} = undef; }
+		when (/משנה/) { $glob{href}{prev}{subsub} = $glob{subsub}; $glob{subsub} = $num; }
 		when (/לוחהשוואה/) { delete @glob{"part", "sect", "subs", "subsub", "supl", "appn", "form", "tabl", "tabl2"}; }
-		when (/תוספת/) { $glob{supl} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub", "appn", "form", "tabl", "tabl2"}; $glob{level}[0] = ''; }
-		when (/נספח/) { $glob{appn} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; $glob{level}[0] = ''; }
-		when (/טופס/) { $glob{form} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; $glob{level}[0] = ''; }
-		when (/לוח/) { $glob{tabl} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; $glob{level}[0] = ''; }
-		when (/טבלה/) { $glob{tabl2} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; $glob{level}[0] = ''; }
+		when (/תוספת/) { $glob{href}{prev}{supl} = $glob{supl}; $glob{supl} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub", "appn", "form", "tabl", "tabl2"}; $glob{level}[0] = ''; }
+		when (/נספח/) { $glob{href}{prev}{appn} = $glob{appn}; $glob{appn} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; $glob{level}[0] = ''; }
+		when (/טופס/) { $glob{href}{prev}{form} = $glob{form}; $glob{form} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; $glob{level}[0] = ''; }
+		when (/לוח/) { $glob{href}{prev}{tabl} = $glob{tabl}; $glob{tabl} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; $glob{level}[0] = ''; }
+		when (/טבלה/) { $glob{href}{prev}{tabl2} = $glob{tabl2}; $glob{tabl2} = ($num || ""); delete @glob{"part", "sect", "subs", "subsub"}; $glob{level}[0] = ''; }
 	}
 	splice @{$glob{level}}, $level-1, 4-$level, ($name, '', '', '');
 	# print STDERR "process_section: |$glob{level}[0]|$glob{level}[1]|$glob{level}[2]|$glob{level}[3]|\n";
@@ -1013,6 +1013,7 @@ sub process_chapter {
 	my $params = shift;
 	$params =~ /עוגן="(?:סעיף |)([^"]+)"/;
 	my $num = $1 // '';
+	$glob{href}{prev}{chap} = $glob{chap};
 	$glob{chap} = $num;
 	if ((defined $glob{supl} || defined $glob{appn} || defined $glob{tabl}) && $num) {
 		my $ankor = $num;
@@ -1070,6 +1071,7 @@ sub insert_TOC {
 		$text =~ s/\(\(.?<קישור.*?>.*?<\/.*?>.?\)\) *//g;
 		$text =~ s/<קישור.*?>(.*?)<\/.*?>/$1/g;
 		$text =~ s/<b>(.*?)<\/b?>/$1/g;
+		$text =~ s/ *\{\{ש\}\} */: /;
 		$text =~ s/ +$//;
 		($text) = ($text =~ /^ *(.*?) *$/m);
 		if ($next =~ /^<קטע דרגה="(\d)"> *(.*?) *$/m && $1>=$indent && !$skip) {
@@ -1354,7 +1356,7 @@ sub find_href {
 		$num = undef;
 		given ($_) {
 			when (/לוחהשוואה/) { $class = 'comptable'; $num = ""; }
-			when (/^$pre_sig(חלק|חלקים)/) { $class = 'part'; }
+			when (/^$pre_sig(חלק|חלקים|שער|שערים)/) { $class = 'part'; }
 			when (/^$pre_sig(פרק|פרקים)/) { $class = 'sect'; }
 			when (/^$pre_sig(סימןמשנה)/) { $class = 'subsub'; }
 			when (/^$pre_sig(סימן|סימנים)/) { $class = 'subs'; }
@@ -1393,6 +1395,9 @@ sub find_href {
 					}
 				}
 				$elm{supl} = $glob{supl} if ($glob{supl} && !defined($elm{supl}));
+			}
+			when (/^$pre_sig(קוד(ם|מת)|אחרו(ן|נה))\b/) {
+				$elm{$class} = $glob{href}{prev}{$class} if defined $glob{href}{prev}{$class};
 			}
 			when (/^([מל]?אות[והםן]|הה[וי]א|הה[םן]|האמור(ה|ים|ות|)|ש?ב[הו]|דלעיל)\b/) {
 				$elm{$class} ||= $glob{href}{ditto}{$class} if $glob{href}{ditto}{$class};
