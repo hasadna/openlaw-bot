@@ -103,7 +103,7 @@ if ($recent) {
 	# Get recently changed pages in namespace
 	$recent = 1;
 	my %cat = map { $_ => undef } @pages;
-	@pages = $bot->recentchanges({ns => 116, limit => $credentials{limit} // 200}); # Namespace 116 is 'מקור'
+	@pages = $bot->recentchanges({ns => 116, limit => $credentials{limit} // 300}); # Namespace 116 is 'מקור'
 	@pages = map { $_->{title} } @pages;
 	map { s/^\s*(?:מקור:|)\s*(.*?)\s*$/$1/ } @pages;
 	# Intersect list with category list
@@ -461,6 +461,8 @@ sub auto_correct {
 	s/^(:+)(\()/$1 $2/mg;
 	s/^(:+ "?\([^)]{1,2}\))($HE)/$1 $2/mg;
 	s/(?:\]\]-|-\]\])(\d{4})/-$1]]/mg;
+	s/(\n@.*\n) *([א-ת]|\([^() ]+\))/$1: $2/g;
+	s/^(:+-?)(?=<[א-ת])/$1 /g;
 	# s/ *class="wikitable"//g;
 	$_ = s_lut($_, { 
 		'½' => '¹⁄₂', '⅓' => '¹⁄₃', '⅔' => '²⁄₃', '¼' => '¹⁄₄', '¾' => '³⁄₄', 
@@ -486,6 +488,8 @@ sub auto_correct {
 	s/^(:+-?)([א-ת"0-9\(\)])/$1 $2/gm;
 	s/^>([^ \n<>]+)>/<$1>/gm;
 	s/^<([^ \n<>]+)</<$1>/gm;
+	s/^(:+)([^\n]*)\n(?=[א-ת])/$1$2 /gm;
+	s/^(:+)([^\n]*\n)(?=\()/$1$2$1 /gm;
 	return $_;
 }
 
