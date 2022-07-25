@@ -180,11 +180,11 @@ sub convert {
 	s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
 	s/(<(?:td|th)[^>]*>)(:)/$1␊\n$2/g;
 	s/(<\/(?:td|th)[^>]*>)/␊\n$1/g;
-	s/^(:+) *(\([^( ]+\)|[א-י]\. |[^ ]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ ]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ ]* (?:[-–] )?\(\(\)\))/$1 $2\n$1: $3\n$1:: $4/gm;
-	s/^(:+) *(\([^( ]+\)|[א-י]\. |[^ ]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ ]* (?:[-–] )?\(\(\)\))/$1 $2\n$1: $3/gm;
-	s/^:+-? *$//gm;
+	s/^(:+) *(\([^( ]+\)|[א-י]\. |\d+\. |[^ ]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ ]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ ]* (?:[-–] )?\(\(\)\))/$1 $2\n$1: $3\n$1:: $4/gm;
+	s/^(:+) *(\([^( ]+\)|[א-י]\. |\d+\. |[^ ]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ ]* (?:[-–] )?\(\(\)\))/$1 $2\n$1: $3/gm;
+	s/^:+-? *␊?$//gm;
 	# s/^(:+) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(?| +(.*?)|([-–].*?)|())\n/&parse_line($1,$2,$3)/egm;
-	s/^(:+[-–]?+) *($nochar["”“]?(?:\([^( ]+\)|\[[A-Za-z0-9א-ת][^\[\] ]*\]|[A-Za-z0-9א-ת.]*\)? *\(\(\.?\)\)|\(\(\(\d+.?\)\)\)|\(\(\([א-י]\d?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|$heb_num2\d?\.|$roman\.?|[•■□-◿*❏☒√✔☑✅☐\-–]|<sup>[0-9א-ת]{1,2}<\/sup>|\( \)|\[ \]|[^ ]+ (?:[-–] )?\(\(\)\)|)$nochar)(?| +(.*?)|())\n/&parse_line($1,$2,$3)/egm;
+	s/^(:+[-–]?+) *($nochar["”“]?(?:\([^( ]+\)|\[[A-Za-z0-9א-ת][^\[\] ]*\]|[A-Za-z0-9א-ת.]*\)? *\(\(\.?\)\)|\(\(\(\d+.?\)\)\)|\(\(\([א-י]\d?\)\)\)|\d+(?:\.\d+)+|\d[^ .]*\.|$heb_num2\d?\.|$roman\.?|[•■□-◿*❏☒√✔☑✅☐\-–]|<sup>[0-9א-ת]{1,2}<\/sup>|\( \)|\[ \]|[^ ]+ (?:[-–] )?\(\(\)\)|)$nochar)(?| +(.*?)|(␊?))\n/&parse_line($1,$2,$3)/egm;
 	
 	# Move container tags if needed
 	my $barrier = '<\/?(?:מקור|הקדמה|ת+|קטע|סעיף|חתימות|מידע נוסף|td|tr|table)|__TOC__|$';
@@ -463,6 +463,9 @@ sub mark_linkset {
 sub parse_wikitable {
 	# Based on [mediawiki/core.git]/includes/parser/Parser.php doTableStuff()
 	local $_ = shift;
+	s/^(\|-.*)\n(.*?)\<עוגן (.*?)\>/$1 id="$3"\n$2/gm;
+	s/^(\|-.*?)\<עוגן (.*?)\>/$1 id="$2"/gm;
+	
 	my @lines = split(/\n/,$_);
 	my $out = '';
 	my ($last_tag, $previous, $indent_level, $attributes);
@@ -581,9 +584,10 @@ sub parse_wikitable {
 				$_ .= $cell;
 				push @td_history, true;
 			}
+			$_ .= "␊\n";
 		} else {
 			$_ .= "\n";
-			$out =~ s/&nbsp;\n?$//s;
+			$out =~ s/&nbsp;␊?\n?$//s;
 		}
 		$out .= $_;
 	}
@@ -967,6 +971,9 @@ sub parse_element {
 			# Insert <s>...</s> into href text, so href can ignore the strikethrough text
 			$glob{href}{txt} .= "<$element>" if ($glob{context} eq 'href');
 		}
+		when (/^(tr|td|th|table|div)$/) {
+			process_div_id($params);
+		}
 		default {
 			# print STDERR "GOT element $element.\n";
 		}
@@ -1011,7 +1018,7 @@ sub process_section {
 
 sub process_chapter {
 	my $params = shift;
-	$params =~ /עוגן="(?:סעיף |)([^"]+)"/;
+	return unless $params =~ /עוגן="(?:סעיף |)([^"]+)"/;
 	my $num = $1 // '';
 	$glob{href}{prev}{chap} = $glob{chap};
 	$glob{chap} = $num;
@@ -1028,6 +1035,16 @@ sub process_chapter {
 		$line[$idx] =~ s/ עוגן=".*?"/ עוגן="$ankor"/;
 	} elsif ($num) {
 		$line[$idx] =~ s/ עוגן=".*?"/ עוגן="סעיף $num"/;
+	}
+}
+
+sub process_div_id {
+	my $params = shift;
+	return unless $params =~ /id="(.*?)"/;
+	my $id = $1 // '';
+	if ($id) {
+		($id, undef) = find_href($id);
+		$line[$idx] =~ s/id=".*?"/id="$id"/;
 	}
 }
 
