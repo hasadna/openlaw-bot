@@ -464,7 +464,7 @@ sub parse_wikitable {
 	# Based on [mediawiki/core.git]/includes/parser/Parser.php doTableStuff()
 	local $_ = shift;
 	s/^(\|-.*)\n(.*?)\<עוגן (.*?)\>/$1 id="$3"\n$2/gm;
-	s/^(\|-.*?)\<עוגן (.*?)\>/$1 id="$2"/gm;
+	s/^(\|-.*?) *\<עוגן (.*?)\>/$1 id="$2"/gm;
 	
 	my @lines = split(/\n/,$_);
 	my $out = '';
@@ -1044,6 +1044,7 @@ sub process_div_id {
 	my $id = $1 // '';
 	if ($id) {
 		($id, undef) = find_href($id);
+		$glob{href}{last_class} = '';
 		$line[$idx] =~ s/id=".*?"/id="$id"/;
 	}
 }
@@ -1312,6 +1313,7 @@ sub find_href {
 	# s/\(\(\((.*?)\)\)\)/(([$1]))/g;                 # Better to keep parenthesis inside a comment,
 	s/\(\(\(((?:במקור|צ["״]ל:).*?)\)\)\)/(([$1]))/g;  # unless it's a special case
 	s/\(\(\[במקור: .*?\]\)\)//g;
+	s/\(\(<s>.*?<\/s>\)\)//g;
 	s/$date_sig *\(\(\[צ["״]ל:$date_sig\]\)\)$//;
 	s/\(\((?|\[(?:צ["״]ל: *)?(.*?)\]|(.*?))\)\)/$1/g;
 	
