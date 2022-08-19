@@ -5,14 +5,14 @@ stages:
   - release
   - deploy
 
-.docker:
+.container:
   before_script:
     - apt-get update -qq
     - apt-get install -qq podman buildah ca-certificates
     - echo $CI_REGISTRY_PASSWORD | podman login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
 
-build_master_docker:
-  extends: .docker
+build-master-container:
+  extends: .container
   stage: build
   script:
     - buildah bud -t ${CI_REGISTRY_IMAGE}:master .
@@ -20,8 +20,8 @@ build_master_docker:
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
 
-build_tagged_docker:
-  extends: .docker
+build-tagged-container:
+  extends: .container
   stage: build
   script:
     - buildah bud -t ${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG} -t ${CI_REGISTRY_IMAGE}:latest .
@@ -34,7 +34,7 @@ release:
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   needs:
-    - build_tagged_docker
+    - build-tagged-container
   script:
     - echo 'Releasing code'
   release:
