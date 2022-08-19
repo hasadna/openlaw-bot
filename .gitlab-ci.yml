@@ -8,7 +8,7 @@ stages:
 .docker:
   before_script:
     - apt-get update -qq
-    - apt-get install -qq podman buildah
+    - apt-get install -qq podman buildah ca-certificates
     - echo $CI_REGISTRY_PASSWORD | podman login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
 
 build_master_docker:
