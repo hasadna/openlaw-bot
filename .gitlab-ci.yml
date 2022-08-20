@@ -39,7 +39,7 @@ build-tagged-artifact:
    - apk add curl
   script:
     - tar czf openlaw-bot.tar.gz README.md LICENSE *.pl *.pm
-    - curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file openlaw-bot.tar.gz "${PACKAGE_REGISTRY_URL}/openlaw-bot.tar.gz"
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file openlaw-bot.tar.gz "${PACKAGE_REGISTRY_URL}/openlaw-bot.tar.gz"'
   artifacts:
     paths:
       - openlaw-bot.tar.gz
