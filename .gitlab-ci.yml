@@ -64,7 +64,7 @@ release:
     assets:
       links:
         - name: openlaw-bot.tar.gz
-          filepath: openlaw-bot.tar.gz
+          filepath: /openlaw-bot.tar.gz
           url: "${PACKAGE_REGISTRY_URL}/openlaw-bot.tar.gz"
           link_type: package
   rules:
