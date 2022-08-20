@@ -1,4 +1,8 @@
-image: docker.registry.org.il/imageroot/buildah:latest
+default:
+  image: docker.registry.org.il/imageroot/buildah:latest
+
+variables:
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openlaw-bot/${CI_COMMIT_TAG}/"
 
 stages:
   - build
@@ -34,14 +38,11 @@ build-tagged-artifact:
   before_script:
    - apk add curl
   script:
-    - tar czf openlaw-bot-${CI_COMMIT_TAG}.tar.gz README.md LICENSE *.pl *.pm
-    - |
-      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" \
-        --upload-file openlaw-bot-${CI_COMMIT_TAG}.tar.gz \
-        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openlaw-bot/${CI_COMMIT_TAG}/openlaw-bot.tar.gz"
+    - tar czf openlaw-bot.tar.gz README.md LICENSE *.pl *.pm
+    - curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file openlaw-bot.tar.gz "${PACKAGE_REGISTRY_URL}/openlaw-bot.tar.gz"
   artifacts:
     paths:
-      - openlaw-bot-${CI_COMMIT_TAG}.tar.gz
+      - openlaw-bot.tar.gz
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
 
@@ -60,6 +61,12 @@ release:
     description: 'Released version ${CI_COMMIT_TAG}'
     tag_name: '${CI_COMMIT_TAG}'
     ref: '${CI_COMMIT_TAG}'
+    assets:
+      links:
+        - name: openlaw-bot.tar.gz
+          filepath: openlaw-bot.tar.gz
+          url: "${PACKAGE_REGISTRY_URL}/openlaw-bot.tar.gz"
+          link_type: package
   rules:
     - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
 
