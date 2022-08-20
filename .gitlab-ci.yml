@@ -30,6 +30,9 @@ build-tagged-container:
 
 build-tagged-artifact:
   stage: build
+  image: alpine:latest
+  before_script:
+   - apk add curl
   script:
     - tar czf openlaw-bot-${CI_COMMIT_TAG}.tar.gz README.md LICENSE *.pl *.pm
     - >
