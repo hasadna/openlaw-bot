@@ -35,9 +35,9 @@ build-tagged-artifact:
    - apk add curl
   script:
     - tar czf openlaw-bot-${CI_COMMIT_TAG}.tar.gz README.md LICENSE *.pl *.pm
-    - >
-      curl --header "JOB-TOKEN: $CI_JOB_TOKEN"
-        --upload-file openlaw-bot-${CI_COMMIT_TAG}.tar.gz
+    - |
+      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" \
+        --upload-file openlaw-bot-${CI_COMMIT_TAG}.tar.gz \
         "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openlaw-bot/${CI_COMMIT_TAG}/openlaw-bot.tar.gz"
   artifacts:
     paths:
