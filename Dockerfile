@@ -1,6 +1,7 @@
 FROM ubuntu:xenial
 
-MAINTAINER Yehuda Deutsch <yeh@uda.co.il>
+LABEL org.opencontainers.image.source="https://git.org.il/resource-il/openlaw-bot"
+LABEL org.opencontainers.image.authors="Yehuda Deutsch <yeh@uda.co.il>, Zvi Devir"
 
 WORKDIR /code
 
@@ -22,4 +23,4 @@ RUN apt-get update \
     && chown -R resource:resource /code
 
 USER resource
-COPY --chown=resource:resource *.pl *.pm /code/
+COPY --chown=resource:resource *.pl *.pm LICENSE /code/
