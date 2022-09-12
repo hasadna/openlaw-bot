@@ -120,6 +120,7 @@ sub convert {
 	tr/`׳’‘‚‛′‵/'/;     # typographic single quotes
 	s/(?<=[ \n])-{2,4}(?=[ \n])/—/g;   # em-dash
 	s/[ ]{2,}/ /g;      # remove extra  spaces
+	s/…/.../g;
 	
 	s/\n+(=[^\n]*=)\n+/\n\n$1\n\n/g;
 	
@@ -151,8 +152,8 @@ sub convert {
 	
 	# [---] as span float left
 	unless ($div_table) {
-		s/ \[(?:—|-{2,4})\] *([^\n]*) *$/ <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
-		s/ \[(?:—|-{2,4})\] *([^\n]*) *$/ <span style⌸"float: left;">$1<\/span><div style⌸"clear: left;"><\/div>/gm;
+		s/ \[(?:—|-{2,4})\] *([^\n]*) *$/ <span style="float: left;">$1<\/span><div style="clear: left;"><\/div>/gm;
+		s/ \[(?:—|-{2,4})\] *([^\n]*) *$/ <span style="float: left;">$1<\/span><div style="clear: left;"><\/div>/gm;
 		s/ \[(?:—|-{2,4})\] */ /gm;
 	}
 	
@@ -203,8 +204,9 @@ sub convert {
 	# s/(?<!\[)(\[\[(?:(?!\]\]|\[\[).)*\]\]\]?(?:(?:,|או|) \[\[(?:(?!\]\]|\[\[).)*\]\]\]?)++)/&mark_linkset($1)/egm;
 	s/(?<!\[)\[\[((?:(?!\]\]|\[\[).)*?\]?)\|((?:(?!\]\]|\[\[).)*)\]\](\]?)/&parse_link($1,"$2$3")/egm;
 	s/(?<!\[)\[\[((?:(?!\]\]|\[\[).)*)\]\](\]?)/&parse_link('',"$1$2")/egm;
-	s/(?<!\()(\(\(([^\n]*?)\)\)([^(\n]*?\)\))?)(?!\))/&parse_remark($1)/egs;
-	
+	# s/(?<!\()(\(\(([^\n]*?)\)\)([^(\n]*?\)\))?)(?!\))/&parse_remark($1)/egs;
+	s/(?<!\()(\(\(([^()\n]++|(?R)|[()])*?\)\))(?!\))/&parse_remark($1)/egs;
+
 	# Parse file linearly, constructing all ankors and links
 	$_ = linear_parser($_);
 	
@@ -221,27 +223,27 @@ sub convert {
 	s/( ["”“]?(?:[A-Za-zא-ת0-9]{3,}[\\\/]){2,}[A-Za-zא-ת0-9]{3,}[,;."”“]?(?: |\n))/ $1 =~ s|(?<=[\\\/])|<wbr>|gr /eg;
 	
 	# Use thin spaces in dotted lines
-	# s/(\.{21,})/'<span style⌸"word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
+	# s/(\.{21,})/'<span style="word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
 	s/(\.{21,})/'. ' x 10 . ('<wbr>' . '. ' x 10) x (int((length($1)-20)\/10)) . '<wbr>' . '. ' x (length($1) % 10) . (length($1) % 10 ? '<wbr>' : '') . '. 'x9 . '.'/ge;
 	s/(\.{4,20})/'. ' x (length($1)-1) . '.'/ge;
 	
-	s/(_{3,})/<span style⌸"font-family: Arial; font-size: 80%;">$1<\/span>/g;
+	s/(_{3,})/<span style="font-family: Arial; font-size: 80%;">$1<\/span>/g;
 	
-	# use Arial font for fraction slash (U+2044)
-	s/⁄/<span style⌸"font-family: Arial;">⁄<\/span>/g;
+	# use Arial font for fraction slash (U+2044) [bug of ALEF font]
+	s/⁄/<span style="font-family: Arial;">⁄<\/span>/g;
 	
 	# Compact form for comments mark
-	s/(\*{2,})/<span style⌸"letter-spacing: -2pt; padding-inline-end: 2pt;">$1<\/span>/g;
+	s/(\*{2,})/<span style="letter-spacing: -2pt; padding-inline-end: 2pt;">$1<\/span>/g;
 	
-	# Replace "=" (⌸) within templates with {{=}}
-	s/(\{\{(?:[^{}\n]++|(?R))*\}\})/ $1 =~ s|⌸|\{\{=\}\}|gr /eg;
-	tr/⌸/=/;
+	if ($do_expand) {
+		# Replace "=" within templates with {{=}}
+		s/(\{\{(?:[^{}\n]++|(?R))*\}\})/ &escape_eqsign($1) /eg;
+		$_ = expand_templates($_);
+	}
 	
 	s/\x00//g; # Remove nulls
 	s/\n{3,}/\n\n/g;
 	s/ {2,}/ /g;
-	
-	$_ = expand_templates($_) if ($do_expand);
 	
 	cleanup();
 	
@@ -313,7 +315,7 @@ sub parse_chapter {
 	($desc, $fix) = get_fixstr($desc);
 	($desc, $extra) = get_extrastr($desc);
 	($desc, $ankor) = get_ankor($desc);
-	if ($num eq '' && $ankor eq '' && $desc =~ /^(סעיף|תקנה|פרט|املادة|المادة) (\d+[^ .:\-]*)(?::| [-–]|$)/) {
+	if ($num eq '' && $ankor eq '' && $desc =~ /^(סעיף|תקנה|פרט|المادة) (\d+[^ .:\-]*)(?::| [-–]|$)/) {
 		$num = $2;
 		$type =~ s/\*$//;
 	}
@@ -380,9 +382,9 @@ sub parse_link {
 	my ($helper,$txt) = @_;
 	my $str;
 	my $pre = ''; my $post = '';
-	$helper = unquote($helper);
-	# $txt =~ s/\(\((.*?)\)\)/$1/g;
 	
+	if ($helper =~ /\{\{/ and $txt =~ /^[^{]*\}\}/) { ($helper, $txt) = ('', "$helper|$txt"); }
+	$helper = unquote($helper);
 	if ($helper =~ /^\[/ and $txt =~ /\]$/) { $pre = '['; $helper =~ s/^\[//; $txt =~ s/\]$//; $post = ']'; }
 	elsif ($txt =~ s/^(\[)(.*)(\])$/$2/) { ($pre, $post) = ($1, $3); }
 	elsif ($txt =~ s/(?<=\d{4})(\])$//) { $post = $1; }
@@ -400,7 +402,7 @@ sub parse_link {
 sub parse_remark {
 	local $_ = shift;
 	s/^\(\((.*?)\)\)$/$1/s;
-	my ($text,$tip,$url) = ( /((?:\{\{.*?\}\}|\[\[.*?\]\]|[^\|])+)/g );
+	my ($text,$tip,$url) = ( /((?:\{\{.*?\}\}|\[\[.*?\]\]|[^|])+)/g );
 	return $_ unless defined $text;
 	my $str;
 	$text =~ s/^ *(.*?) *$/$1/;
@@ -410,7 +412,7 @@ sub parse_remark {
 		$tip = escape_quote($tip);
 		$str = "<תיבה טקסט=\"$tip\"";
 		if ($url) {
-			$url = '' if ($url =~ /^\d+(_\d+)?$/);
+			$url = '' if ($url =~ /^\d+[אב]?(_\d+)?$/);
 			$url = find_reshumot_href($url);
 			$str .= " קישור=\"$url\"";
 		}
@@ -861,6 +863,15 @@ sub fix_tags {
 	return $_;
 }
 
+sub escape_eqsign {
+	local $_ = shift;
+	s/\{\{==?\}\}/⌸/g;
+	s/(\<[^>]+\>)/ $1 =~ s|=|⌸|gr /eg;
+	s/⌸/\{\{=\}\}/g;
+	tr/⌸/=/;
+	return $_;
+}
+
 sub dump_hash {
 	my $h = shift;
 	return join('; ', map("$_ => '" . ($h->{$_} // "[undef]") . "'", keys(%{$h})));
@@ -1019,11 +1030,18 @@ sub process_section {
 sub process_chapter {
 	my $params = shift;
 	return unless $params =~ /עוגן="(?:סעיף |)([^"]+)"/;
-	my $num = $1 // '';
-	$glob{href}{prev}{chap} = $glob{chap};
-	$glob{chap} = $num;
-	if ((defined $glob{supl} || defined $glob{appn} || defined $glob{tabl}) && $num) {
-		my $ankor = $num;
+	my $num = $1;
+	if (defined($num) && !$num) { $num = '0'; } else { $num //= ''; }
+	my $exact = ($num =~ s/^ *\= *//) || 0;
+	my $ankor = '';
+	if (!$num || $num eq '-') {
+		$ankor = '-';
+	} elsif ($exact) {
+		my $last_class = $glob{href}{last_class};
+		($ankor, undef) = find_href($num);
+		$glob{href}{last_class} = $last_class;
+	} elsif ((defined $glob{supl} || defined $glob{appn} || defined $glob{tabl}) && $num) {
+		$ankor = $num;
 		$ankor = "פרט $ankor" if ($ankor =~ /^\d|^$heb_num3(\d+[א-י]*)?$/);
 		$ankor = "סימן $glob{subs} $ankor" if (defined $glob{part} && defined $glob{subs});
 		$ankor = "חלק $glob{part} $ankor" if (defined $glob{part});
@@ -1032,10 +1050,13 @@ sub process_chapter {
 		$ankor = "נספח $glob{appn} $ankor" if (defined $glob{appn});
 		$ankor = "תוספת $glob{supl} $ankor" if (defined $glob{supl});
 		$ankor =~ s/  / /g;
-		$line[$idx] =~ s/ עוגן=".*?"/ עוגן="$ankor"/;
 	} elsif ($num) {
-		$line[$idx] =~ s/ עוגן=".*?"/ עוגן="סעיף $num"/;
+		$glob{href}{prev}{chap} = $glob{chap};
+		$glob{chap} = $num;
+		$ankor = "סעיף $num";
 	}
+	# print STDERR "process_chapter with \$num=\"$num\" and \$exact=\"$exact\" => \$ankor=\"$ankor\"\n";
+	$line[$idx] =~ s/ עוגן=".*?"/ עוגן="$ankor"/;
 }
 
 sub process_div_id {
@@ -1043,8 +1064,9 @@ sub process_div_id {
 	return unless $params =~ /id="(.*?)"/;
 	my $id = $1 // '';
 	if ($id) {
+		my $last_class = $glob{href}{last_class};
 		($id, undef) = find_href($id);
-		$glob{href}{last_class} = '';
+		$glob{href}{last_class} = $last_class;
 		$line[$idx] =~ s/id=".*?"/id="$id"/;
 	}
 }
@@ -1308,7 +1330,8 @@ sub find_href {
 		return ('', $_);
 	}
 	if (/^([wsWS]:|קובץ:|[Ff]ile:|תמונה:|[Ii]mage:)/) { return ('', $_); }
-
+	
+	my $exact = (/\*/);
 	
 	# s/\(\(\((.*?)\)\)\)/(([$1]))/g;                 # Better to keep parenthesis inside a comment,
 	s/\(\(\(((?:במקור|צ["״]ל:).*?)\)\)\)/(([$1]))/g;  # unless it's a special case
@@ -1329,7 +1352,7 @@ sub find_href {
 	s/(סימן|סימנים)/סעיף/ if (/דברי?[- ]ה?מלך/ and /(סימן|סימנים) \d/);
 	s/$pre_sig(תקנו?ת[ -]משנה)//g;
 	
-	s/املادة/סעיף/g; s/الفصل/פרק/g;
+	s/المادة|المادتان|المادتين/סעיף/g; s/الفصل|الفصلين|الفصول/פרק/g;
 	
 	s/(\b[בלמ]?(אות[הוםן])\b) *($extref_sig[- ]*([א-ת]+\b.*)?)$/$4 $2/;
 	if (/^(.*?) *\b($extref_sig\b[- ]*(?:[א-ת]+\b.*|[א-ת].*תש.?["״]?.[-–]\d{4}|))$/) {

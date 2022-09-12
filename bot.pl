@@ -56,6 +56,10 @@ print "=== [RUNNING bot.pl @ ", POSIX::strftime("%F %T", localtime), "] ===\n";
 
 my %credentials = load_credentials('wiki_botconf.txt');
 my $host = ( $credentials{host} || 'he.wikisource.org' );
+
+print "MediaWiki::API version is " . MediaWiki::API->VERSION . "\n" if ($verbose);
+print "MediaWiki::Bot version is " . MediaWiki::Bot->VERSION . "\n" if ($verbose);
+
 print "HOST $host USER $credentials{username}\n";
 my $bot = MediaWiki::Bot->new({
 	host       => $host,

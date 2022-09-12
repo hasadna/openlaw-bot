@@ -72,8 +72,8 @@ sub convert {
 	s/<מפריד.*?>\n?/{{ח:מפריד}}\n/g;
 	
 	# Replace "=" (⌸) within templates with {{=}}
-	s/(\{\{(?:[^{}\n]++|(?R))*\}\})/ $1 =~ s|⌸|\{\{=\}\}|gr /eg;
-	tr/⌸/=/;
+	# s/(\{\{(?:[^{}\n]++|(?R))*\}\})/ $1 =~ s|⌸|\{\{=\}\}|gr /eg;
+	s/(\{\{(?:[^{}\n]++|(?R))*\}\})/ &escape_equalsign($1) /eg;
 	
 	# s/ *({{ש}}) */$1/g;
 	
@@ -118,6 +118,7 @@ sub printBox {
 	my $url = $attr{'קישור'} // '';
 	# print STDERR "printBox got |$str|$tip|$url|\n";
 	$str = escape_template($str);
+	$tip =~ s/\{\{[^|]*\|(.*)\}\}/$1/g;
 	$tip =~ s|&|&amp;|g;
 	$tip =~ s|"|&quot;|g;
 	$tip = escape_template($tip);
@@ -221,7 +222,7 @@ sub parse_chapter {
 	$str .= "|$number|$desc" if ($number || $desc || $fix);
 	$str .= "|תיקון: $fix" if ($fix);
 	$str .= "|אחר=$other" if ($other);
-	$str .= "|עוגן=$ankor" if ($ankor);
+	$str .= "|עוגן=$ankor" if ($ankor && $ankor ne '-');
 	$str .= "}}\n";
 	
 	if ($text) {
@@ -345,6 +346,15 @@ sub fix_tags {
 	tr/–/-/;
 	tr/“”״/"/;
 	s/\{\{=\}\}|⌸/=/g;
+	return $_;
+}
+
+sub escape_equalsign {
+	local $_ = shift;
+	s/\{\{==?\}\}/⌸/g;
+	s/(\<[^>]+\>)/ $1 =~ s|=|⌸|gr /eg;
+	s/⌸/\{\{=\}\}/g;
+	tr/⌸/=/;
 	return $_;
 }
 
