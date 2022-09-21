@@ -360,6 +360,8 @@ sub process_law {
 	
 	$locforce = 0;
 	
+	my $src_text = $bot->get_text($page_src, $revid_s);
+	
 	if (!$dryrun && $new) {
 		# Move page if not using canonic name
 		my $canonic = canonic_name($page_dst);
@@ -369,7 +371,6 @@ sub process_law {
 		}
 	}
 	
-	my $src_text = $bot->get_text($page_src, $revid_s);
 	eval {
 		$text = RunParsers($src_text);
 		1;
@@ -628,7 +629,8 @@ sub parse_actions {
 		my ($hour,$minute);
 		(undef,$minute,$hour) = localtime();
 		# unless (($hour==0 || $hour==12) && $minute<15) {
-		unless (($hour==0 || $hour==8 || $hour==16) && $minute<15) {
+		# unless (($hour==0 || $hour==8 || $hour==16) && $minute<15) {
+		unless (($hour==0 || $hour==6 || $hour==12 || $hour==18) && $minute<15) {
 			printf("Slow mode: It's now %02d:%02d, new page will be added at midnight/noon.\n", $hour, $minute);
 			return ();
 		}
