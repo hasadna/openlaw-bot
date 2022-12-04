@@ -30,7 +30,7 @@ my $div_table = 0;
 
 # \bו?כ?ש?מ?[בהל]?(חוק|פקוד[הת]|תקנות|צו|חלק|פרק|סימן(?: משנה|)|תוספו?ת|טופס|לוח)
 our $pre_sig = 'ו?כ?ש?מ?[בהל]?-?';
-our $extref_sig = $pre_sig . '(חוק(?:[ -]ה?יסוד:?|)|פקוד[הת]|תקנות(?: שעת[ -]ה?חי?רום)?|צו|(?:החלט|הכרז|אכרז|הודע)(?:ה|ו?ת)|תקנון|הוראו?ת|מנשר|כללים?|נוהל|קביעו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|הנחי[יו]ת|קווים מנחים|אמות מידה|היתר|(?:כתבי? )?מי?נוי)';
+our $extref_sig = $pre_sig . '(חוק(?:[ -]ה?יסוד:?|)|פקוד[הת]|תקנות(?: שעת[ -]ה?חי?רום)?|צו|(?:החלט|הכרז|אכרז|הודע)(?:ה|ו?ת)|תקנון|הוראו?ת|מנשר|כללים?|נוהל|רי?שיון|קביעו?ת|נורמו?ת|חוק[הת]|אמנ[הת]|דברי?[ -]ה?מלך|הנחי[יו]ת|קווים מנחים|אמות מידה|היתר|(?:כתבי? )?מי?נוי)';
 our $date_sig = '(?:\,? ה?תש.?["״].[-–]\d{4}|, *[^ ]*\d{4}|, (חוק |פקודה |צו |)מס([\'׳]|פר) \d+ לשנת \d{4}| [-–] ה?תש.?["״]. מיום \d+.*|\, *\d+ עד \d+|\ \(\d{4}\)|\ [-–] \d{4})';
 our $type_sig = $pre_sig . '(סעי(?:ף|פים)|תקנ(?:ה|ות)|אמו?ת[ -]ה?מידה|כלל|חלק|פרק|סימן(?: משנה|)|לוח(?:ות|) השוואה|נספח|תוספת|טופס|לוח|טבל[הא]|מפ(?:ה|ות))';
 our $chp_sig = '\d+(?:[^ ,.:;"״\n\[\]()]{0,3}?\.|(?:\.\d+)+[א-י]?\.?)';
@@ -76,7 +76,7 @@ sub convert {
 	
 	# General cleanup
 	s/\n( *<!--.*?--> *\n)+/\n/sg;  # Remove comments
-	s/ *<!--.*?-->//sg;  # Remove comments
+	s/ *<!--.*?-->/\x00/sg;  # Remove comments
 	s/\r//g;           # Unix style, no CR
 	s/[\t\xA0]/ /g;    # tab and hardspace are whitespaces
 	s/^[ ]+//mg;       # Remove redundant whitespaces
@@ -401,6 +401,7 @@ sub parse_link {
 
 sub parse_remark {
 	local $_ = shift;
+	return $1 . parse_remark($2) if /^(?|(\()(\(\(\[[^\[\]]*?\]\)\))|(\()(\(\(\(.*?[^)]\)\)\)))$/;
 	s/^\(\((.*?)\)\)$/$1/s;
 	my ($text,$tip,$url) = ( /((?:\{\{.*?\}\}|\[\[.*?\]\]|[^|])+)/g );
 	return $_ unless defined $text;
@@ -1032,7 +1033,7 @@ sub process_chapter {
 	return unless $params =~ /עוגן="(?:סעיף |)([^"]+)"/;
 	my $num = $1;
 	if (defined($num) && !$num) { $num = '0'; } else { $num //= ''; }
-	my $exact = ($num =~ s/^ *\= *//) || 0;
+	my $exact = ($num =~ s/^ *[=*] *//) || 0;
 	my $ankor = '';
 	if (!$num || $num eq '-') {
 		$ankor = '-';
@@ -1244,7 +1245,7 @@ sub process_href {
 		$type = ($ext) ? 3 : 1;
 	}
 	
-	# print STDERR "## X |$text| X |$ext|$int| X |$helper|\n";
+	# print STDERR "process_href \$text=|$text| \$ext=|$ext| \$int=|$int| X \$helper=|$helper|\n";
 	
 	if ($ext eq '+') {
 		$type = 2;
@@ -1318,7 +1319,7 @@ sub process_href {
 
 sub find_href {
 	local $_ = shift;
-	my $helper = shift;
+	my $helper = shift // '';
 	if (!$_) { return $_; }
 	
 	my $ext = '';
@@ -1338,7 +1339,8 @@ sub find_href {
 	s/\(\(\[במקור: .*?\]\)\)//g;
 	s/\(\(<s>.*?<\/s>\)\)//g;
 	s/$date_sig *\(\(\[צ["״]ל:$date_sig\]\)\)$//;
-	s/\(\((?|\[(?:צ["״]ל: *)?(.*?)\]|(.*?))\)\)/$1/g;
+	s/\(\(\[(?:צ["״]ל: *)(.*?)\]\)\)/$1/g;
+	s/\(\((?|\[(.*?)\]|(.*?))\)\)/$1/g;
 	
 	if (/^(.*?)#(.*)$/) {
 		$_ = $2;
@@ -1395,7 +1397,7 @@ sub find_href {
 	my %elm = ();
 	
 	my @pos = ();
-	push @pos, $-[0] while ($_ =~ /([^ ,.\-\)]+)/g);
+	push @pos, $-[0] while ($_ =~ /([^ ,.\-\)*]+)/g);
 	
 	for my $p (@pos) {
 		$_ = substr($href,$p);
@@ -1467,6 +1469,9 @@ sub find_href {
 				# print STDERR "\t\$ditto: " . dump_hash($glob{href}{ditto}) . "\n";
 				# print STDERR "\t\$elm:   " . dump_hash(\%elm) . "\n";
 			}
+			when (/\*/) {
+				$exact = true;
+			}
 			default {
 				s/^[לב]-(\d.*)/$1/;
 				$num = get_numeral($_);
@@ -1504,11 +1509,13 @@ sub find_href {
 		# print STDERR "\t\$ditto set to: " . dump_hash($glob{href}{ditto}) . "\n";
 	}
 	
+	$exact = true if ($ext ne '');
+	
 	$href = '';
 	if (defined $elm{comptable}) {
 		$href = "לוחהשוואה";
 	} elsif (defined $elm{supl}) {
-		$elm{supl} = $elm{supl} || $glob{supl} || '' if ($ext eq '');
+		$elm{supl} = $elm{supl} || $glob{supl} || '' unless ($ext ne '');
 		$elm{supchap} = $elm{supchap} || $elm{chap};
 		$href = "תוספת $elm{supl}";
 		$href .= " חלק $elm{part}" if (defined $elm{part});
@@ -1540,23 +1547,23 @@ sub find_href {
 		$href = "פרק $elm{sect}";
 		$href .= " סימן $elm{subs}" if (defined $elm{subs});
 		$href .= " משנה $elm{subsub}" if (defined $elm{subsub});
-		$href = "חלק $glob{part} $href" if ($glob{sect_type}==3 && defined $glob{part} && $ext eq '');
-		# $href = "תוספת $glob{supl} $href" if ($glob{supl} && $ext eq '');
+		$href = "חלק $glob{part} $href" if ($glob{sect_type}==3 && defined $glob{part} && !$exact);
+		# $href = "תוספת $glob{supl} $href" if ($glob{supl} && !$exact);
 	} elsif (defined $elm{subs}) {
 		$href = "סימן $elm{subs}";
 		$href .= " משנה $elm{subsub}" if (defined $elm{subsub});
-		$href = "פרק $glob{sect} $href" if (defined $glob{sect} && $ext eq '');
-		$href = "חלק $glob{part} $href" if ($glob{sect_type}==3 && defined $glob{part} && $ext eq '');
+		$href = "פרק $glob{sect} $href" if (defined $glob{sect} && !$exact);
+		$href = "חלק $glob{part} $href" if ($glob{sect_type}==3 && defined $glob{part} && !$exact);
 		# $href = "תוספת $glob{supl} $href" if (defined $elm{supl} && $glob{supl} && $ext eq '');
 	} elsif (defined $elm{subsub}) {
 		$href = "משנה $elm{subsub}";
-		$href = "סימן $glob{subs} $href" if (defined $glob{subs});
-		$href = "פרק $glob{sect} $href" if (defined $glob{sect} && $ext eq '');
-		$href = "חלק $glob{part} $href" if ($glob{sect_type}==3 && defined $glob{part} && $ext eq '');
-		# $href = "תוספת $glob{supl} $href" if (defined $elm{supl} && $glob{supl} && $ext eq '');
+		$href = "סימן $glob{subs} $href" if (defined $glob{subs} && !$exact);
+		$href = "פרק $glob{sect} $href" if (defined $glob{sect} && !$exact);
+		$href = "חלק $glob{part} $href" if ($glob{sect_type}==3 && defined $glob{part} && !$exact);
+		# $href = "תוספת $glob{supl} $href" if (defined $elm{supl} && $glob{supl}  && !$exact);
 	} elsif (defined $elm{chap}) {
 		$href = "סעיף $elm{chap}";
-	} elsif (defined $elm{supchap} && $ext eq '') {
+	} elsif (defined $elm{supchap}  && !$exact) {
 		$href = "פרט $elm{supchap}";
 		$href = "חלק $glob{part} $href" if (defined $glob{part});
 		$href = "לוח $glob{tabl} $href" if (defined $glob{tabl});
