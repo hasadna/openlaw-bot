@@ -41,7 +41,7 @@ our $roman = '(?:[IVX]+|[ivx]+)';
 our $EN = '[A-Za-z]';
 our $HE = '(?:[א-ת][\x{05B0}-\x{05BD}]*+)';
 our $nikkud = '[\x{05B0}-\x{05BD}]';
-our $nochar = '(?:\'\'\'|\<\/?(?:[bis]|ins|del|qq)\>)*+';
+our $nochar = '(?:\'\'\'|\<\/?(?:[bis]|ins|del|qq)\>|\x00)*+';
 # our $nochar = '(?:\(\(|\)\)|\'\'\'|\<\/?(?:[bis]|ins|del|qq)\>)*+';
 
 sub main() {
@@ -76,7 +76,8 @@ sub convert {
 	
 	# General cleanup
 	s/\n( *<!--.*?--> *\n)+/\n/sg;  # Remove comments
-	s/ *<!--.*?-->/\x00/sg;  # Remove comments
+	s/^ *(<!--.*?--> *)+//mg;  # Remove comments
+	s/ *<!--.*?-->( *)/$1\x00/sg;  # Remove comments
 	s/\r//g;           # Unix style, no CR
 	s/[\t\xA0]/ /g;    # tab and hardspace are whitespaces
 	s/^[ ]+//mg;       # Remove redundant whitespaces
@@ -108,7 +109,7 @@ sub convert {
 	
 	# s/[»«⌸]/"&#".ord($1).";"/ge; # Escape special markers
 	
-	s/($HE['׳]?)–($HE|\d)/$1--$2/g; # Keep en-dash between Hebrew words
+	s/($HE['׳]?(?:\(\()?)–((?:\)\))?$HE|\d)/$1--$2/g; # Keep en-dash between Hebrew words
 	s/(\d$HE*)–(\d)/$1--$2/g; # Keep en-dash between numerals
 	
 	tr/\x{FEFF}//d;     # Unicode marker
@@ -711,45 +712,48 @@ sub get_numeral {
 		$token = '';
 		given ($_) {
 			($num,$token) = ("0",$1) when /^(מקדמית?|אפס)\b/;
-			($num,$token) = ("11",$1) when /^(אחד[- ]עשר|אחת[- ]עשרה)\b/;
-			($num,$token) = ("12",$1) when /^(שניי?ם[- ]עשר|שתיי?ם[- ]עשרה)\b/;
-			($num,$token) = ("13",$1) when /^(שלושה[- ]עשר|שלוש[- ]עשרה)\b/;
-			($num,$token) = ("14",$1) when /^(ארבעה[- ]עשר|ארבע[- ]עשרה)\b/;
-			($num,$token) = ("15",$1) when /^(חמי?שה[- ]עשר|חמש[- ]עשרה)\b/;
-			($num,$token) = ("16",$1) when /^(שי?שה[- ]עשר|שש[- ]עשרה)\b/;
-			($num,$token) = ("17",$1) when /^(שבעה[- ]עשר|שבע[- ]עשרה)\b/;
-			($num,$token) = ("18",$1) when /^(שמונה[- ]עשרה?)\b/;
-			($num,$token) = ("19",$1) when /^(תשעה[- ]עשר|תשע[- ]עשרה)\b/;
-			($num,$token) = ("21",$1) when /^(עשרים[- ]ו?אח[דת])\b/;
-			($num,$token) = ("22",$1) when /^(עשרים[- ]ו?ש[נת]יי?ם)\b/;
-			($num,$token) = ("23",$1) when /^(עשרים[- ]ו?שלושה?)\b/;
-			($num,$token) = ("24",$1) when /^(עשרים[- ]ו?ארבעה?)\b/;
-			($num,$token) = ("25",$1) when /^(עשרים[- ]ו?חמי?שה?)\b/;
-			($num,$token) = ("26",$1) when /^(עשרים[- ]ו?שי?שה?)\b/;
-			($num,$token) = ("27",$1) when /^(עשרים[- ]ו?שבעה)\b/;
-			($num,$token) = ("28",$1) when /^(עשרים[- ]ו?שמונה)\b/;
-			($num,$token) = ("29",$1) when /^(עשרים[- ]ו?תשעה?)\b/;
-			($num,$token) = ("1",$1) when /^(ראשו(ן|נה)|אחד|אחת])\b/;
-			($num,$token) = ("2",$1) when /^(שניי?ה?|ש[תנ]יי?ם)\b/;
-			($num,$token) = ("3",$1) when /^(שלישית?|שלושה?)\b/;
-			($num,$token) = ("4",$1) when /^(רביעית?|ארבעה?)\b/;
-			($num,$token) = ("5",$1) when /^(חמי?שית?|חמש|חמי?שה)\b/;
-			($num,$token) = ("6",$1) when /^(שי?שית?|שש|שי?שה)\b/;
-			($num,$token) = ("7",$1) when /^(שביעית?|שבעה?)\b/;
-			($num,$token) = ("8",$1) when /^(שמינית?|שמונה)\b/;
-			($num,$token) = ("9",$1) when /^(תשיעית?|תשעה?)\b/;
-			($num,$token) = ("10",$1) when /^(עשירית?|עשרה?)\b/;
-			($num,$token) = ("20",$1) when /^(עשרים)\b/;
+			($num,$token) = ("11",$1) when /^(אחד[- ]עשר|אחת[- ]עשרה|(ال)?حادي عشر|احد عشر)\b/;
+			($num,$token) = ("12",$1) when /^(שניי?ם[- ]עשר|שתיי?ם[- ]עשרה|(ال)?ثاني عشر|اثنا عشر)\b/;
+			($num,$token) = ("13",$1) when /^(שלושה[- ]עשר|שלוש[- ]עשרה|(ال)?ثالث عشر|ثلاثة عشر)\b/;
+			($num,$token) = ("14",$1) when /^(ארבעה[- ]עשר|ארבע[- ]עשרה|(ال)?رابع عشر|اربعة عشر)\b/;
+			($num,$token) = ("15",$1) when /^(חמי?שה[- ]עשר|חמש[- ]עשרה|(ال)?خامس عشر|خمسة عشر)\b/;
+			($num,$token) = ("16",$1) when /^(שי?שה[- ]עשר|שש[- ]עשרה|(ال)?سادس عشر|ستة عشر)\b/;
+			($num,$token) = ("17",$1) when /^(שבעה[- ]עשר|שבע[- ]עשרה|(ال)?سابع عشر|سبعة عشر)\b/;
+			($num,$token) = ("18",$1) when /^(שמונה[- ]עשרה?|(ال)?ثامن عشر|ثمانية عشر)\b/;
+			($num,$token) = ("19",$1) when /^(תשעה[- ]עשר|תשע[- ]עשרה|(ال)?تاسع عشر|تسعة عشر)\b/;
+			($num,$token) = ("21",$1) when /^(עשרים[- ]ו?אח[דת]|واحد وعشرون)\b/;
+			($num,$token) = ("22",$1) when /^(עשרים[- ]ו?ש[נת]יי?ם|اثنان وعشرون)\b/;
+			($num,$token) = ("23",$1) when /^(עשרים[- ]ו?שלושה?|ثلاثة وعشرون)\b/;
+			($num,$token) = ("24",$1) when /^(עשרים[- ]ו?ארבעה?|أربعة وعشرون)\b/;
+			($num,$token) = ("25",$1) when /^(עשרים[- ]ו?חמי?שה?|خمسة وعشرون)\b/;
+			($num,$token) = ("26",$1) when /^(עשרים[- ]ו?שי?שה?|ستة وعشرون)\b/;
+			($num,$token) = ("27",$1) when /^(עשרים[- ]ו?שבעה|سبعة وعشرون)\b/;
+			($num,$token) = ("28",$1) when /^(עשרים[- ]ו?שמונה|ثمانية وعشرون)\b/;
+			($num,$token) = ("29",$1) when /^(עשרים[- ]ו?תשעה?|تسعة وعشرون)\b/;
+			($num,$token) = ("1",$1) when /^(ראשו(ן|נה)|אחד|אחת|(ال)?أول|واحد)\b/;
+			($num,$token) = ("2",$1) when /^(שניי?ה?|ש[תנ]יי?ם|(ال)?(ثاني|ثانيا)|إثنان)\b/;
+			($num,$token) = ("3",$1) when /^(שלישית?|שלושה?|(ال)?ثالث|ثلاثة)\b/;
+			($num,$token) = ("4",$1) when /^(רביעית?|ארבעה?|(ال)?(رابعة|إيابا)|أربع)\b/;
+			($num,$token) = ("5",$1) when /^(חמי?שית?|חמש|חמי?שה|(ال)?خامس|خمسة)\b/;
+			($num,$token) = ("6",$1) when /^(שי?שית?|שש|שי?שה|(ال)?سادس|ستة)\b/;
+			($num,$token) = ("7",$1) when /^(שביעית?|שבעה?|(ال)?سابع|سبعة)\b/;
+			($num,$token) = ("8",$1) when /^(שמינית?|שמונה|(ال)?ثامن|ثمانية)\b/;
+			($num,$token) = ("9",$1) when /^(תשיעית?|תשעה?|(ال)?تاسع|تسعة)\b/;
+			($num,$token) = ("10",$1) when /^(עשירית?|עשרה?|(ال)?عاشر|عشرة)\b/;
+			($num,$token) = ("20",$1) when /^(עשרים|(ال)?عشرون)\b/;
+			($num,$token) = ("30",$1) when /^(שלושים|(ال)?ثلاثون)\b/;
 			($num,$token) = ($use_roman ? arabic($1) : uc($1), $1) when /^($roman)\b/;
 			($num,$token) = ("$1-2","$1$2") when /^(\d+)([- ]?bis)\b/i;
 			($num,$token) = ("$1-3","$1$2") when /^(\d+)([- ]?ter)\b/i;
 			($num,$token) = ("$1-4","$1$2") when /^(\d+)([- ]?quater)\b/i;
+			($num,$token) = ($2,"$1$2") when /^($pre_sig-|)(\d\d+([._]\d+[א-ט]?)*)\b/; # At least two digits.
 			($num,$token) = ($1,$1) when /^(\d+([._]\d+[א-ט]?)+)\b/;
 			($num,$token) = ($1,$1) when /^(\d+$heb_num2?\.$heb_num2\d?)\b/;
 			($num,$token) = ($1,$1) when /^(\d+($heb_num2?\d*|))\b/;
 			($num,$token) = ($1,$1) when /^(\d+$heb_num2\d+$heb_num2)\b/;
 			($num,$token) = ($1,$1) when /^($heb_num3(\d+[א-י]*|))\b/;
 		}
+		# print STDERR "get_numeral: got \$_=\"$_\"; \$num=\"$num\" and \$token=\"$token\".\n";
 		if ($num ne '') {
 			# Remove token from rest of string
 			$_ =~ s/^$token//;
@@ -1593,6 +1597,7 @@ sub find_reshumot_href {
 	$url = "https://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^(?:ls|)([a-z]+):(\d+):(\d+)$/);
 	$url = "https://fs.knesset.gov.il/$2/law/$2_$1_$3.pdf" if ($url =~ /^([a-z]+_[a-z]+):(\d+):(\d+)$/);
 	$url = "https://supremedecisions.court.gov.il/Home/Download?path=HebrewVerdicts/$1/$3/$2/$4&fileName=$1$2$3_$4.pdf&type=4" if ($url =~ /^(\d\d)(\d\d\d)(\d\d\d)[_.]([a-zA-Z]\d\d)$/);
+	$url = "https://www.gov.il/he/departments/policies/$url" if ($url =~ /^(\d{4}_de[sc]\d+|dec\d+_\d{4})$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
 	return $url;
