@@ -2,7 +2,7 @@ default:
   image: docker.registry.org.il/imageroot/buildah:latest
 
 variables:
-  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openlaw-bot/${CI_COMMIT_TAG}/"
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/openlaw-bot/${CI_COMMIT_TAG}"
 
 stages:
   - build
@@ -63,7 +63,7 @@ release:
     assets:
       links:
         - name: openlaw-bot.tar.gz
-          filepath: openlaw-bot.tar.gz
+          filepath: /openlaw-bot.tar.gz
           url: "${PACKAGE_REGISTRY_URL}/openlaw-bot.tar.gz"
           link_type: package
   rules:
