@@ -91,7 +91,7 @@ fetch-downstream-info:
     GIT_STRATEGY: none
   script:
     - apk add -q curl jq
-    - OPENLAW_TOOLS_TAG_LATEST=$(curl -fsS "${CI_API_V4_URL}/projects/resource-il%2Fopenlaw-tools/repository/tags?per_page=1&search=^v" | jq -r '.[].name')
+    - OPENLAW_TOOLS_TAG_LATEST=$(curl -fsS "${CI_API_V4_URL}/projects/resource-il%2Fopenlaw-tools/repository/tags?per_page=1&search=^v" | jq -r '.[0].name')
     - echo "OPENLAW_TOOLS_TAG_LATEST=${OPENLAW_TOOLS_TAG_LATEST}" | tee versions.env
   artifacts:
     reports:
