@@ -16,7 +16,9 @@ RUN apt-get update \
         # Packages needed for installation
         make \
         cpanminus \
-    && cpanm --notest MediaWiki::Bot \
+    && cpanm --notest \
+        MediaWiki::Bot \
+	MediaWiki::Bot::Plugin::Admin \
     && apt-get clean \
     && rm -Rf /var/lib/apt/lists/* \
     && useradd -m -s /bin/bash resource \
