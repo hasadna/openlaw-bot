@@ -96,8 +96,9 @@ fetch-downstream-info:
     - echo "OPENLAW_TOOLS_TAG_LATEST=${OPENLAW_TOOLS_TAG_LATEST}" > versions.env
   artifacts:
     reports:
-      dotenv:
-        - versions.env
+      dotenv: versions.env
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/'
 
 update-tools:
   stage: .post
