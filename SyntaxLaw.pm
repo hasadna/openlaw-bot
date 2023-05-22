@@ -149,7 +149,7 @@ sub convert {
 	
 	s/([ :])-([ \n])/$1–$2/g;
 	
-	s/(?<=[ ‎‏|])([A-Za-z0-9+−\-±,.()\[\]\'′″‴{}<>]{20,})(?=\s|$)/wbr_chemicals($1)/ge;
+	s/(?<=[ ‎‏|])([A-Za-z0-9+−\-±,.()\[\]\'′″‴{}<>α-ε]{20,})(?=\s|$)/wbr_chemicals($1)/ge;
 	
 	# Replace with “Smart quotes”
 	$_ = convert_quotes($_);
@@ -1736,12 +1736,19 @@ sub convert_quotes {
 ######################################################################
 
 sub wbr_chemicals {
+	our $chem_pre = '(?:\(|mono|di|tri|tetra|pente|hexa|poly|cis|trans|bis|ortho|cyclo|meta|lyso|homo)';
+	our $chem_grp = '(?:aldehy|alkan[eo]|amid|amin|ammon|azin|benz|brom[io]|butan|carbo|chloro|cinnam|citro|cyan[io]|eth[yi]l|ferr(ate|ic)|fluor[oi]|hydr[ao]|methan|meth[yi]l|morpho|naphth[ao]|nitr[ia][lt]|phen[iyo]|propan|silic|sul(ph|f)|toluene|quinone|cyclo)';
 	local $_ = shift;
 	return $_ unless /-/;
-	s/((?:^|[\-\[\]\(\)])[A-Za-z][a-z]{5,}|-[0-9]+-)((?:\(|bis|di|mono|poly|tri|tetra|oxo|oxy|)(?:amin|ammon|benz|butan|carbo|chloro|cyclo|ferr(ate|ic)|fluor[oi]|hydr[ao]|methan|m?eth[yi]l|morpho|naphth[ao]|phen[iyo]|propan|silic|sulph|toluene|quinone))/$1<wbr>$2/g;
-	s/([A-Za-z0-9\-'′″‴]{5,}[)\]\}])([A-Za-z]{2,})/$1<wbr>$2/g;
-	s/([A-Za-z0-9\-'′″‴]{2,}[(\[\{])([A-Za-z]{5,})/$1<wbr>$2/g;
-	s/<wbr><wbr>/<wbr>/g;
+	s/<wbr>//g;
+	s/([a-z]{4}[a-z]*?)($chem_pre?$chem_grp)/$1␟$2/g;
+	s/(␟[a-z]{4}[a-z]*?)($chem_pre?$chem_grp)/$1␟$2/ig;
+	s/([a-z]{6}$chem_pre)([a-z]{5})/$1␟$2/ig;
+	s/m␟ethy/␟methy/g;
+	s/([^␟]{5,}[)\]\}])([0-9\-,'′″‴]*[A-Za-z]{2,})/$1␟$2/g;
+	s/([^␟]{2,})([(\[\{][0-9\-,'′″‴]*[A-Za-z]{5,})/$1␟$2/g;
+	s/([^␟]{5,}\-[0-9\-,'′″‴]+\-)([A-Za-z]{5,})/$1␟$2/g;
+	s/␟+/<wbr>/g;
 	return $_;
 }
 
