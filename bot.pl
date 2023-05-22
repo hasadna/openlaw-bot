@@ -59,6 +59,7 @@ my $host = ( $credentials{host} || 'he.wikisource.org' );
 
 print "MediaWiki::API version is " . MediaWiki::API->VERSION . "\n" if ($verbose);
 print "MediaWiki::Bot version is " . MediaWiki::Bot->VERSION . "\n" if ($verbose);
+print "MediaWiki::Bot::Plugin::Admin version is " . MediaWiki::Bot::Plugin::Admin->VERSION . "\n" if ($verbose);
 
 print "HOST $host USER $credentials{username}\n";
 my $bot = MediaWiki::Bot->new({
@@ -178,7 +179,7 @@ foreach my $page_dst (@pages) {
 }
 
 # Update new texts page
-if ((%new_pages) && !($onlycheck || $dryrun)) {
+if ((%new_pages) && !($onlycheck || $dryrun || $interactive)) {
 	$page = 'עמוד_ראשי/טקסטים_חדשים';
 	$text = $bot->get_text($page);
 	if ($text) {
@@ -360,7 +361,7 @@ sub process_law {
 	
 	$locforce = 0;
 	
-	my $src_text = $bot->get_text($page_src, $revid_s);
+	my $src_text = $bot->get_text($page_src, { revid => $revid_s });
 	
 	if (!$dryrun && $new) {
 		# Move page if not using canonic name
@@ -467,7 +468,7 @@ sub auto_correct {
 	s/^(:+ "?\([^)]{1,2}\))($HE)/$1 $2/mg;
 	s/(?:\]\]-|-\]\])(\d{4})/-$1]]/mg;
 	s/(\n@.*\n) *([א-ת]|\([^() ]+\))/$1: $2/g;
-	s/^(:+-?)(?=<[א-ת])/$1 /g;
+	s/^(@|:+-?)(?=<[0-9א-ת])/$1 /g;
 	# s/ *class="wikitable"//g;
 	$_ = s_lut($_, { 
 		'½' => '¹⁄₂', '⅓' => '¹⁄₃', '⅔' => '²⁄₃', '¼' => '¹⁄₄', '¾' => '³⁄₄', 
@@ -476,6 +477,8 @@ sub auto_correct {
 	s/([⁰¹²³⁴-⁹]+\⁄[₀-₉]+)(\d+)/$2$1/g;
 	# s/ %(\d*[⁰¹²³⁴-⁹]+\⁄[₀-₉]+|\d+\/\d+|\d+(\.\d+)?)/ $1%/g;
 	# s/(\d+)%(\d*\.\d+)/$1$2%/g;
+	s/^(@|:+-?)([()0-9א-ת])/$1 $2/gm;
+	s/^(@ \d+\.)([א-ת]{2,} )/$1 $2/gm;
 	s/^(@ \d[^ .]) /$1. /gm;
 	s/^(@ \d.*?\.) \./$1 /gm;
 	s/^@ :$/@/gm;
@@ -486,15 +489,21 @@ sub auto_correct {
 	s/ ([א-ת])(\[\[)/ $2$1/g;
 	s/;(?=\n\n+@)/./g;
 	s/^(:+-?)(?=[^ \n])/$1 /g;
-	s/(@ [^:]* \(תיקון) (.*\))/$1: $2/g;
+	s/(@ [^:]* \(תיקון:) (.*\))/$1: $2/g;
 	s/^((?:@ \d+\. |):+-? (?:\([^()]+\) *)*+)(?|\(\((.*)\)\)([^ \n])|\(([^(])(.*)\)\)|\(\((.*)([^)])\))$/$1(($2$3))/gm;
 	s/((?:תקנה|תקנות|סעיף|סעיפים) [0-9]+.?(?:\(.\))?) (\(.\))/$1$2/g;
+	s/(ש?ו?מ?[בלכה]?(?:הגדר[הת]|מונח) "[^"\]]+" )(\[\[(?:[^|\]]*\|)?)/$2$1/g;
+	s/(ש?ו?מ?[בלכה]?הגדרות "[^"\]]+" (?:ו[-־]?|או )"[^"\]]+")(\[\[(?:[^|\]]*\|)?)/$2$1/g;
+	s/(ש?ו?מ?[בלכה]?(?:פסקה|פסקאות) (?:\(.\))+ (?:(?:ו[־-]|או |עד )(?:\(.\))+ )*(?:של )?)(\[\[(?:[^|\]]*\|)?)/$2$1/g;
 	s/([ ,.;:])(\]\])/$2$1/g;
 	s/^(:+-?)([א-ת"0-9\(\)])/$1 $2/gm;
 	s/^>([^ \n<>]+)>/<$1>/gm;
 	s/^<([^ \n<>]+)</<$1>/gm;
 	s/^(:+)([^\n]*)\n(?=[א-ת])/$1$2 /gm;
 	s/^(:+)([^\n]*\n)(?=\()/$1$2$1 /gm;
+	s/\n\|\|-\n */|-\n| /g;
+	s/\[\[([^\[\]]+)\[\[/[[$1]]/g;
+	s/^(:+ \([^ ()]+\)) (\([^ ()]+\))/$1$2/gm;
 	return $_;
 }
 
@@ -623,7 +632,7 @@ sub get_revid {
 
 
 sub parse_actions {
-	my @_ = split(/\n/, shift);
+	local @_ = split(/\n/, shift);
 	my @actions;
 	if ($slow) {
 		my ($hour,$minute);
