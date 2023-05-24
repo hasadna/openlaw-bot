@@ -149,7 +149,7 @@ sub convert {
 	
 	s/([ :])-([ \n])/$1–$2/g;
 	
-	s/(?<=[ ‎‏|])([A-Za-z0-9+−\-±,.()\[\]\'′″‴{}<>α-ε]{20,})(?=\s|$)/wbr_chemicals($1)/ge;
+	s/(?<=[ ‎‏|])([A-Za-z0-9+−\-±,.:()\[\]\'′″‴{}<>\/α-ε]{20,})(?=[:;]|\s|$)/&wbr_chemicals($1)/ge;
 	
 	# Replace with “Smart quotes”
 	$_ = convert_quotes($_);
@@ -189,8 +189,10 @@ sub convert {
 	s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
 	s/(<(?:td|th)[^>]*>)(:)/$1␊\n$2/g;
 	s/(<\/(?:td|th)[^>]*>)/␊\n$1/g;
-	s/^(:+) *(\([^( ]+\)|[א-י]\. |\d+\. |[^ ]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ ]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ ]* (?:[-–] )?\(\(\)\))/$1 $2\n$1: $3\n$1:: $4/gm;
-	s/^(:+) *(\([^( ]+\)|[א-י]\. |\d+\. |[^ ]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ ]* (?:[-–] )?\(\(\)\))/$1 $2\n$1: $3/gm;
+	# s/^(:+) *(\([^( ]+\)|[א-י]\. |\d+\. |[^ <>]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ <>]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ |]* (?:[-–] )?\(\(\)\))/$1 $2\n$1: $3\n$1:: $4/gm;
+	# s/^(:+) *(\([^( ]+\)|[א-י]\. |\d+\. |[^ <>]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ <>]* (?:[-–] )?\(\(\)\))/$1 $2\n$1: $3/gm;
+	s/^(:+) *(\([^( ]+\)|[א-י]\. |\d+\. ) *(\([^( ]{1,2}\)|[א-י]\. ) *(\([^( ]{1,2}\)|[א-י]\. )/$1 $2\n$1: $3\n$1:: $4/gm;
+	s/^(:+) *(\([^( ]+\)|[א-י]\. |\d+\. ) *(\([^( ]{1,2}\)|[א-י]\. )/$1 $2\n$1: $3/gm;
 	s/^:+-? *␊?$//gm;
 	# s/^(:+) *("?\([^( ]+\)|\[[^[ ]+\]|\d[^ .]*\.|)(?| +(.*?)|([-–].*?)|())\n/&parse_line($1,$2,$3)/egm;
 	s/^(:+[-–]?+) *($nochar["”“]?(?:\([^( ]+\)|\[[A-Za-z0-9א-ת][^\[\] ]*\]|[A-Za-z0-9א-ת.]*\)? *\(\(\.?\)\)|\(\(\(\d+.?\)\)\)|\(\(\([א-י]\d?\)\)\)|\d+(?:\.\d+)+\.?|\d[^ .]*\.|$heb_num2\d?\.|$roman\.?|[•■□-◿*❏☒√✔☑✅☐\-–]|<sup>[0-9א-ת]{1,2}<\/sup>|\( \)|\[ \]|[^ ]+ (?:[-–] )?\(\(\)\)|)$nochar)(?| +(.*?)|(␊?))\n/&parse_line($1,$2,$3)/egm;
@@ -1736,18 +1738,24 @@ sub convert_quotes {
 ######################################################################
 
 sub wbr_chemicals {
-	our $chem_pre = '(?:\(|mono|di|tri|tetra|pente|hexa|poly|cis|trans|bis|ortho|cyclo|meta|lyso|homo)';
-	our $chem_grp = '(?:aldehy|alkan[eo]|amid|amin|ammon|azin|benz|brom[io]|butan|carbo|chloro|cinnam|citro|cyan[io]|eth[yi]l|ferr(ate|ic)|fluor[oi]|hydr[ao]|methan|meth[yi]l|morpho|naphth[ao]|nitr[ia][lt]|phen[iyo]|propan|silic|sul(ph|f)|toluene|quinone|cyclo)';
+	# (?:(alkane|alkene|alkyne|alcohol|amine|aldehyde|ketone|acid|ester|ether|halide|amide)\)|(?:(?:di|tri|tetra)?(?:chloro|bromo|iodo|fluoro)*)?(?:meth|eth|prop|but|pent|hex|hept|oct|non|dec|undec|dodec)?(?:yl|ene|yne|ane|oxy|amine)?(?:carbonyl|carboxyl|carboxylic acid|carboxylate))|(?:(?:oxy|thio|sulfo)?(?:meth|eth|prop|but|pent|hex|hept|oct|non|dec|undec|dodec)?(?:yl|ene|yne|an|oxy|amino)*)?(?:ate|ide|ium|amine|ol|one|onic acid)
+	our $chem_pre = '(?:\(|mono|di|tri|tetra|pente|hexa|poly|cis|trans|bis|ortho|cyclo|meta|lyso|homo|iso)';
+	our $chem_grp = '(?:acid|acryl[ao]|aldehy|alk[aey]n[eo]|alcohol|ami[dn][eio]|ammon|anthra|azin|benzo?|bor(?:ate|ic)|brom[io]|but(?:[ae]n|yl)|carb[ao](?:n|xyl)|chlor[oi]|cinnam|citro|coumarin|cyan[io]|ester|ether|eth(?:an|[yi]l)|ferr(?:ate|ic)|fluor[oi]|halide|hexa(?:dine|noate)|hydr[ao]|iodo|ketone|meth(?:[ae]n|[yi]l)|naphth?[ao]|nitr[iao]|octan[eo]|pent(?:[ae]n|yl)|piperid|phen[iyo]|phosph|pyr(?:an|azo|imid)|prop(?:[ae]n|yl)|quino[ln]|s[ai]lic|sul(?:ph|f)|toluene|morpho|cyclo)(?:ane|ate|ene|ic|ide|ol|one|onic|oxy|yl|yne|amine|)';
 	local $_ = shift;
-	return $_ unless /-/;
+	return $_ unless /-/ || /$chem_grp/;
 	s/<wbr>//g;
-	s/([a-z]{4}[a-z]*?)($chem_pre?$chem_grp)/$1␟$2/g;
-	s/(␟[a-z]{4}[a-z]*?)($chem_pre?$chem_grp)/$1␟$2/ig;
+	s/($chem_grp[a-z]*?)($chem_pre?$chem_grp)/$1␟$2/ig;
+	s/([a-z]{5}[a-z]*?)($chem_pre?$chem_grp)/$1␟$2/ig;
+	s/(␟[a-z]{5}[a-z]*?)($chem_pre?$chem_grp)/$1␟$2/ig;
 	s/([a-z]{6}$chem_pre)([a-z]{5})/$1␟$2/ig;
-	s/m␟ethy/␟methy/g;
-	s/([^␟]{5,}[)\]\}])([0-9\-,'′″‴]*[A-Za-z]{2,})/$1␟$2/g;
-	s/([^␟]{2,})([(\[\{][0-9\-,'′″‴]*[A-Za-z]{5,})/$1␟$2/g;
-	s/([^␟]{5,}\-[0-9\-,'′″‴]+\-)([A-Za-z]{5,})/$1␟$2/g;
+	s/(trim)␟(eth(?:y|an))/$1$2/ig;
+	s/(m)␟(eth(?:y|an))/␟$1$2/ig;
+	s/([^␟]{5}[)\]\}])([0-9\-,'′″‴]*[a-z]{2})/$1␟$2/ig;
+	s/([^␟]{2})([(\[\{][0-9\-,'′″‴]*[a-z]{5})/$1␟$2/ig;
+	s/([^␟]{5}\-[0-9\-,'′″‴]+\-)([a-z]{5,})/$1␟$2/ig;
+	s/␟?(-(?:[0-9n]+[abchsr]?['′″‴]?,?)+-)([a-z]{5})/$1␟$2/ig;
+	s/␟([\-)\]\}]+)/$1␟/g;
+	s/([\(\[\{]+)␟/␟$1/g;
 	s/␟+/<wbr>/g;
 	return $_;
 }
