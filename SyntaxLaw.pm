@@ -806,7 +806,7 @@ sub get_numeral {
 			($num,$token) = ("$1-2","$1$2") when /^(\d+)([- ]?bis)\b/i;
 			($num,$token) = ("$1-3","$1$2") when /^(\d+)([- ]?ter)\b/i;
 			($num,$token) = ("$1-4","$1$2") when /^(\d+)([- ]?quater)\b/i;
-			($num,$token) = ($2,"$1$2") when /^($pre_sig-|)(\d\d+([._]\d+[א-ט]?)*)\b/; # At least two digits.
+			($num,$token) = ($2,"$1$2") when /^($pre_sig-|)(\d\d+([._]\d*[א-ט]?)*)\b/; # At least two digits.
 			($num,$token) = ($1,$1) when /^(\d+([._]\d+[א-ט]?)+)\b/;
 			($num,$token) = ($1,$1) when /^(\d+$heb_num2?\.$heb_num2\d?)\b/;
 			($num,$token) = ($1,$1) when /^(\d+($heb_num2?\d*|))\b/;
