@@ -75,9 +75,12 @@ sub convert {
 	$div_table = 1 if (s/<מידע נוסף:? טבל(אות|א|ה) שקופ(ות|ה)>\n?//);
 	
 	# General cleanup
-	s/\n( *<!--.*?--> *\n)+/\n/sg;  # Remove comments
-	s/^ *(<!--.*?--> *)+//mg;  # Remove comments
-	s/ *<!--.*?-->( *)/$1\x00/sg;  # Remove comments
+	s/<!--/⟦/g; s/-->/⟧/g;
+	s/\n( *⟦[^⟦⟧]*?⟧ *\n)+/\n/sg;  # Remove comments
+	s/^ *(⟦[^⟦⟧]*?⟧ *)+//mg;  # Remove comments
+	s/ *⟦[^⟦⟧]*?⟧( *)/$1\x00/sg;  # Remove comments
+	s/⟦/<!--/g; s/⟧/-->/g;
+	
 	s/\r//g;           # Unix style, no CR
 	s/[\t\xA0]/ /g;    # tab and hardspace are whitespaces
 	s/^[ ]+//mg;       # Remove redundant whitespaces
@@ -85,11 +88,15 @@ sub convert {
 	s/$/\n/s;          # add last linefeed
 	s/\n{3,}/\n\n/sg;  # remove extra linefeeds
 	s/\n\n$/\n/sg;     # Remove last linefeed
-	
 	if (/[\x{202A}-\x{202E}]/) {
 		# Throw away BIDI characters if LRE/RLE/PDF exists
 		tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 	}
+	
+	# Replace subscript/superscript numerals
+	s/(?<![0-9₀-₉])([₀-₉]+)(?![0-9₀-₉])/'<sub>' . $1=~tr|₀-₉|0-9|r . '<\/sub>'/ge;
+	s/(?<![0-9⁰¹²³⁴-⁹])([⁰¹²³⁴-⁹]+)(?![0-9⁰¹²³⁴-⁹])/'<sup>' . $1=~tr|⁰¹²³⁴-⁹|0-9|r . '<\/sup>'/ge;
+	s/<sup>([0-9]+)<\/sup>[\/\⁄]<sub>([0-9]+)<\/sub>/$1=~tr|0-9|⁰¹²³⁴-⁹|r . '⁄' . $2=~tr|0-9|₀-₉|r/ge;
 	
 	# Replace vulgar fractions
 	s/([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒↉])(\d+)/$2$1/g;
@@ -187,7 +194,7 @@ sub convert {
 	s/^@ *($nochar[^ \n.]+\.$nochar) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
 	s/^@ *($nochar\([^()]*?\)$nochar) *(.*?)\n/&parse_chapter($1,$2,"סעיף*")/egm;
 	s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
-	s/(<(?:td|th)[^>]*>)(:)/$1␊\n$2/g;
+	s/(<(?:td|th)[^>]*>|\|+ *)(:)/$1␊\n$2/g;
 	s/(<\/(?:td|th)[^>]*>)/␊\n$1/g;
 	# s/^(:+) *(\([^( ]+\)|[א-י]\. |\d+\. |[^ <>]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ <>]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ |]* (?:[-–] )?\(\(\)\))/$1 $2\n$1: $3\n$1:: $4/gm;
 	# s/^(:+) *(\([^( ]+\)|[א-י]\. |\d+\. |[^ <>]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ <>]* (?:[-–] )?\(\(\)\))/$1 $2\n$1: $3/gm;
