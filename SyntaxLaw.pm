@@ -42,6 +42,7 @@ our $EN = '[A-Za-z]';
 our $HE = '(?:[א-ת][\x{05B0}-\x{05BD}]*+)';
 our $nikkud = '[\x{05B0}-\x{05BD}]';
 our $nochar = '(?:\'\'\'|\<\/?(?:[bis]|ins|del|qq)\>|\x00|[␚␡␛])*+';
+our $nochar2 = '(?:\'\'\'|\<\/?(?:[bis]|ins|del|qq)\>|\x00|[␚␡␛])++';
 # our $nochar = '(?:\(\(|\)\)|\'\'\'|\<\/?(?:[bis]|ins|del|qq)\>)*+';
 
 sub main() {
@@ -74,13 +75,16 @@ sub convert {
 	
 	$div_table = 1 if (s/<מידע נוסף:? טבל(אות|א|ה) שקופ(ות|ה)>\n?//);
 	
-	# General cleanup
+	# Remove HTML comments
+	# s/<!--((?:(?!<!--|-->).)*)-->//sg;
 	s/<!--/⟦/g; s/-->/⟧/g;
-	s/\n( *⟦[^⟦⟧]*?⟧ *\n)+/\n/sg;  # Remove comments
-	s/^ *(⟦[^⟦⟧]*?⟧ *)+//mg;  # Remove comments
-	s/ *⟦[^⟦⟧]*?⟧( *)/$1\x00/sg;  # Remove comments
+	s/\n( *⟦[^⟦⟧]*?⟧ *\n)+/\n/sg;
+	s/^ *(⟦[^⟦⟧]*?⟧ *)+//mg;
+	s/ *⟦[^⟦⟧]*?⟧( *)/$1\x00/sg;
+	s/\x00( *\x00)++/\x00/g;
 	s/⟦/<!--/g; s/⟧/-->/g;
 	
+	# General cleanup
 	s/\r//g;           # Unix style, no CR
 	s/[\t\xA0]/ /g;    # tab and hardspace are whitespaces
 	s/^[ ]+//mg;       # Remove redundant whitespaces
@@ -93,10 +97,10 @@ sub convert {
 		tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 	}
 	
-	# Replace subscript/superscript numerals
-	s/(?<![0-9₀-₉])([₀-₉]+)(?![0-9₀-₉])/'<sub>' . $1=~tr|₀-₉|0-9|r . '<\/sub>'/ge;
-	s/(?<![0-9⁰¹²³⁴-⁹])([⁰¹²³⁴-⁹]+)(?![0-9⁰¹²³⁴-⁹])/'<sup>' . $1=~tr|⁰¹²³⁴-⁹|0-9|r . '<\/sup>'/ge;
-	s/<sup>([0-9]+)<\/sup>[\/\⁄]<sub>([0-9]+)<\/sub>/$1=~tr|0-9|⁰¹²³⁴-⁹|r . '⁄' . $2=~tr|0-9|₀-₉|r/ge;
+	# # Replace subscript/superscript numerals
+	# s/(?<![0-9₀-₉\/\⁄])([₀-₉]+)(?![0-9₀-₉])/'<sub>' . $1=~tr|₀-₉|0-9|r . '<\/sub>'/ge;
+	# s/(?<![0-9⁰¹²³⁴-⁹])([⁰¹²³⁴-⁹]+)(?![0-9⁰¹²³⁴-⁹\/\⁄])/'<sup>' . $1=~tr|⁰¹²³⁴-⁹|0-9|r . '<\/sup>'/ge;
+	# s/<sup>([0-9]+)<\/sup>[\/\⁄]<sub>([0-9]+)<\/sub>/$1=~tr|0-9|⁰¹²³⁴-⁹|r . '⁄' . $2=~tr|0-9|₀-₉|r/ge;
 	
 	# Replace vulgar fractions
 	s/([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒↉])(\d+)/$2$1/g;
@@ -111,11 +115,15 @@ sub convert {
 		'ⅰ'=>'i', 'ⅱ'=>'ii', 'ⅲ'=>'iii', 'ⅳ'=>'iv', 'ⅴ'=>'v', 'ⅵ'=>'vi', 'ⅶ'=>'vii', 'ⅷ'=>'viii', 'ⅸ'=>'ix', 'ⅹ'=>'x', 'ⅺ'=>'xi', 'ⅻ'=>'xii', 
 	});
 	
-	s/(?<=[0-9₀-₉])′/&#8242;/g; # Keep prime [feet/minutes] and double prime [inch/seconds]
+	s/(?<=[0-9₀-₉])′/&#8242;/g; # Keep prime [feet/minutes], double prime [inch/seconds] and triple prime
 	s/(?<=[0-9₀-₉])″/&#8243;/g; # (those are restored later by unescape_text)
 	s/(?<=[0-9₀-₉])‴/&#8244;/g;
 	# s/[»«⌸]/"&#".ord($1).";"/ge; # Escape special markers
-
+	
+	# Replace subscript/superscript numerals
+	s/([₀-₉₊₋₌₍₎]+)/'<sub>' . $1=~tr|₀-₉₊₋₌₍₎|0-9+\-=()|r . '<\/sub>'/ge;
+	s/([⁰¹²³⁴-⁹⁺⁻⁼⁽⁾]+)/'<sup>' . $1=~tr|⁰¹²³⁴-⁹⁺⁻⁼⁽⁾|0-9+\-=()|r . '<\/sup>'/ge;
+	
 	s/(\[\[(?:קובץ|תמונה|[Ff]ile|[Ii]mage):.*?\]\])/ $1 =~ tr| |_|r =~ s|(["'–\-])|"&#".ord($1).";"|gre /ge;
 	
 	s/($HE['׳]?(?:\(\()?)–((?:\)\))?$HE|\d)/$1--$2/g; # Keep en-dash between Hebrew words
@@ -171,6 +179,7 @@ sub convert {
 		s/ \[(?:—|-{2,4})\] *([^\n]*) *$/ <span style="float: left;">$1<\/span><div style="clear: left;"><\/div>/gm;
 		s/ \[(?:—|-{2,4})\] */ /gm;
 	}
+
 	
 	# Parse various elements
 	s/^(?|<שם> *\n?(.*)|=([^=].*)=)\n*/&parse_title($1)/em; # Once!
@@ -186,7 +195,8 @@ sub convert {
 	# Parse structured elements
 	s/^(=+)(.*?)\1\n+/&parse_section(length($1),$2)/egm;
 	s/^<סעיף *(.*?)>(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
-	s/^(@.*?) +(:+[-–]? .*)$/$1\n$2/gm;
+	s/^(@.*?) +($nochar:+?[-–]?$nochar .*)$/$1\n$2/gm;
+	s/^(?|($nochar2)(:+[–-]?)($nochar)\ |()(:+[–-]?)($nochar2))/$2 $1$3/gm;
 	s/^@ *($nochar\(תיקון: .*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
 	s/^@ *($nochar\d\S*) *\n/&parse_chapter($1,"","סעיף")/egm;
 	s/^@ *($nochar$chp_sig) +(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
