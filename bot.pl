@@ -324,6 +324,9 @@ sub process_law {
 		print ", Target changed.\n" if ($revid_t>$revid_s);
 		print ", Same.\n" if ($revid_t==$revid_s);
 		$done = 1;
+	} elsif (!$update && $interactive) {
+		$locforce = 1;
+		print ", Updating anyway (interactive).\n";
 	} elsif (!$update && !$force && !$locforce) {
 		print ", Skipping.\n";
 		$done = 1;
@@ -469,10 +472,11 @@ sub auto_correct {
 	s/(?:\]\]-|-\]\])(\d{4})/-$1]]/mg;
 	s/(\n@.*\n) *([א-ת]|\([^() ]+\))/$1: $2/g;
 	s/^(@|:+-?)(?=<[0-9א-ת])/$1 /g;
+	s/^[א-ת](:+- )/$1/g;
 	# s/ *class="wikitable"//g;
-	$_ = s_lut($_, { 
+	$_ = s_lut($_, {
 		'½' => '¹⁄₂', '⅓' => '¹⁄₃', '⅔' => '²⁄₃', '¼' => '¹⁄₄', '¾' => '³⁄₄', 
-		'⅕' => '¹⁄₅', '⅙' => '¹⁄₆', '⅐' => '¹⁄₇', '⅛' => '¹⁄₈', '⅑' => '¹⁄₉', '⅒' => '¹⁄₁₀'
+		'⅕' => '¹⁄₅', '⅙' => '¹⁄₆', '⅐' => '¹⁄₇', '⅛' => '¹⁄₈', '⅑' => '¹⁄₉', '⅒' => '¹⁄₁₀',
 	});
 	s/([⁰¹²³⁴-⁹]+\⁄[₀-₉]+)(\d+)/$2$1/g;
 	# s/ %(\d*[⁰¹²³⁴-⁹]+\⁄[₀-₉]+|\d+\/\d+|\d+(\.\d+)?)/ $1%/g;
