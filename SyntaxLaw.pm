@@ -136,7 +136,7 @@ sub convert {
 	tr/\x96\x97/-/;     # more typographic dashes
 	tr/״”“„‟″‶/"/;      # typographic double quotes
 	tr/`׳’‘‚‛′‵/'/;     # typographic single quotes
-	s/(?<=[ \n])-{2,4}(?=[ \n])/—/g;   # em-dash
+	s/(?<=[ \n\x00])-{2,4}(?=[ \n\x00])/—/g;   # en-dash
 	s/[ ]{2,}/ /g;      # remove extra  spaces
 	s/…/.../g;
 	
@@ -162,7 +162,7 @@ sub convert {
 	s/(\[\[[ws]:.*?(?:\||\]\]))/ $1 =~ tr| |_|r /ge;
 	s/(\[\[(?:קובץ|תמונה|[Ff]ile|[Ii]mage):.*?\]\])/ $1 =~ tr| |_|r =~ s|(["'–\-])|"&#".ord($1).";"|gre /ge;
 	
-	s/([ :])-([ \n])/$1–$2/g;
+	s/([ :]\x00?)-(\x00?[ \n])/$1–$2/g;
 	
 	s/(?<=[ ‎‏|])([A-Za-z0-9+−\-±,.:()\[\]\'′″‴{}<>\/α-ε]{20,})(?=[:;]|\s|$)/&wbr_chemicals($1)/ge;
 	
@@ -204,7 +204,7 @@ sub convert {
 	s/^@ *($nochar[^ \n.]+\.$nochar) *(.*?)\n/&parse_chapter($1,$2,"סעיף")/egm;
 	s/^@ *($nochar\([^()]*?\)$nochar) *(.*?)\n/&parse_chapter($1,$2,"סעיף*")/egm;
 	s/^@ *(.*?)\n/&parse_chapter("",$1,"סעיף*")/egm;
-	s/(<(?:td|th)[^>]*>|\|+ *)(:)/$1␊\n$2/g;
+	s/(<(?:td|th)[^>]*>|\|+)[\x00 ]*(:)/$1␊\n$2/g;
 	s/(<\/(?:td|th)[^>]*>)/␊\n$1/g;
 	# s/^(:+) *(\([^( ]+\)|[א-י]\. |\d+\. |[^ <>]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ <>]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ |]* (?:[-–] )?\(\(\)\))/$1 $2\n$1: $3\n$1:: $4/gm;
 	# s/^(:+) *(\([^( ]+\)|[א-י]\. |\d+\. |[^ <>]* \(\(\)\)) *(\([^( ]{1,2}\)|[א-י]\. |[^ <>]* (?:[-–] )?\(\(\)\))/$1 $2\n$1: $3/gm;
@@ -233,8 +233,8 @@ sub convert {
 	s/(?<!\[)\[\[((?:(?!\]\]|\[\[).)*?\]?)\|((?:(?!\]\]|\[\[).)*)\]\](\]?)/&parse_link($1,"$2$3")/egm;
 	s/(?<!\[)\[\[((?:(?!\]\]|\[\[).)*)\]\](\]?)/&parse_link('',"$1$2")/egm;
 	# s/(?<!\()(\(\(([^\n]*?)\)\)([^(\n]*?\)\))?)(?!\))/&parse_remark($1)/egs;
-	s/(?<!\()(\(\(([^()\n]++|(?R)|[()])*?\)\))(?!\))/&parse_remark($1)/egs;
-
+	s/(?<!\()(\(\(([^()\n]++|(?R)|[()])*?\)\)([^(\n]*?\)\))?)(?!\))/&parse_remark($1)/egs;
+	
 	# Parse file linearly, constructing all ankors and links
 	$_ = linear_parser($_);
 	
@@ -610,7 +610,7 @@ sub parse_wikitable {
 			my $type = $1; $_ = $2;
 			
 			s/!!/||/g if ( $type eq '!' );
-			my @cells = split( / *\|\| */, $_ , -1);
+			my @cells = split( /[ \x00]*\|\|[ \x00]*/, $_ , -1);
 			@cells = ('') if (!@cells);
 			$_ = '';
 			# print STDERR "Cell is |" . join('|',@cells) . "|\n";
@@ -1315,6 +1315,7 @@ sub process_href {
 		$update_mark = true;
 	} elsif ($helper) {
 		my ($helper_int,$helper_ext) = find_href($helper);
+		# print STDERR "## X |$text| X |$helper_ext|$helper_int| X |$helper|\n";
 		if ($found) {
 			$ext = ($helper_ext ne '' ? $helper_ext : $helper);
 		} elsif (defined $glob{href}{marks}{$helper =~ s/[-: ]+/ /gr}) {
@@ -1559,6 +1560,7 @@ sub find_href {
 			default {
 				s/^[לב]-(\d.*)/$1/;
 				$num = get_numeral($_);
+				$num = '' if ($num =~ /^[א-ת]{2,}$/ && $class eq '' && $p>10);
 				if ($num ne '' && $class eq '') {
 					$class = (/^\d+/) ? 'chap_' : ($glob{href}{last_class} || 'chap_');
 					# $class = ($glob{href}{last_class} || 'chap_');
@@ -1711,7 +1713,7 @@ sub find_ext_ref {
 	s/ *\(\(.*?\)\)//g;
 	s/ *\(נוסח (חדש|משולב)\)//g;
 	s/,? *\[.*?\]//g;
-	s/\.[^\.]*$//;
+	s/\.[^\.]*$// unless /[0-9]\.[0-9]+$/;
 	# s/\, *[^ ]*\d+$//;
 	s/$date_sig$//;
 	s/\(פרק .*?\)$//g;
