@@ -254,14 +254,14 @@ sub convert {
 	# s/(\.{21,})/'<span style="word-break: break-all;">' . '. 'x(length($1)-1) . '.<\/span>'/ge;
 	s/(\.{21,})/'. ' x 10 . ('<wbr>' . '. ' x 10) x (int((length($1)-20)\/10)) . '<wbr>' . '. ' x (length($1) % 10) . (length($1) % 10 ? '<wbr>' : '') . '. 'x9 . '.'/ge;
 	s/(\.{4,20})/'. ' x (length($1)-1) . '.'/ge;
-	
+	# Styling for long underscore spacers
 	s/(_{3,})/<span style="font-family: Arial; font-size: 80%;">$1<\/span>/g;
-	
-	# use Arial font for fraction slash (U+2044) [bug of ALEF font]
+	# Use Arial font for fraction slash (U+2044) [bug of ALEF font]
 	s/⁄/<span style="font-family: Arial;">⁄<\/span>/g;
-	
 	# Compact form for comments mark
 	s/(\*{2,})/<span style="letter-spacing: -2pt; padding-inline-end: 2pt;">$1<\/span>/g;
+	# LTR wrapper for "300.-" and similar
+	s/ (?|[-–]\.([0-9]+)|\x{200E}([0-9]+)\.[-–]\x{200E}) / <span dir="ltr">$1.-<\/span> /g;
 	
 	if ($do_expand) {
 		# Replace "=" within templates with {{=}}
