@@ -327,11 +327,13 @@ sub process_law {
 	} elsif (!$update && $interactive) {
 		$locforce = 1;
 		print ", Updating anyway (interactive).\n";
+		$minor = 1;
 	} elsif (!$update && !$force && !$locforce) {
 		print ", Skipping.\n";
 		$done = 1;
 	} elsif (!$update && ($force || $locforce)) {
 		print ", Updating anyway (-force).\n";
+		$minor = 1;
 	} elsif ($dryrun) {
 		print ", Dryrun.\n";
 	} else {
