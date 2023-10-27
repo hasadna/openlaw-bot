@@ -268,6 +268,8 @@ sub convert {
 		$_ = expand_templates($_);
 	}
 	
+	s/<סעיף><\/סעיף>\n(?!<ת)//g;
+	
 	s/␚([^␚␡␛]*)␛/<ins>$1<\/ins>/g;
 	s/␡([^␚␡␛]*)␛/<del>$1<\/del>/g;
 	
@@ -1267,6 +1269,8 @@ sub process_href {
 	
 	my $linkset = ($helper =~ s/^[»«]>//);
 	$helper =~ s/\$/ $text /;
+	$helper =~ s/\b$extref_sig (זה|זו|זאת)\b/ /;
+	$text =~ s/\b$extref_sig (זה|זו|זאת)\b/ /;
 	
 	my ($int,$ext) = find_href($text);
 	# my ($helper_int,$helper_ext) = find_href($helper);
