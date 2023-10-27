@@ -85,7 +85,8 @@ if ((/[A-Z]/) and (/\[/) and !(/[א-ת]/)) {
 	s/([א-תוּ\x{05B0}-\x{05BD}])/$RLE$1$PDF/g;
 }
 
-s/([\x{05B0}-\x{05BD}]+)([א-ת])/$2$1/g if (/$RLE\x{05BC}[א-ת]/);
+# s/([\x{05B0}-\x{05BD}]+)([א-ת])/$2$1/g if (/$RLE\x{05BC}[א-ת]/);
+s/(?<!$RLE)([\x{05B0}-\x{05BD}])([א-ת])/$2$1/g if /[\x{05B0}-\x{05BD}]{2}/;
 
 # Keep ndash between hebrew words if not all words are seperated with ndash
 s/(?<=[א-ת])–(?=[א-ת])/&ndash;/g if /[א-ת][\־\-][א-ת]/;
@@ -113,6 +114,8 @@ tr/\x{F000}-\x{F031}\x{F07F}/□/;      # Replacement font codes, cannot recover
 tr/ﬠﬡﬢﬣﬤﬥﬦﬧﬨ/עאדהכלםרת/;
 # Keep hebrew plus sign - tr/﬩/+/;
 # Keep math symbols     - tr/ℵℶℷℸ/אבגד/;
+
+
 $_ = s_lut($_, {
 	'שׁ' => 'שׁ', 'שׂ' => 'שׂ', 'שּׁ' => 'שּׁ', 'שּׂ' => 'שּׂ', 'אַ' => 'אַ', 'אָ' => 'אָ', 'יִ' => 'יִ', 'ײַ' => 'ײַ', 'ﭏ' => 'אל', '' => 'לֹ',
 	'אּ' => 'אּ', 'בּ' => 'בּ', 'גּ' => 'גּ', 'דּ' => 'דּ', 'הּ' => 'הּ', 'וּ' => 'וּ', 'זּ' => 'זּ', '﬷' => 'חּ', 'טּ' => 'טּ', 
@@ -130,23 +133,29 @@ $_ = s_lut($_, {
 	# 'ƒ' => '<i>f</i>', 'Ƒ' => '<i>F</i>',
 });
 
-
 # Try to fix RLE/PDF (dumb BIDI encoding in PDFs)
 if (/[\x{202A}-\x{202C}]/) {
 	# Place lines with [RLE][PDF] inside [LRE][PDF] context
 	# and recursively pop embedded bidi formating
 	s/\x{200F}\x{202C}\n/\x{200F}\x{202C} /g;
+	my $tt1 = () = (/\x{202A}|\x{202B}/g);
+	my $tt2 = () = (/\x{202C}/g);
+	print STDERR "Got $tt1 [RLE/LRE] and $tt2 [PDF] elements.\n" if ($debug);
+	if ($tt1>$tt2) {
+		print STDERR "Invalid RLE/LRE blocks. Adding PDF as brute fix.\n";
+		s/([\x{202A}\x{202B}].*)$/$1\x{202C}/gm;
+	}
 	# Try to analyze context:
 	my $t1 = () = (/^(?P<rec>[\x{202A}\x{202B}](?&rec)*[\x{202C}]|[^\x{202A}-\x{202C}\n]++)$/gm);
 	my $t2 = () = (/^(?P<rec>[\x{202A}\x{202B}](?&rec)*[\x{202C}]|[^\x{202A}-\x{202C}\n]++){2,}$/gm);
 	print STDERR "Got $t1/$t2 single/multiple embedded blocks.\n" if ($debug);
 	if ($t1<=$t2*10) {
-		s/^(.+)$/\x{202A}$1\x{202C}/gm 
+		s/^(.+)$/\x{202A}$1\x{202C}/gm;
 	} else {
-		s/(?P<rec>[\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}\n]*|(?&rec))*[\x{202C}])\n*/$1\n/gm;
+		s/(?P<rec>[\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}\n]*+|(?&rec))*[\x{202C}])\n*/$1\n/gm;
 	}
 	# s/^(.*?\x{202B}.*?\x{202C}.*)$/\x{202A}$1\x{202C}/gm;
-	s/([\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}]*|(?0))*\x{202C})/&pop_embedded($1)/ge;
+	s/([\x{202A}\x{202B}](?:[^\x{202A}-\x{202C}]*+|(?0))*?\x{202C})/&pop_embedded($1)/ge;
 }
 
 # Throw away remaining BIDI characters
@@ -212,7 +221,7 @@ s/\n*$/\n/s;
 s/(?<=\S) (?=[,.:;])//g;  # Remove redundant whitespaces
 s/(?<!')''(?!')/"/g;
 s/("[א-ת])(\d{4})[-]/$1-$2/g;
-s/^[.](\d.*?) +/$1. /gm;
+s/^[.](\d.*?)( +|$)/$1. /gm;
 s/(\S[([\-]) /$1/gm;
 s/(?<=[א-ת]\b)( -| -)(?=[0-9])/-/g;
 s/(?<=[\(\[]) //g;
@@ -223,6 +232,7 @@ s/ (?="[.,:;])//g;
 s/ (?='[ .,:;])//g;
 s/^([:]++-?)(?=\S)/$1 /gm;
 s/(?<=[א-ת]-)(\d{1,2})((19|20)\d\d)(?!\d)/$2 $1/gm;
+s/\n-\n/ - /g;
 
 s/([⁰¹²³⁴-⁹]+\⁄[₀-₉]+)(\d+)/$2$1/g;
 s/%(\d*[⁰¹²³⁴-⁹]+\⁄[₀-₉]+|\d+\/\d+|\d+(\.\d+)?)/$1%/g;
@@ -258,11 +268,12 @@ sub unescape_text {
 	return $_;
 }
 
-
+my $count = 0;
 sub pop_embedded {
 	local $_ = shift; my $type = shift // '';
 	
-	dump_stderr("pop_embedded: |$_|\n");
+	$count++;
+	dump_stderr("  " x $count . "pop_embedded: |$_|\n");
 	# 0x202A is [LRE]; 0x202B is [RLE]; 0x202C is [PDF].
 	if (/^([\x{202A}\x{202B}])(.*)[\x{202C}]$/) {
 		$type .= $1; $_ = $2;
@@ -271,12 +282,18 @@ sub pop_embedded {
 			# dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
 			# s/^([^\x{202A}-\x{202C}]+)$/\x{202A}$1\x{202C}/ for @arr;
 		}
-		dump_stderr("pop_embedded($type): |" . join('|',@arr) . "|\n") if ($#arr>0);
+		$count++;
+		dump_stderr("  " x $count . "($type): |" . join('|',@arr) . "|\n") if ($#arr>0);
 		@arr = map { pop_embedded($_,$type) } @arr;
-		dump_stderr("pop_embedded($type): |" . join('|',@arr) . "|\n") if ($#arr>0);
+		dump_stderr("  " x $count . "(\x{202C}): |" . join('|',@arr) . "|\n") if ($#arr>0);
 		@arr = reverse(@arr) if ($type eq "\x{202A}");  # [LRE]$_[PDF]
-		return join('',@arr);
-	} 
+		dump_stderr("  " x $count . "(\x{202C}): |" . join('|',@arr) . "|\n") if ($#arr>0);
+		$count--;
+		$_ = join('',@arr);
+		dump_stderr("  " x $count . "RETURN: |$_|\n");
+		$count--;
+		return $_;
+	}
 	if ($type =~ /\x{202B}/) {        # within RLE block
 	# if (substr($type,-1) eq "\x{202B}") {
 		tr/([{<>}])/)]}><{[(/ if ($variant==0 || $variant==2);
@@ -291,6 +308,8 @@ sub pop_embedded {
 		tr/([{<>}])/)]}><{[(/ if ($variant==3 || $variant==2);
 		# s/^($soft*)(.*?)($soft*)$/reverse($3).$2.reverse($1)/e;
 	}
+	dump_stderr("  " x $count . "RETURN: |$_|\n");
+	$count--;
 	return $_;
 }
 
