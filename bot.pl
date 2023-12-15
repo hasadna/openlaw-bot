@@ -86,7 +86,7 @@ $force_comment = decode_utf8($force_comment) if (defined $force_comment);
 unless (@pages) {
 	# Get category list
 	my $cat = "קטגוריה:בוט חוקים";
-	@pages = $bot->get_pages_in_category($cat);
+	@pages = $bot->get_pages_in_category($cat, { max =>  0 });
 	print "CATEGORY contains ", scalar(@pages), " pages.\n";
 	if (defined $start) {
 		$start = decode_utf8($start);
