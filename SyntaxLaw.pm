@@ -237,6 +237,7 @@ sub convert {
 	# Parse file linearly, constructing all ankors and links
 	$_ = linear_parser($_);
 	
+	s/<סעיף><\/סעיף>\n(?=<מקור>)//;
 	s/__TOC__/&insert_TOC()/e;
 	s/ *__NOTOC__//g;
 	s/ *__NOSUB__//g;
@@ -1166,7 +1167,8 @@ sub current_position {
 
 sub insert_TOC {
 	local $_;
-	my $str = "<קטע דרגה=\"2\">תוכן עניינים</קטע>\n\n<סעיף></סעיף>\n";
+	# my $str = "<קטע דרגה=\"2\">תוכן עניינים</קטע>\n\n<סעיף></סעיף>\n";
+	my $str = "<קטע דרגה=\"2\">תוכן עניינים</קטע>\n\n";
 	$str .= "<div class=\"law-toc\">\n";
 	my ($name, $indent, $text, $next, $style, $skip);
 	for (sort {$a <=> $b} keys %sections) {
