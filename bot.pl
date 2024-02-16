@@ -31,6 +31,7 @@ my %new_pages;
 my %updated_pages;
 my ($page, $id, $text);
 my $bot_page = "משתמש:OpenLawBot/הוספה";
+my $max_recent = 10;
 
 GetOptions(
 	"force" => \$force, 
@@ -39,7 +40,7 @@ GetOptions(
 	"verbose" => \$verbose,
 	"output" => \$print,
 	"all" => sub { $recent = 0 },
-	"recent" => sub { $recent = 1 },
+	"recent:1" => \$recent,
 	"select=s" => \$select,
 	"start=s" => \$start,
 	"slow:i" => \$slow_count,
@@ -48,18 +49,19 @@ GetOptions(
 	"" => \$interactive
 ) or die("Error in command line arguments\n");
 
+if ($recent>1) { $max_recent = $recent; $recent = 1; }
 $slow = (($slow_count // '') eq '0');
 
 @pages = map {decode_utf8($_)} @ARGV;
 
-print "=== [RUNNING bot.pl @ ", POSIX::strftime("%F %T", localtime), "] ===\n";
+print "=== [RUNNING ", $0 =~ /([^\\\/]+)$/, " @ ", POSIX::strftime("%F %T", localtime), "] ===\n";
 
 my %credentials = load_credentials('wiki_botconf.txt');
 my $host = ( $credentials{host} || 'he.wikisource.org' );
 
-print "MediaWiki::API version is " . MediaWiki::API->VERSION . "\n" if ($verbose);
-print "MediaWiki::Bot version is " . MediaWiki::Bot->VERSION . "\n" if ($verbose);
-print "MediaWiki::Bot::Plugin::Admin version is " . MediaWiki::Bot::Plugin::Admin->VERSION . "\n" if ($verbose);
+print "MediaWiki::API version is ", (MediaWiki::API->VERSION // "[Unavailable]"), "\n" if ($verbose);
+print "MediaWiki::Bot version is ", (MediaWiki::Bot->VERSION // "[Unavailable]"), "\n" if ($verbose);
+print "MediaWiki::Bot::Plugin::Admin version is ", (MediaWiki::Bot::Plugin::Admin->VERSION // "[Unavailable]"), "\n" if ($verbose);
 
 print "HOST $host USER $credentials{username}\n";
 my $bot = MediaWiki::Bot->new({
@@ -175,7 +177,7 @@ foreach my $page_dst (@pages) {
 		process_law($page_dst);
 	}
 	
-	last if ($recent and $recent > 10);
+	last if ($recent and $recent > $max_recent);
 }
 
 # Update new texts page
@@ -341,7 +343,7 @@ sub process_law {
 	}
 	
 	if ($recent and $recent>0 and $src_ok and !$update) {
-		if (++$recent > 10) { # No more recent updated, early exit
+		if (++$recent > $max_recent) { # No more recent updated, early exit
 			print "Consecutive not-modified in recent changes; done for now.\n";
 			return $res;
 		}
