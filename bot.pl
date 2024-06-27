@@ -21,7 +21,7 @@ binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 
 my @pages = ();
-my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $select, $start, $force_comment, $slow, $slow_count);
+my ($verbose, $dryrun, $force, $print, $onlycheck, $interactive, $recent, $force_comment, $slow, $slow_count, $start, $end, $select);
 my $botpage;
 my $locforce = 0;
 my $outfile;
@@ -41,8 +41,9 @@ GetOptions(
 	"output" => \$print,
 	"all" => sub { $recent = 0 },
 	"recent:1" => \$recent,
-	"select=s" => \$select,
 	"start=s" => \$start,
+	"end=s" => \$end,
+	"pat=s" => \$select,
 	"slow:i" => \$slow_count,
 	"comment=s" => \$force_comment,
 	"help|?" => \&HelpMessage,
@@ -90,19 +91,18 @@ unless (@pages) {
 	my $cat = "קטגוריה:בוט חוקים";
 	@pages = $bot->get_pages_in_category($cat, { max =>  0 });
 	print "CATEGORY contains ", scalar(@pages), " pages.\n";
-	if (defined $start) {
+	if (defined $start || defined $end) {
 		$start = decode_utf8($start);
-		while (my $str = shift @pages) {
-			last if ($str eq $start);
-		}
-		unshift @pages, $start;
-		print "Starting at '$start', up to ", scalar(@pages), " pages.\n";
+		$end = decode_utf8($end);
+		@pages = grep($_ ge $start, @pages) if (defined $start);
+		@pages = grep($_ le $end, @pages) if (defined $end);
+		print "Starting at '${pages[0]}', up to ", scalar(@pages), " pages.\n";
 	}
 	if (defined $select) {
 		$select = decode_utf8($select);
 		$select = convert_regexp($select);
 		@pages = grep { /^$select/ } @pages;
-		print "Found ", scalar(@pages), " pages with selector '$select'.\n";
+		print "Found ", scalar(@pages), " pages matching to '$select'.\n";
 	}
 }
 
@@ -512,6 +512,16 @@ sub auto_correct {
 	s/\n\|\|-\n */|-\n| /g;
 	s/\[\[([^\[\]]+)\[\[/[[$1]]/g;
 	s/^(:+ \([^ ()]+\)) (\([^ ()]+\))/$1$2/gm;
+	s/^(:+ (?:\([0-9א-ת]+\))+)([א-ת])/$1 $2/gm;
+	s/^(:+ [0-9]+\.)([א-ת]{2,})/$1 $2/gm;
+	s/^(:+)([^\n]+)\n"/$1$2\n$1- "/gm;
+	s/^(:+-) ([א-ת ]+" )/$1 "$2/gm;
+	s/^(:+-?) (:+-?) /$1 /gm;
+	
+	s/^\|- *\n\|? +: +([0-9]+)\. /|- <עוגן פרט $1>\n| : $1. /gm;
+	
+	s/(?<=^|\n)(<מקור>([\n ]*).*?)\n+----+\n+(?=[^=<_:@])/$1\n\n<מבוא>$2/s;
+	
 	return $_;
 }
 
