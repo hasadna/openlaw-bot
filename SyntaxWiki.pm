@@ -19,6 +19,9 @@ binmode STDERR, "utf8";
 
 use constant { true => 1, false => 0 };
 
+our $id;
+our $eng_title;
+
 
 sub main() {
 	if ($#ARGV>=0) {
@@ -48,7 +51,7 @@ sub convert {
 	s/^ *(.*?) *$/$1/g;
 	
 	s/(<שם>.*<\/שם>)\n?/&parse_title($1)/se;
-	s/(<מאגר.*?\/>)\n?/&parse_db_link($1)/se;
+	s/(<מאגר.*?\/>)\n+/&parse_db_link($1)/se;
 	s/(<מקור>.*<\/מקור>)\n?/&parse_bib($1)/se;
 	s/(<הקדמה>.*<\/הקדמה>)\n?/&parse_preface($1)/se;
 	s/(<חתימות>.*<\/חתימות>)\n?/&parse_signatures($1)/se;
@@ -71,13 +74,16 @@ sub convert {
 	
 	s/<מפריד.*?>\n?/{{ח:מפריד}}\n/g;
 	
-	# Replace "=" (⌸) within templates with {{=}}
-	# s/(\{\{(?:[^{}\n]++|(?R))*\}\})/ $1 =~ s|⌸|\{\{=\}\}|gr /eg;
+	# Inside templates, replace equal size (⌸) with {{=}}
 	s/(\{\{(?:[^{}\n]++|(?R))*\}\})/ &escape_equalsign($1) /eg;
+	# Replace remaining ⌸ and ⍞ back to equal sign and quotations mark 
+	tr/⌸⍞/="/;
 	
 	# s/ *({{ש}}) */$1/g;
+	s/\n{3,}/\n\n/g;
 	
 	s/^\n*/{{ח:התחלה}}\n/s;
+	s/\{\{ח:התחלה\}\}/{{ח:התחלה|dir=ltr}}/ if ($eng_title);
 	s/\n*$/\n{{ח:סוף}}/s;
 	s/^ *(.*?) *$/$1/g;
 	
@@ -92,16 +98,16 @@ __PACKAGE__->main() unless (caller);
 
 ###################################################################################################
 
-our $id;
-
 sub clean_up {
 	$id = 0;
+	$eng_title = false;
 }
 
 sub parse_title {
 	my ($str, %attr) = parse_attr(shift);
 	$str =~ s/\s*<תיקון>.*?<\/תיקון>\s*//gs;
 	$str = escape_template($str);
+	$eng_title = true if ($str =~ /^([A-Za-z]+[^א-ת]*)+$/);
 	$str = "{{ח:כותרת|$str}}\n";
 	return $str;
 }
@@ -119,8 +125,8 @@ sub printBox {
 	# print STDERR "printBox got |$str|$tip|$url|\n";
 	$str = escape_template($str);
 	$tip =~ s/\{\{[^|]*\|(.*)\}\}/$1/g;
-	$tip =~ s|&|&amp;|g;
-	$tip =~ s|"|&quot;|g;
+	$tip =~ s/&/&amp;/g; $tip =~ s/["⍞]/&quot;/g;
+	$url =~ s|&|&amp;|g; $url =~ s/["⍞]/&quot;/g;
 	$tip = escape_template($tip);
 	$url = escape_template($url);
 	return "{{ח:תיבה|$str|$tip" . ($url ? "|$url" : "") . "}}";
@@ -174,9 +180,15 @@ sub parse_signatures {
 	foreach my $line (split(/\n/, $s)) {
 		last unless ($line =~ /^ *\*/);
 		$line =~ s/^ *\* *(.*?) *$/$1/;
-		$line =~ s/ *\| */<br>/g;
-		$line =~ s/^(.*?)(?=\<br\>|$)/'''$1'''/;
-		$line =~ s/^'''((?:אני )?[א-ת]+\.)'''\<br\>(.*?)(?=\<br\>|$)/<span style="float: right; font-size: smaller; margin-right: 10px;">$1<\/span><br>'''$2'''/;
+		$line =~ s/ *\| */␊/g;
+		my $prefix = ''; my $prefix_cnt = 0;
+		$prefix .= "<".(++$prefix_cnt*10).">$&" while ($line =~ s/^((אני )?[א-ת]+[.,]?|בפקודת .*?)(␊|$)//);
+		$line =~ s/^(.*?)(?=␊|$)/'''$1'''/;
+		if ($prefix) {
+			$prefix =~ s/<([0-9]+)>([^␊]*)(␊|$)/<span style="float: inline-start; font-size: smaller; margin-inline-start: $1px; text-align: start;">$2<\/span>/g;
+			$line = "$prefix <br clear=\"all\"> $line";
+		}
+		$line =~ s/␊/ <br> /g;
 		$str .= "* $line\n";
 	}
 	$str .= "{{ח:סוגר}}\n";
@@ -207,8 +219,8 @@ sub parse_chapter {
 	my ($number, $ankor, $desc, $fix, $other, $text);
 	($str, %attr) = parse_attr(shift);
 	($str, %tags) = parse_tag_list($str, 'מספר', 'תיאור', 'תיקון', 'אחר');
+	# print STDERR "parse_chapter got str=|$str| tags=|" . dump_hash(\%tags) . "| attr=|" . dump_hash(\%attr) . "|\n";
 	$ankor = $attr{'עוגן'} // '';
-	# print STDERR "parse_chapter got |$str| and |" . dump_hash(\%tags) . "|\n";
 	$number = $tags{'מספר'} // '';
 	$number =~ s/\.$//;
 	$desc = $tags{'תיאור'} // '';
@@ -245,15 +257,16 @@ sub parse_line {
 
 sub parse_link {
 	my ($str, %attr) = parse_attr(shift);
+	# print STDERR "parse_link got str=|$str| attr=|" . dump_hash(\%attr) . "|\n";
 	my $type = $attr{'סוג'} // 1;
 	$type = ($type==1 ? "פנימי" : "חיצוני" );
-	my $href = $attr{'עוגן'};
-	return $str unless ($href);
+	my $url = $attr{'עוגן'};
+	return $str unless ($url);
 	$str = escape_template($str,2);
 	$str =~ s/(https?:\/\/)([^ ]*)/ "$1" . $2 =~ s|(?<=[\\\/])|<wbr>|gr /eg;
-	$href = escape_template($href,1);
-	# $href =~ s/"/&quot;/g;
-	return "{{ח:$type|$href|$str}}";
+	$url =~ s|&|&amp;|g; $url =~ s/["⍞]/&quot;/g;
+	$url = escape_template($url,1);
+	return "{{ח:$type|$url|$str}}";
 }
 
 ###################################################################################################
@@ -302,7 +315,7 @@ sub escape_text {
 
 sub unescape_text {
 	local $_ = shift;
-	my %table = ( 'quot' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", # No &amp; conversion here!
+	my %table = ( 'quot' => '⍞', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", # No &amp; conversion here!
 		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'shy' => '&null;',
 		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 
 		'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε',
@@ -312,6 +325,7 @@ sub unescape_text {
 	s/&null;//g;
 	s/&amp;/&/g;
 	s/=/⌸/g; 	# Will be converted back to equal sign or {{=}} template
+	# s/"/⍞/g;	# Will be converted back to quoatation sign or $quot;
 	return $_;
 }
 
@@ -354,7 +368,8 @@ sub escape_equalsign {
 	s/\{\{==?\}\}/⌸/g;
 	s/(\<[^>]+\>)/ $1 =~ s|=|⌸|gr /eg;
 	s/⌸/\{\{=\}\}/g;
-	tr/⌸/=/;
+	# s/⍞/&quot;/g;
+	tr/⌸⍞/="/;
 	return $_;
 }
 
