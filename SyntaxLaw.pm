@@ -134,6 +134,7 @@ sub convert {
 	tr/\x{200B}-\x{200D}\xAD//d;       # Remove zero-width spaces and soft-hyphen
 	tr/־–—‒―/-/;        # typographic dashes
 	tr/\x96\x97/-/;     # more typographic dashes
+	tr/‑/–/;            # typographic en-dash
 	tr/״”“„‟″‶/"/;      # typographic double quotes
 	tr/`׳’‘‚‛′‵/'/;     # typographic single quotes
 	s/(?<=[ \n\x00])-{2,4}(?=[ \n\x00])/—/g;   # en-dash
@@ -517,7 +518,8 @@ sub parse_signatures {
 		s/^\*? *(.*?) *$/$1/;
 		if (/\|/) {}
 		elsif (/,/) { tr/,/|/; }
-		else { s/ +(?=ה?(שר[הת]?|נשיאת?|ראש|יושבת?[\-־ ]ראש)\b)/|/; }
+		elsif (s/ +(?=ה?(שר[הת]?|נשיאת?|ראש|יושבת?[\-־ ]ראש)\b)/\|/) {}
+		else { s/^([א-ת\-–־]{2,} (?:[א-ת]]['.] |\([א-ת\-–־]{2,}\) |)[א-ת\-–־]{2,}) (.*)$/$1 | $2/; }
 		# s/((?:אני )?[א-ת]+\.) *\|? */$1|/;
 		s/ *\| */ | /g;
 		$str .= "* $_\n";
@@ -895,8 +897,9 @@ sub unescape_text {
 	local $_ = shift;
 	my %table = ( 'quot' => '"', 'lt' => '<', 'gt' => '>', 'ndash' => '–', 'nbsp' => ' ', 'apos' => "'", # &amp; subs later
 		'lrm' => "\x{200E}", 'rlm' => "\x{200F}", 'thinsp' => "\x{2009}", 'shy' => '&null;',
-		'deg' => '°', 'plusmn' => '±', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 
-		'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε'
+		'deg' => '°', 'minus' => '−', 'pm' => '±', 'plusmn' => '±', 'mnplus' => '∓', 'mp' => '∓', 'times' => '×', 'sup1' => '¹', 'sup2' => '²', 'sup3' => '³', 
+		'frac14' => '¼', 'frac12' => '½', 'frac34' => '¾', 'alpha' => 'α', 'beta' => 'β', 'gamma' => 'γ', 'delta' => 'δ', 'epsilon' => 'ε', 'micro' => 'µ',
+		'percnt' => '%', 'permil' => '‰', 'pertenk' => '‱', 
 	);
 	s/&#(\d+);/chr($1)/ge;
 	s/(&([a-z]+);)/($table{$2} || $1)/ge;
@@ -1716,7 +1719,9 @@ sub find_ext_ref {
 	s/^(.*?)#(.*)$/$1/;
 	$_ = "$1$2" if /$extref_sig(.*)/;
 	
-	tr/"'`”׳//d;
+	tr/״”“„/"/;
+	tr/׳‘’/'/;
+	tr/־–/-/;
 	tr/\x{05B0}-\x{05BD}//d;
 	tr/אּ-תּ/א-ת/;
 	s/#.*$//;

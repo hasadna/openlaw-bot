@@ -188,7 +188,7 @@ sub parse_signatures {
 			$prefix =~ s/<([0-9]+)>([^␊]*)(␊|$)/<span style="float: inline-start; font-size: smaller; margin-inline-start: $1px; text-align: start;">$2<\/span>/g;
 			$line = "$prefix <br clear=\"all\"> $line";
 		}
-		$line =~ s/␊/ <br> /g;
+		$line =~ s/␊/<br>/g;
 		$str .= "* $line\n";
 	}
 	$str .= "{{ח:סוגר}}\n";
