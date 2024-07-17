@@ -103,7 +103,7 @@ foreach $page (@pages) {
 	$name = $1 if (/<שם מלא> *(.*)/m);
 	$org_name = clean_str($name);
 	$name = canonic_name($name);
-	($src) = /<מקור>[ \n]*(.*?)(?=\n[<:@_=])/s;
+	($src) = /<מקור>[ \n]*(.*?)(?=\n[<:\@_=])/s;
 	$src = clean_str($src // '');
 	
 	if ($action eq 'list') {
@@ -132,13 +132,13 @@ foreach $page (@pages) {
 				$str = find_makor(\@table, $fix, $altname);
 				print "$altname\t$org_name\t(תיקון: $fix)\t$str\n";
 			} else {
-				print "$altname\t$org_name\t\t???\n";
+				print "$altname\t$org_name\t???\t\n";
 			}
 			if ($altname) { $org_name = $altname; }
 		}
 		
 	} elsif ($action eq 'pdf') {
-		my ($timestamp) = $bot->recent_edit_to_page($page);
+		my ($timestamp) = $bot->recent_edit_to_page("מקור:$page");
 		my $short1 = $page;
 		$timestamp = Time::Piece->strptime($timestamp, "%Y-%m-%dT%H:%M:%SZ")->epoch;
 		$short1 =~ s/\// – /g;
@@ -226,7 +226,7 @@ sub get_makor {
 	
 	$src =~ tr/״–־/"\-\-/;
 	$src =~ s/<!--((?:(?!<!--|-->).)*)-->//sg;
-	$src =~ s/[\n ]+[@:_<].*$//s;
+	$src =~ s/[\n ]+[\@:_<].*$//s;
 	print STDERR "get_makor: $src\n" if ($verbose);
 	
 	my ($s_,$y_); $s_ = $y_ = '';
@@ -235,28 +235,31 @@ sub get_makor {
 	
 	while ($src =~ /(\(\(.*?\)\)(?!\)))/g) {
 		my $atom = $1;
-		my ($syp,$d,$r) = ($atom =~ m/\(\(([^|]+)\|([^|]+)(?|\|(.*)|())\)\)/);
-		my ($s,$y,$s2,$p) = ($syp =~ m/(?|((?:ע"ר|חא"י,? כרך [0-9א-ת]'?|ס"ח|דמ"י|ק"ת|י"פ)),? |())(?|ה?(תש[א-ת]?"[א-ת]), |(\d{4}), |())(?|(תוס' [0-9א-ת]'?),? |())(?:עמ' )?((?:(?:[0-9]+[א-י]?|[XVI]+)(?:, |))+)/);
-		$s //= $syp; $y //= ''; $p //= '';
+		my ($syp,$d,$r) = ($atom =~ m/\(\(((?:[^{}|]+|\{\{[^{}]+\}\})+)\|((?:[^{}|]+|\{\{[^{}]+\}\})+)(?|\|(.*)|())\)\)/);
+		my ($s,$y,$s2,$p,$e) = ($syp =~ m/(?|((?:ע"ר|חא"י,? כרך [0-9א-ת]'?|ס"ח|דמ"י|ק"ת|ק"ת מק"ח|י"פ|קמצ"ם)),? |())(?|ה?(תש[א-ת]?"[א-ת]), |(\d{4}), |())(?|(תוס' [0-9א-ת]'?),? |())(?:עמ' )?((?:(?:[0-9]+[א-י]?|[XVI]+)(?:, |))+)(?| \{\{מוקטן\|(.*?)\}\}|())/);
+		# print STDERR "\t\t$syp => [$s|$y|$s2|$p|$e]\n" if ($verbose);
+		$s //= $syp; $y //= ''; $p //= ''; $e //= '';
 		$s = "$s $s2" if ($s2);
-		$s =~ tr/,'//;
+		$s =~ s/[,']//g;
 		if ($y) { $count = 1; } else { $count++; }
+		if ($p=~/^(\d+), (\d.*)$/ && defined($r) && scalar($1)==scalar($r)) { $p = $2; }
 		$d =~ s/^((?:תיקון|הוראת שעה)(?: מס' [0-9]+| \(מס' [0-9]+\)|)) ל(.*)$/$2 ($1)/;
 		$d =~ s/ ?\[[^\]]*\]// unless ($d =~ /\[(נוסח חדש|נוסח משולב)\]/);
 		if ($d =~ /^(תיקון|הוראת שעה|ביטול)/) {
 			$d = "($d)";
-			$d =~ s/^\((.*?)\((.*?)\)\)$/($1) ($2)/;
+			$d =~ s/^\((.*?) *\((.*?)\)\)$/($1) ($2)/;
 			$d = "__ $d";
 		}
 		$d =~ s/^הודעה(?= *$|\()/הודעת __/;
 		$d = '__' if ($d eq '');
+		$e =~ s/^\(צו (.*?)\)$/מס' $1/;
 		$d =~ s/  / /g;
 		$name ||= $d;
-		$s_ = $s if ($s && $y);
+		$s_ = $s if ($s && ($y || $s eq 'קמצ"ם'));
 		$y_ = $y if ($y);
 		foreach my $pp (split(/, */, $p)) {
-			print STDERR "[$s_, $y_, $pp, $d, $r]\n" if ($verbose);
-			push @table, [$s_, $y_, $pp, $d, $r];
+			print STDERR "[$s_, $y_, $pp, $d, $e, $r]\n" if ($verbose);
+			push @table, [$s_, $y_, $pp, $d, $e, $r];
 		}
 	}
 	return @table;
@@ -266,24 +269,49 @@ sub find_makor {
 	my @table = @{$_[0]};
 	my $itm = $_[1];
 	my $name = $_[2] || $table[0][3];
+	my ($rec, $rec2);
 	return '???' unless ($itm);
 	$name =~ s/, (ה?ת[א-ת][א-ת]?"[א-ת]-\d{4}|\d{4}|\d{4} עד \d{4})$//;
 	$itm =~ s/\(תיקון: (.*?) *\)/$1/;
 	$itm =~ tr/״”“„/"/; $itm =~ tr/–־/-/;
-	my ($s, $y, $c) = $itm =~ /(?|([א-ת]+"[א-ת]) |())(?|ה?(תש[א-ת]?"[א-ת])|(\d{4}))(?|-(\d+)|())/;
+	my ($s, $y, $c) = $itm =~ /(?|([א-ת]+"[א-ת]) |())(?|ה?(תש[א-ת]?"[א-ת])|(\d+))(?|-(\d+)|())/;
+	# Try to find refernce based on ref number.
+	if ($y =~ /^\d+[א-י]?$/) {
+		my @table2 = grep($_->[4] eq "מס' $y", @table);
+		$rec2 = $table2[0] if (scalar @table2 == 1);
+	}
+	# Try to find refernce based on year+count
 	$c ||= 1;
 	if ($y eq $table[0][1] && ($s eq '' || $s eq $table[0][0])) { $c++; }
 	@table = grep($_->[1] eq $y, @table);
-	return '???' unless (@table);
-	$s ||= $table[0][0];
-	print STDERR "find_makor: \$itm=$itm; \$s=$s, \$y=$y, \$c=$c.\n" if ($verbose);
-	@table = grep($_->[0] eq $s, @table);
-	# print STDERR Dumper($table->[$c-1]);
-	my $rec = $table[$c-1];
+	if (@table) {
+		$s ||= $table[0][0];
+		print STDERR "find_makor: \$itm=$itm; \$s=$s, \$y=$y, \$c=$c.\n" if ($verbose);
+		@table = grep($_->[0] eq $s, @table);
+		# print STDERR Dumper($table->[$c-1]);
+		$rec = $table[$c-1];
+	}
+	# Use the later unless failed to find.
+	$rec //= $rec2;
 	return '???' unless (defined $rec);
-	print STDERR "            record = [$rec->[0], $rec->[1], $rec->[2], $rec->[3], $rec->[4]]\n" if ($verbose);
-	my $str = "$rec->[3], מתוך $rec->[0] $rec->[1], $rec->[2]";
-	$str .= " [$rec->[4]]" if ($rec->[4]);
+	print STDERR "            record = [$rec->[0], $rec->[1], $rec->[2], $rec->[3], $rec->[4], $rec->[5]]\n" if ($verbose);
+	my $str = "$rec->[3]";
+	if ($rec->[4]) {
+		$str .= " ($rec->[4])";
+		$name =~ s/ *\(מס' \d+[א-ת]?\)$//;
+	}
+	unless ($rec->[0]) {}
+	elsif ($rec->[1]) {
+		$str .= ", מתוך $rec->[0] $rec->[1], $rec->[2]";
+		$str .= " [$rec->[5]]" if ($rec->[5]);
+	} elsif ($rec->[5]) {
+		my $num = int($rec->[5]);
+		$str .= ", מתוך $rec->[0] $num, $rec->[2]";
+	} elsif ($rec->[2]) {
+		$str .= ", מתוך $rec->[0], $rec->[2]";
+	} else {
+		$str .= ", מתוך $rec->[0]";
+	}
 	if ($str =~ /^הודעת/) {
 		$str =~ s/__/ $name =~ s|^[א-ת]+||r /e;
 	} else {
