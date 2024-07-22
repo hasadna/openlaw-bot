@@ -169,6 +169,33 @@ foreach $page (@pages) {
 		} else {
 			print STDERR "Failed to fetch file.\n";
 		}
+	} elsif ($action eq 'src') {
+		my ($timestamp) = $bot->recent_edit_to_page("מקור:$page");
+		my $short1 = $page;
+		$timestamp = Time::Piece->strptime($timestamp, "%Y-%m-%dT%H:%M:%SZ")->epoch;
+		$short1 =~ s/\// – /g;
+		my $page2 = $page;
+		$short1 =~ s/(^.{,80}[^,_ "])[,_ ].*$/$1.../ if (length($short1)>80);
+		$short1 =~ s/"/''/g;
+		# next if (-e "$export_path/$short1.pdf");
+		my $cnt = 0;
+		my $short2 = "$short1 (0)";
+		if (-e "$export_path/$short1.pdf" || -e "$export_path/$short2.pdf") { 
+			rename("$export_path/$short1.pdf", "$export_path/$short2.pdf") unless (-e "$export_path/$short2.pdf");
+			while (-e "$export_path/$short2.pdf") {
+				$cnt++;
+				$short2 =~ s/( \([0-9]+\)|)$/" ($cnt)"/e;
+			}
+		} else {
+			$short2 = $short1;
+		}
+		print STDERR "Saving \"$short2\".\n";
+		my $fname = "$export_path/$short2.src";
+		open(my $fh,">$fname") || die "Cannot open file \"$short2.src\".\n";
+		binmode $fh, ":utf8";
+		print $fh $_;
+		close($fh);
+		utime($timestamp, $timestamp, $fname);
 	}
 	
 }
@@ -219,6 +246,17 @@ sub fix_intro {
 	s/\[\[(=.*?)\|((?:$type_sig )?[^ \[\]]+) ($extref_sig[^\[\]]*(?:\[[^\[\]]*\][^\[\]]*)?)\]\]/[[+|$2]] [[$1|$3]]/g;
 	return $_;
 }
+
+sub convert_regexp {
+	local $_ = shift;
+	s/([.()\[\]])/\\$1/g;
+	s/\*/.*/g;
+	s/\?/./g;
+	s/^\^?/^/;
+	s/\.\*$//;
+	return $_;
+}
+
 
 sub get_makor {
 	my $src = shift;
