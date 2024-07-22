@@ -126,8 +126,8 @@ sub convert {
 	
 	s/(\[\[(?:קובץ|תמונה|[Ff]ile|[Ii]mage):.*?\]\])/ $1 =~ tr| |_|r =~ s|(["'–\-])|"&#".ord($1).";"|gre /ge;
 	
-	s/($HE['׳]?(?:\(\()?)–((?:\)\))?$HE|\d)/$1--$2/g; # Keep en-dash between Hebrew words
-	s/(\d$HE*)–(\d)/$1--$2/g; # Keep en-dash between numerals
+	s/($HE['׳]?(?:\(\()?)–(?=(?:\)\))?$HE|\d)/$1--/g; # Keep en-dash between Hebrew words
+	s/(\d$HE*)–(?=\d)/$1--/g; # Keep en-dash between numerals
 	
 	tr/\x{FEFF}//d;     # Unicode marker
 	tr/\x{2000}-\x{200A}\x{202F}\x{205F}\x{2060}/ /; # Typographic spaces
@@ -1769,7 +1769,7 @@ sub convert_quotes {
 	s/(\(..?\))-(\(..?\))/$1–$2/g;
 	s/(תש[א-ת]?["״][א-ת])(?:--|—)(\d)/$1־$2/g;
 	s/(תש[א-ת]?["״][א-ת])[-־](\d{4})/$1–$2/g;
-	s/([^ \s\-])(?:--|—)([^ \s\-])/$1–$2/g;
+	s/(?<=[^ \s\-])(?:--|—)(?=[^ \s\-])/–/g;
 	return $_;
 }
 
