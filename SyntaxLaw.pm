@@ -80,7 +80,7 @@ sub convert {
 	s/<!--/⟦/g; s/-->/⟧/g;
 	s/\n( *⟦[^⟦⟧]*?⟧ *\n)+/\n/sg;
 	s/^ *(⟦[^⟦⟧]*?⟧ *)+//mg;
-	s/ *⟦[^⟦⟧]*?⟧( *)/$1\x00/sg;
+	s/( *)⟦[^⟦⟧]*?⟧( *)/$1$2\x00/sg;
 	s/\x00( *\x00)++/\x00/g;
 	s/⟦/<!--/g; s/⟧/-->/g;
 	
@@ -116,7 +116,7 @@ sub convert {
 	});
 	
 	s/(?<=[0-9₀-₉])′/&#8242;/g; # Keep prime [feet/minutes], double prime [inch/seconds] and triple prime
-	s/(?<=[0-9₀-₉])″/&#8243;/g; # (those are restored later by unescape_text)
+	s/(?<=[0-9₀-₉])″/&#8243;/g; # (will be restored later by unescape_text)
 	s/(?<=[0-9₀-₉])‴/&#8244;/g; #
 	# s/[»«⌸]/"&#".ord($1).";"/ge; # Escape special markers
 	
@@ -391,7 +391,6 @@ sub parse_section {
 sub parse_chapter {
 	my ($num, $desc, $type) = @_;
 	my ($id, $fix, $extra, $ankor);
-	
 	$desc = unquote($desc);
 	($desc, $fix) = get_fixstr($desc);
 	($desc, $extra) = get_extrastr($desc);
@@ -443,8 +442,8 @@ sub parse_line {
 	
 	if ($div_table) {
 		my $local_align = ($line =~ /\[(?:—|-{2,4})\] .*\<u\>/);
-		$line =~ s/(?|(.*) |^())\[(?:—|-{2,4})\] (.*) \[(?:—|-{2,4})\] (.*)$/{{טור לשמאל|$1|$2|$3}}/m;
-		$line =~ s/(?|(.*) |^())\[(?:—|-{2,4})\] (.*)$/{{טור לשמאל|$1|$2}}/m;
+		$line =~ s/(?|(.*) |^())\[(?:—|-{2,4})\] ?(.*) ?\[(?:—|-{2,4})\] ?(.*)$/{{טור לשמאל|$1|$2|$3}}/m;
+		$line =~ s/(?|(.*) |^())\[(?:—|-{2,4})\] ?(.*)$/{{טור לשמאל|$1|$2}}/m;
 		$line =~ s/(\{\{טור לשמאל)(?=\|)/$1|יישור=מרכז/m if $local_align;
 	}
 	
@@ -859,10 +858,11 @@ sub unquote {
 	my $s = shift;
 	# my $Q1 = '["״”“„‟″‶]';
 	# my $Q2 = '[\'`׳’‘‚‛′‵]';
-	my $Q1 = '"';
-	my $Q2 = '\'';
+	my $Q1 = qr/"/;
+	my $Q2 = qr/'/;
+	my $sp = qr/[ \x00]*/;
 	$s =~ s/'''/‴/g;
-	$s =~ s/^ *(?|$Q1 *(.*?) *$Q1|$Q2 *(.*?) *$Q2) *$/$1/;
+	$s =~ s/^$sp(?|$Q1$sp(.*?)$sp$Q1|$Q2$sp(.*?)$sp$Q2|$sp(.*?)$sp)$sp$/$1/;
 	$s =~ s/‴/'''/g;
 	return $s;
 }
