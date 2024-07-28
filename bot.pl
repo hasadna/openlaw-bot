@@ -50,7 +50,7 @@ GetOptions(
 	"" => \$interactive
 ) or die("Error in command line arguments\n");
 
-if ($recent>1) { $max_recent = $recent; $recent = 1; }
+if (defined($recent) && $recent>1) { $max_recent = $recent; $recent = 1; }
 $slow = (($slow_count // '') eq '0');
 
 @pages = map {decode_utf8($_)} @ARGV;
