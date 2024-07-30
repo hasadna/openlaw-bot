@@ -178,6 +178,8 @@ if ($t1 > $t2) {
 	tr/([{<>}])/)]}><{[(/;
 }
 
+$_ = fix_comments($_);
+
 s/\f/␌\f\n␊\n/gm;
 s/^\.(\d[\d\-]*)$/$1./gm;
 s/^(\d)\n+\.\n/$1\.\n/gm;
@@ -185,8 +187,7 @@ s/^(\d)\n+\.\n/$1\.\n/gm;
 s/\n(\.\.\.|[,.:;])(?!\.{3,})/$1/g;
 s/([\(\[])\n/$1/g;
 s/([:].*)$/$1␊/gm;
-
-$_ = fix_comments($_);
+s/^([א-ת]+ [א-ת0-9 ]{1,20})$/␊$1␊/gm;
 
 s/(?<=[א-ת'"])\n((- )?['"]?[א-ת]|[0-9][א-ת0-9, \-\[\]'"()]*␊?$)/ $1/gm;
 # s/(?<=[א-ת'"])\n((- )?[א-ת'"][א-ת0-9, \-\[\]'"()]*[:;.]?␊?|[0-9][א-ת0-9, \-\[\]'"()]*␊?)$/ $1/gm;
@@ -378,16 +379,18 @@ sub fix_comments {
 	my @lines = split(/\n/, $text);
 	for (my $i = 0; $i < scalar(@lines)-1; $i++) {
 		local $_ = $lines[$i];
-		if (/בתוקף/) { $restart = true; next; }
+		if (/בתוקף/ || $lines[$i+1] =~ /בתוקף/) { $restart = true; }
 		if (/\f/) {
 			($p_cnt2, $p_cnt1) = ($p_cnt1, $cnt);
 			$cnt = max($p_cnt1, $cnt);
 			next;
 		}
-		/^([0-9]+)([;,. ])(.*)$/ || next;
+		/^([0-9]+)(?|([;,. ]).*|())$/ || next;
 		my ($n, $t) = (scalar($1), $2);
+		next if /^\d+ (ס"ח|ק"ת|י"פ) /;
+		next if ($t =~ /^[. ]?$/ && $lines[$i+1] !~ /\d{4}$/);
 		next unless ($n==$cnt || $n==$cnt+1 || ($restart && $n < 2) || $n==$p_cnt2);
-		next if ($t =~ /[. ]/ && $lines[$i+1] !~ /\d{4}/);
+		print STDERR "fix_comments: replacing |${lines[$i]}| and |${lines[$i+1]}|\n" if ($debug);
 		$cnt = $n; $restart = false;
 		($lines[$i], $lines[$i+1]) = ($lines[$i+1].'␊', $lines[$i].'␊');
 		$i++; $cnt++;
