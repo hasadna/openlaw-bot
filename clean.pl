@@ -94,6 +94,9 @@ s/([\x{05B0}-\x{05BD}]+)([א-ת])/$2$1/g if (/$RLE\x{05BC}[א-ת]/);
 s/(?<=[א-ת])–(?=[א-ת])/&ndash;/g if /[א-ת][\־\-][א-ת]/;
 
 # General cleanup
+s/ ?\t\n/\n␡\n/g;             # This LF will be later removed
+s/(\n\r|\r\n|\r)/\n/g;        # Remove CR
+tr/\t\xA0/ /;                 # Tab and hardspace are whitespaces
 tr/\x{2000}-\x{200A}\x{202F}\x{205F}\x{2060}/ /; # Typographic spaces
 tr/\x{200B}-\x{200D}//d;      # Zero-width spaces
 tr/־–—‒―/-/;                  # Convert typographic dashes
@@ -159,6 +162,9 @@ if (/[$LRE$RLE$PDF]/) {
 
 # Throw away remaining BIDI characters
 tr/␀\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
+# Join seperated lines with ␡ marker
+while (s/^(.*)\n␡\n(\(\S+\)|\d\S*\.|\d+)$/$2 $1/gm) {}
+s/\n␡\n/ /g;
 
 # Strange typos in reshumot (PDF)
 s/(?<=[0-9])(שׂ| שׂ )(?=[0-9])/×/g;
@@ -186,9 +192,10 @@ s/^(\d)\n+\.\n/$1\.\n/gm;
 # s/\n([0-9]+|-)\n/ $1 /g;
 s/\n(\.\.\.|[,.:;])(?!\.{3,})/$1/g;
 s/([\(\[])\n/$1/g;
+
+# Join lines, but not all
 s/([:].*)$/$1␊/gm;
 s/^([א-ת]+ [א-ת0-9 ]{1,20})$/␊$1␊/gm;
-
 s/(?<=[א-ת'"])\n((- )?['"]?[א-ת]|[0-9][א-ת0-9, \-\[\]'"()]*␊?$)/ $1/gm;
 # s/(?<=[א-ת'"])\n((- )?[א-ת'"][א-ת0-9, \-\[\]'"()]*[:;.]?␊?|[0-9][א-ת0-9, \-\[\]'"()]*␊?)$/ $1/gm;
 # s/(?<=[א-ת0-9'"])\n([א-ת'"][א-ת0-9, \-\[\]'"()]*[;.]?|[0-9][א-ת0-9, \-\[\]'"()]*)$/ $1/gm;
@@ -224,8 +231,8 @@ $_ = fix_symbols($_) if (/[\x{1D400}-\x{1D7FF}]/);
 # s/^ *=+ *(.*?) *=+ *$/$1/gm;
 # s/^[:;]+-? *//gm;
 
-tr/\r//d;          # Remove CR
-tr/\t\xA0/ /;      # Tab and hardspace are whitespaces
+# tr/\r//d;          # Remove CR
+# tr/\t\xA0/ /;      # Tab and hardspace are whitespaces
 s/^ +//mg;         # Remove redundant whitespaces
 s/ +$//mg;         # Remove redundant whitespaces
 s/ {2,}/ /g;       # Pack  long spaces
