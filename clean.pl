@@ -10,6 +10,8 @@ no warnings 'misc';
 use Data::Dumper;
 use Getopt::Long;
 use constant { true => 1, false => 0 };
+sub max($$) { $_[$_[0] < $_[1]] }
+sub min($$) { $_[$_[0] > $_[1]] }
 
 our ($variant, $debug, $raw);
 $variant = 1;
@@ -48,6 +50,7 @@ if ($#ARGV>=0) {
 	binmode STDERR, ":utf8";
 	$_ = join('', <STDIN>);
 }
+
 
 if (/\x{F8FF}/ and /\xD3/) { # Fix f*cked-up macos encoding
 	# Convert Unicode to "Mac OS Roman", treat as "Mac OS Hebrew" and convert back to Unicode.
@@ -95,7 +98,7 @@ tr/\x{2000}-\x{200A}\x{202F}\x{205F}\x{2060}/ /; # Typographic spaces
 tr/\x{200B}-\x{200D}//d;      # Zero-width spaces
 tr/־–—‒―/-/;                  # Convert typographic dashes
 tr/‑/–/;
-
+s/¸( ¸){2,}/ /g;              # dots seperator
 # s/(?<![א-ת\x{05B0}-\x{05BD}])\x{05BF}/-/g; # Rafe (U+05BF) misused as dash
 s/\x{05BF} ?/-/g;             # Rafe (U+05BF) misused as dash
 tr/\xAD\x96\x97/-/;           # Convert more typographic dashes
@@ -104,7 +107,7 @@ tr/`׳’‘‚‛′‵/'/;               # Convert typographic single quotes
 tr/;/;/;                      # Convert wrong OCRed semicolon
 tr/¸/,/;                      # Convert wring Cedilla used for comma
 tr/\x{F0A8}\x{F063}/□/;       # White square (special font)
-tr/º/°/;                      # ordinal indicatior should be degree sign
+tr/º/°/;                      # ordinal indicatior meant to be degree sign
 s/…/.../g;
 s/(\x{FFFD}{2,})/' ' . ',' x length($1) . ' '/ge;
 tr/\x{FEFF}\x{FFFC}-\x{FFFF}//d;    # Unicode placeholders and junk
@@ -149,16 +152,17 @@ if (/[$LRE$RLE$PDF]/) {
 	}
 	# s/^(.*?$RLE.*?$PDF.*)$/$LRE$1$PDF/gm;
 	s/([$LRE$RLE](?:[^$LRE$RLE$PDF]*|(?0))*$PDF)/&pop_embedded($1)/ge;
+	# Use internal seperators for very long words
+	s/([א-ת␀,\-.;:]{20,})/ $1 =~ tr|␀| |r /ge;
+	tr/␀//d;
 }
 
 # Throw away remaining BIDI characters
-tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
+tr/␀\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 
 # Strange typos in reshumot (PDF)
 s/(?<=[0-9])(שׂ| שׂ )(?=[0-9])/×/g;
 s/(?<!ש)[\x{05C1}\x{05C2}]+//g;
-
-s/( ¸){2,}//g;
 
 $t1 = () = (/^[45T]+$/mg);
 $t2 = () = (/\n/mg);
@@ -174,32 +178,20 @@ if ($t1 > $t2) {
 	tr/([{<>}])/)]}><{[(/;
 }
 
-s/\f/␌\n␊\n/gm;
+s/\f/␌\f\n␊\n/gm;
 s/^\.(\d[\d\-]*)$/$1./gm;
 s/^(\d)\n+\.\n/$1\.\n/gm;
 # s/\n([0-9]+|-)\n/ $1 /g;
-s/\n([:;,.\)\]])/$1/g;
+s/\n(\.\.\.|[,.:;])(?!\.{3,})/$1/g;
 s/([\(\[])\n/$1/g;
 s/([:].*)$/$1␊/gm;
 
-my $cnt = 1; my $restart = true;
-my @lines = split(/\n/, $_);
-for (my $i = 0; $i < scalar(@lines); $i++) {
-	$_ = $lines[$i];
-	if (/בתוקף/) { $restart = true; next; }
-	next unless (/^([0-9]+)([;,].*| .*)$/);
-	next unless (scalar($1)==$cnt || scalar($1)==$cnt+1 || ($restart && $1 < 2));
-	$cnt = scalar($1); $restart = false;
-	($lines[$i], $lines[$i+1]) = ($lines[$i+1].'␊', $lines[$i].'␊');
-	$i++; $cnt++;
-}
-$_ = join("\n", @lines);
+$_ = fix_comments($_);
 
-# s/^([0-9]+[;,](?: [א-ת].*)?)\n(.*?[א-ת].*[^.,;])$/$2␊\n$1␊/gm;
-# s/(␊\n.+[^␊\n])\n/$1␊\n/gm;
-s/(?<=[א-ת'"])\n((- )?[א-ת'"][א-ת0-9, \-\[\]'"()]*[;.]?|[0-9][א-ת0-9, \-\[\]'"()]*)$/ $1/gm;
+s/(?<=[א-ת'"])\n((- )?['"]?[א-ת]|[0-9][א-ת0-9, \-\[\]'"()]*␊?$)/ $1/gm;
+# s/(?<=[א-ת'"])\n((- )?[א-ת'"][א-ת0-9, \-\[\]'"()]*[:;.]?␊?|[0-9][א-ת0-9, \-\[\]'"()]*␊?)$/ $1/gm;
 # s/(?<=[א-ת0-9'"])\n([א-ת'"][א-ת0-9, \-\[\]'"()]*[;.]?|[0-9][א-ת0-9, \-\[\]'"()]*)$/ $1/gm;
-s/[␊␌]//g;
+s/[␊␌]//g;  # But keep \f.
 
 # s/\n("?\(\D.{0,2}\))\n([^\(].*)\n(\(\d.{0,2}\))\n/\n$1 $3 $2\n/g;
 # while (s/\n(.*)\n("?\(.{1,2}\)|\*|[0-9]|[1-9].?\.)\n/\n$2 $1\n/g) {}
@@ -210,7 +202,7 @@ s/<style.*?<\/style>//gsi;
 s/\s*\n\s*/ /g if /<\/p>/i;
 s/<br\/?>/\n/gi;
 s/<\/(div|td|p|tr|th).*?>/\n/gi; # Block elements
-# s/<\/(p|tr|th).*?>/\f\n/gi; # Block elements
+# s/<\/(p|tr|th).*?>/\n\n/gi; # Block elements
 s/<\/?(?:".*?"|'.*?'|[^'">]*+)*>//g;
 $_ = unescape_text($_);
 
@@ -224,43 +216,9 @@ $_ = s_lut($_, {
 });
 
 # Replcace Mathematical Alphanumeric Symbols (and create <b/i/tt> tags if nessesary)
-if (/[\x{1D400}-\x{1D7FF}]/) {
-	tr/ℬℰℱℋℐℒℳℛℯℊℴ/𝒝𝒠𝒡𝒣𝒤𝒧𝒨𝒭𝒺𝒼𝓄/;
-	tr/ℭℌℑℜℨ/𝔆𝔋𝔋𝔕𝔝/;
-	tr/ℂℍℕℙℚℝℤ/𝔺𝔿𝕅𝕇𝕈𝕉𝕑/;
-	tr/ℎ/𝑕/;
-	
-	# Normal letters			# tr/𝖠-𝖹𝖺-𝗓𝟢-𝟫𝔄-𝔝𝔞-𝔷/A-Za-z0-9A-Za-z/;
-	tr/𝖠-𝗓𝟢-𝟫/A-Za-z0-9/;
-	tr/𝔄-𝔷/A-Za-z/;
-	# Bold letters				# tr/𝐀-𝐙𝐚-𝐳𝟎-𝟗𝗔-𝗭𝗮-𝘇𝟬-𝟵𝕬-𝖅𝖆-𝖟/A-Za-z0-9A-Za-z0-9A-Za-z/;
-	s|([𝐀-𝐳𝟎-𝟗]+)|sprintf("<b>%s</b>", $1 =~ tr/𝐀-𝐳𝟎-𝟗/A-Za-z0-9/r)|ge;
-	s|([𝗔-𝘇𝟬-𝟵]+)|sprintf("<b>%s</b>", $1 =~ tr/𝗔-𝘇𝟬-𝟵/A-Za-z0-9/r)|ge;
-	s|([𝕬-𝖟]+)|sprintf("<b>%s</b>", $1 =~ tr/𝕬-𝖟/A-Za-z/r)|ge;
-	s|([𝚨-𝛀𝛂-𝛚𝛁𝟊𝛛𝛜𝛝𝛞𝛟𝛠𝛡𝟋]+)|sprintf("<b>%s</b>", $1 =~ tr/𝚨-𝛀𝛂-𝛚𝛁𝟊𝛛𝛜𝛝𝛞𝛟𝛠𝛡𝟋/Α-Ωα-ω∇Ϝ∂ϵϑϰϕϱϖϝ/r)|ge;
-	s|([𝝖-𝝮𝝰-𝞈𝝯𝞉𝞊𝞋𝞌𝞍𝞎𝞏]+)|sprintf("<b>%s</b>", $1 =~ tr/𝝖-𝝮𝝰-𝞈𝝯𝞉𝞊𝞋𝞌𝞍𝞎𝞏/Α-Ωα-ω∇∂ϵϑϰϕϱϖ/r)|ge;
-	# Italic letters			# tr/𝐴-𝑍𝑎-𝑧𝘈-𝘡𝘢-𝘻𝒜-𝒵𝒶-𝓏/A-Za-zA-Za-zA-Za-z/;
-	s|([𝐴-𝑧𝚤𝚥]+)|sprintf("<i>%s</i>", $1 =~ tr/𝐴-𝑧𝚤𝚥/A-Za-zıȷ/r)|ge;
-	s|([𝘈-𝘻]+)|sprintf("<i>%s</i>", $1 =~ tr/𝘈-𝘻/A-Za-z/r)|ge;
-	s|([𝒜-𝓏]+)|sprintf("<i>%s</i>", $1 =~ tr/𝒜-𝓏/A-Za-z/r)|ge;
-	s|([𝛢-𝛺𝛼-𝜔𝛻𝜕𝜖𝜗𝜘𝜙𝜚𝜛]+)|sprintf("<b>%s</b>", $1 =~ tr/𝛢-𝛺𝛼-𝜔𝛻𝜕𝜖𝜗𝜘𝜙𝜚𝜛/Α-Ωα-ω∇∂ϵϑϰϕϱϖ/r)|ge;
-	# Bold Italic				# tr/𝑨-𝒁𝒂-𝒛𝘼-𝙕𝙖-𝙯𝓐-𝓩𝓪-𝔃/A-Za-zA-Za-zA-Za-z/;
-	s|([𝑨-𝒛]+)|sprintf("<b><i>%s</i></b>", $1 =~ tr/𝑨-𝒛/A-Za-z/r)|ge;
-	s|([𝘼-𝙯]+)|sprintf("<b><i>%s</i></b>", $1 =~ tr/𝘼-𝙯/A-Za-z/r)|ge;
-	s|([𝓐-𝔃]+)|sprintf("<b><i>%s</i></b>", $1 =~ tr/𝓐-𝔃/A-Za-z/r)|ge;
-	s|([𝜜-𝜴𝜶-𝝎𝜵𝝏𝝐𝝑𝝒𝝓𝝔𝝕]+)|sprintf("<b><i>%s</i></b>", $1 =~ tr/𝜜-𝜴𝜶-𝝎𝜵𝝏𝝐𝝑𝝒𝝓𝝔𝝕/Α-Ωα-ω∇∂ϵϑϰϕϱϖ/r)|ge;
-	s|([𝞐-𝞨𝞪-𝟂𝞩𝟃𝟄𝟅𝟆𝟇𝟈𝟉]+)|sprintf("<b><i>%s</i></b>", $1 =~ tr/𝞐-𝞨𝞪-𝟂𝞩𝟃𝟄𝟅𝟆𝟇𝟈𝟉/Α-Ωα-ω∇∂ϵϑϰϕϱϖ/r)|ge;
-	# Monospace					# tr/𝙰-𝚉𝚊-𝚣𝟶-𝟿/A-Za-z0-9/;
-	s|([𝙰-𝚣𝟶-𝟿]+)|sprintf("<tt>%s</tt>", $1 =~ tr/𝙰-𝚣𝟶-𝟿/A-Za-z0-9/r)|ge;
-	# Monospace Bold			# tr/𝔸-𝕑𝕒-𝕫𝟘-𝟡/A-Za-z0-9/;
-	s|([𝔸-𝕫𝟘-𝟡]+)|sprintf("<tt><b>%s</b></tt>", $1 =~ tr/𝔸-𝕫𝟘-𝟡/A-Za-z0-9/r)|ge;
-	
-	tr/΢/ϴ/;
-	s/<\/(i|b|tt)><\/(i|b|tt)>([ \n]*)<\2><\1>/$3/gs;
-	s/<\/(i|b|tt)>([ \n]*)<\1>/$2/g;
-}
+$_ = fix_symbols($_) if (/[\x{1D400}-\x{1D7FF}]/);
 
-# Clean WIKI markups
+# [Don't] Clean WIKI markups
 # s/'''//g;
 # s/^ *=+ *(.*?) *=+ *$/$1/gm;
 # s/^[:;]+-? *//gm;
@@ -271,13 +229,13 @@ s/^ +//mg;         # Remove redundant whitespaces
 s/ +$//mg;         # Remove redundant whitespaces
 s/ {2,}/ /g;       # Pack  long spaces
 s/\n{2,}/\n/g;     # Chop two+ linefeeds
-s/\f\n*/\n\n/g;    # Keep FF as two linefeeds
+s/\f\n*/\f\n\n/g;  # Keep FF as two linefeeds
 s/\n{3,}/\n\n/g;   # 
 s/^\n+//s;         # Remove first and last linefeeds
 s/\n*$/\n/s;
 
 # Special corrections
-s/(?<=\S) (?=[,.:;])//g;  # Remove redundant whitespaces
+s/(?<=\S) (\.\.\.|[,.:;])(?!\.{3,})/$1/g;  # Remove redundant whitespaces
 s/(?<!')''(?!')/"/g;
 s/("[א-ת])(\d{4})[-]/$1-$2/g;
 s/^[.](\d.*?) +/$1. /gm;
@@ -333,8 +291,9 @@ sub pop_embedded {
 	
 	# 0x202A is [LRE]; 0x202B is [RLE]; 0x202C is [PDF].
 	if (/^([$LRE$RLE])(.*)[$PDF]$/) {
-		dump_stderr("pop_embedded: got |$_|\n");
 		$type .= $1; $_ = $2;
+		s/(?<=[$PDF])(?=[$LRE$RLE])/␀/g;
+		dump_stderr("pop_embedded: got |$_|\n");
 		my @arr = (m/([^$LRE$RLE$PDF]+|[$LRE$RLE](?0)*[$PDF])/g);
 		if ($type eq "$LRE" && scalar(@arr)>1) {
 			# dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
@@ -362,6 +321,84 @@ sub pop_embedded {
 	}
 	return $_;
 }
+
+
+# fix_symbols: Replcace Mathematical Alphanumeric Symbols (and create <b/i/tt> tags if nessesary)
+sub fix_symbols {
+	local $_ = shift;
+	# Make symbols linear in unicode space
+	tr/ℬℰℱℋℐℒℳℛℯℊℴ/𝒝𝒠𝒡𝒣𝒤𝒧𝒨𝒭𝒺𝒼𝓄/;
+	tr/ℭℌℑℜℨ/𝔆𝔋𝔋𝔕𝔝/;
+	tr/ℂℍℕℙℚℝℤ/𝔺𝔿𝕅𝕇𝕈𝕉𝕑/;
+	tr/ℎ/𝑕/;
+	
+	# Normal letters			# tr/𝖠-𝖹𝖺-𝗓𝟢-𝟫𝔄-𝔝𝔞-𝔷/A-Za-z0-9A-Za-z/;
+	tr/𝖠-𝗓𝟢-𝟫/A-Za-z0-9/;
+	tr/𝔄-𝔷/A-Za-z/;
+	# Bold letters				# tr/𝐀-𝐙𝐚-𝐳𝟎-𝟗𝗔-𝗭𝗮-𝘇𝟬-𝟵𝕬-𝖅𝖆-𝖟/A-Za-z0-9A-Za-z0-9A-Za-z/;
+	s|([𝐀-𝐳𝟎-𝟗]+)|sprintf("<b>%s</b>", $1 =~ tr/𝐀-𝐳𝟎-𝟗/A-Za-z0-9/r)|ge;
+	s|([𝗔-𝘇𝟬-𝟵]+)|sprintf("<b>%s</b>", $1 =~ tr/𝗔-𝘇𝟬-𝟵/A-Za-z0-9/r)|ge;
+	s|([𝕬-𝖟]+)|sprintf("<b>%s</b>", $1 =~ tr/𝕬-𝖟/A-Za-z/r)|ge;
+	s|([𝚨-𝛀𝛂-𝛚𝛁𝟊𝛛𝛜𝛝𝛞𝛟𝛠𝛡𝟋]+)|sprintf("<b>%s</b>", $1 =~ tr/𝚨-𝛀𝛂-𝛚𝛁𝟊𝛛𝛜𝛝𝛞𝛟𝛠𝛡𝟋/Α-Ωα-ω∇Ϝ∂ϵϑϰϕϱϖϝ/r)|ge;
+	s|([𝝖-𝝮𝝰-𝞈𝝯𝞉𝞊𝞋𝞌𝞍𝞎𝞏]+)|sprintf("<b>%s</b>", $1 =~ tr/𝝖-𝝮𝝰-𝞈𝝯𝞉𝞊𝞋𝞌𝞍𝞎𝞏/Α-Ωα-ω∇∂ϵϑϰϕϱϖ/r)|ge;
+	# Italic letters			# tr/𝐴-𝑍𝑎-𝑧𝘈-𝘡𝘢-𝘻𝒜-𝒵𝒶-𝓏/A-Za-zA-Za-zA-Za-z/;
+	s|([𝐴-𝑧𝚤𝚥]+)|sprintf("<i>%s</i>", $1 =~ tr/𝐴-𝑧𝚤𝚥/A-Za-zıȷ/r)|ge;
+	s|([𝘈-𝘻]+)|sprintf("<i>%s</i>", $1 =~ tr/𝘈-𝘻/A-Za-z/r)|ge;
+	s|([𝒜-𝓏]+)|sprintf("<i>%s</i>", $1 =~ tr/𝒜-𝓏/A-Za-z/r)|ge;
+	s|([𝛢-𝛺𝛼-𝜔𝛻𝜕𝜖𝜗𝜘𝜙𝜚𝜛]+)|sprintf("<b>%s</b>", $1 =~ tr/𝛢-𝛺𝛼-𝜔𝛻𝜕𝜖𝜗𝜘𝜙𝜚𝜛/Α-Ωα-ω∇∂ϵϑϰϕϱϖ/r)|ge;
+	# Bold Italic				# tr/𝑨-𝒁𝒂-𝒛𝘼-𝙕𝙖-𝙯𝓐-𝓩𝓪-𝔃/A-Za-zA-Za-zA-Za-z/;
+	s|([𝑨-𝒛]+)|sprintf("<b><i>%s</i></b>", $1 =~ tr/𝑨-𝒛/A-Za-z/r)|ge;
+	s|([𝘼-𝙯]+)|sprintf("<b><i>%s</i></b>", $1 =~ tr/𝘼-𝙯/A-Za-z/r)|ge;
+	s|([𝓐-𝔃]+)|sprintf("<b><i>%s</i></b>", $1 =~ tr/𝓐-𝔃/A-Za-z/r)|ge;
+	s|([𝜜-𝜴𝜶-𝝎𝜵𝝏𝝐𝝑𝝒𝝓𝝔𝝕]+)|sprintf("<b><i>%s</i></b>", $1 =~ tr/𝜜-𝜴𝜶-𝝎𝜵𝝏𝝐𝝑𝝒𝝓𝝔𝝕/Α-Ωα-ω∇∂ϵϑϰϕϱϖ/r)|ge;
+	s|([𝞐-𝞨𝞪-𝟂𝞩𝟃𝟄𝟅𝟆𝟇𝟈𝟉]+)|sprintf("<b><i>%s</i></b>", $1 =~ tr/𝞐-𝞨𝞪-𝟂𝞩𝟃𝟄𝟅𝟆𝟇𝟈𝟉/Α-Ωα-ω∇∂ϵϑϰϕϱϖ/r)|ge;
+	# Monospace					# tr/𝙰-𝚉𝚊-𝚣𝟶-𝟿/A-Za-z0-9/;
+	s|([𝙰-𝚣𝟶-𝟿]+)|sprintf("<tt>%s</tt>", $1 =~ tr/𝙰-𝚣𝟶-𝟿/A-Za-z0-9/r)|ge;
+	# Monospace Bold			# tr/𝔸-𝕑𝕒-𝕫𝟘-𝟡/A-Za-z0-9/;
+	s|([𝔸-𝕫𝟘-𝟡]+)|sprintf("<tt><b>%s</b></tt>", $1 =~ tr/𝔸-𝕫𝟘-𝟡/A-Za-z0-9/r)|ge;
+	
+	tr/΢/ϴ/;
+	s/<\/(i|b|tt)><\/(i|b|tt)>([ \n]*)<\2><\1>/$3/gs;
+	s/<\/(i|b|tt)>([ \n]*)<\1>/$2/g;
+	return $_;
+}
+
+
+# fix_comments: Change order of lines in case of incorrect break due to numeric comment reference.
+sub fix_comments {
+	my $text = shift;
+	# Check if comments fix is required.
+	my ($t1, $t2);
+	$t1 = () = ($text =~ /\d{4}␊?\n\d{1,2}[;,]/gm);
+	$t2 = () = ($text =~ /^\d{1,2}[;,].*\n.*\d{4}/gm);
+	print STDERR "fix_comments, before: $t1 correct, $t2 incorrect\n" if ($debug);
+	if ($t1>=$t2) { return $text; }
+	my ($cnt, $p_cnt1, $p_cnt2, $restart);
+	$cnt = $p_cnt1 = $p_cnt2 = 1; $restart = true;
+	my @lines = split(/\n/, $text);
+	for (my $i = 0; $i < scalar(@lines)-1; $i++) {
+		local $_ = $lines[$i];
+		if (/בתוקף/) { $restart = true; next; }
+		if (/\f/) {
+			($p_cnt2, $p_cnt1) = ($p_cnt1, $cnt);
+			$cnt = max($p_cnt1, $cnt);
+			next;
+		}
+		/^([0-9]+)([;,. ])(.*)$/ || next;
+		my ($n, $t) = (scalar($1), $2);
+		next unless ($n==$cnt || $n==$cnt+1 || ($restart && $n < 2) || $n==$p_cnt2);
+		next if ($t =~ /[. ]/ && $lines[$i+1] !~ /\d{4}/);
+		$cnt = $n; $restart = false;
+		($lines[$i], $lines[$i+1]) = ($lines[$i+1].'␊', $lines[$i].'␊');
+		$i++; $cnt++;
+	}
+	$text = join("\n", @lines);
+	$t1 = () = ($text =~ /\d{4}␊?\n\d{1,2}[;,]/gm);
+	$t2 = () = ($text =~ /^\d{1,2}[;,].*\n.*\d{4}/gm);
+	print STDERR "fix_comments, after: $t1 correct, $t2 incorrect\n" if ($debug);
+	return $text;
+}
+
 
 sub dump_stderr {
 	return if (!$debug);

@@ -9,31 +9,32 @@ use English;
 use Encode;
 use Getopt::Long;
 use IPC::Run 'run';
+use constant { true => 1, false => 0 };
 
 binmode STDIN, "utf8";
 binmode STDOUT, "utf8";
 binmode STDERR, "utf8";
 
-my $raw = 1;
-my $brackets = 1;
-my $debug = 0;
-my $verbose = 0;
-my $clean = 1;
-my $skip = 0;
+my $raw = true;
+my $brackets = true;
+my $debug = false;
+my $verbose = false;
+my $clean = undef;
 
 my ($t1, $t2);
 
 GetOptions(
 	"raw" => \$raw,
 	"clean" => \$clean,
-	"brackets" => sub { $brackets = 0; },
+	"brackets" => sub { $brackets = true; },
 	"debug" => \$debug,
-	"skip" => \$skip,
+	"skip" => sub { $clean = false; }
 ) or die("Error in command line arguments\n");
 
 local $/;
-$_ = <>;
-$_ = cleanup($_) unless $skip;
+$_ = decode_utf8(<>);
+$clean = (/[\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}]/) unless (defined $clean);
+$_ = cleanup($_) if ($clean);
 
 $verbose ||= $debug;
 print STDERR "Input size is " . length($_) . "\n" if $verbose;
@@ -73,10 +74,10 @@ s/\n([^\n]+)\n(\d+\S{0,3}\. \([^\n\)]+\)) *\n/\n$2 $1\n/g;
 
 # Join seperated lines
 s/\n-\n/ - /g;
-s/^((?:[\d=\@:\-]פרק|סימן|חלק).*)$/\f$1\f/gm; # Disallow concatination on certain prefixes
-s/^([^:]+[:].*)$/\f$1\f/gm;
+s/^((?:[\d=\@:\-]פרק|סימן|חלק).*)$/␊$1␊/gm; # Disallow concatination on certain prefixes
+s/^([^:]+[:].*)$/␊$1␊/gm;
 s/([א-ת\,A-Za-z])\n([א-תA-Za-z])/$1 $2/gm;
-s/\f//gm;
+s/␊//gm;
 s/("[א-ת]-)\n(\d{4})/$1$2/gm;
 
 s/^([א-ת ]+) (\d[\dא-ת]*\.)(\n| )/$2 $1/g;
