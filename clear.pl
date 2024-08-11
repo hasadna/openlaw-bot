@@ -1,3 +1,4 @@
 #!/usr/bin/env perl
 
-exec "./clean.pl", @ARGV or die "Failed to execute: $!";
+my $pwd = $0; $pwd =~ s/[^\/]*$//;
+exec "$pwd/clean.pl", @ARGV or die "Failed to execute: $!";
