@@ -51,6 +51,7 @@ if ($#ARGV>=0) {
 	$_ = join('', <STDIN>);
 }
 
+##### Various Encodings #####
 
 if (/\x{F8FF}/ and /\xD3/) { # Fix f*cked-up macos encoding
 	# Convert Unicode to "Mac OS Roman", treat as "Mac OS Hebrew" and convert back to Unicode.
@@ -88,56 +89,9 @@ if ((/[A-Z]/) and (/\[/) and !(/[א-ת]/)) {
 	s/([א-תוּ\x{05B0}-\x{05BD}])/$RLE$1$PDF/g;
 }
 
+##### Bidi corrections #####
+
 s/([\x{05B0}-\x{05BD}]+)([א-ת])/$2$1/g if (/$RLE\x{05BC}[א-ת]/);
-
-# Keep ndash between hebrew words if not all words are seperated with ndash
-s/(?<=[א-ת])–(?=[א-ת])/&ndash;/g if /[א-ת][\־\-][א-ת]/;
-
-# General cleanup
-s/ ?\t\n/\n␡\n/g;             # This LF will be later removed
-s/(\n\r|\r\n|\r)/\n/g;        # Remove CR
-tr/\t\xA0/ /;                 # Tab and hardspace are whitespaces
-tr/\x{2000}-\x{200A}\x{202F}\x{205F}\x{2060}/ /; # Typographic spaces
-tr/\x{200B}-\x{200D}//d;      # Zero-width spaces
-tr/־–—‒―/-/;                  # Convert typographic dashes
-tr/‑/–/;
-s/¸( ¸){2,}/ /g;              # dots seperator
-# s/(?<![א-ת\x{05B0}-\x{05BD}])\x{05BF}/-/g; # Rafe (U+05BF) misused as dash
-s/\x{05BF} ?/-/g;             # Rafe (U+05BF) misused as dash
-tr/\xAD\x96\x97/-/;           # Convert more typographic dashes
-tr/״”“„‟″‶/"/;                # Convert typographic double quotes
-tr/`׳’‘‚‛′‵/'/;               # Convert typographic single quotes
-tr/;/;/;                      # Convert wrong OCRed semicolon
-tr/¸/,/;                      # Convert wring Cedilla used for comma
-tr/\x{F0A8}\x{F063}/□/;       # White square (special font)
-tr/º/°/;                      # ordinal indicatior meant to be degree sign
-s/…/.../g;
-s/(\x{FFFD}{2,})/' ' . ',' x length($1) . ' '/ge;
-tr/\x{FEFF}\x{FFFC}-\x{FFFF}//d;    # Unicode placeholders and junk
-tr/\x{F000}-\x{F031}\x{F07F}/□/;      # Replacement font codes, cannot recover without OCR.
-
-# Hebrew ligatures and alternative forms
-tr/ﬠﬡﬢﬣﬤﬥﬦﬧﬨ/עאדהכלםרת/;
-# Keep hebrew plus sign - tr/﬩/+/;
-# Keep math symbols     - tr/ℵℶℷℸ/אבגד/;
-$_ = s_lut($_, {
-	'אּ' => 'אּ', 'בּ' => 'בּ', 'גּ' => 'גּ', 'דּ' => 'דּ', 'הּ' => 'הּ', 'וּ' => 'וּ', 'זּ' => 'זּ', '﬷' => 'חּ', 'טּ' => 'טּ', 
-	'יּ' => 'יּ', 'ךּ' => 'ךּ', 'כּ' => 'כּ', 'לּ' => 'לּ', '﬽' => 'םּ', 'מּ' => 'מּ', '﬿' => 'ןּ', 'נּ' => 'נּ', 'סּ' => 'סּ', 
-	'﭂' => 'עּ', 'ףּ' => 'ףּ', 'פּ' => 'פּ', '﭅' => 'ץּ', 'צּ' => 'צּ', 'קּ' => 'קּ', 'רּ' => 'רּ', 'שּ' => 'שּ', 'תּ' => 'תּ', 
-	'שׁ' => 'שׁ', 'שׂ' => 'שׂ', 'שּׁ' => 'שּׁ', 'שּׂ' => 'שּׂ', 'אַ' => 'אַ', 'אָ' => 'אָ', 'יִ' => 'יִ', 'ײַ' => 'ײַ', 'ﭏ' => 'אל', '' => 'לֹ',
-	'וֹ' => 'וֹ', 'בֿ' => 'בֿ', 'כֿ' => 'כֿ', 'פֿ' => 'פֿ',
-});
-
-# Latin ligatures
-$_ = s_lut($_, {
-	'ﬀ' => 'ff', 'ﬁ' => 'fi', 'ﬂ' => 'fl', 'ﬃ' => 'ffi', 'ﬄ' => 'ffl', 'ﬅ' => 'ſt', 'ﬆ' => 'st', # '🙰' => 'et', '🙱' => 'et',
-	'Ǳ' => 'DZ', 'ǲ' => 'Dz', 'ǳ' => 'dz', 'Ǆ' => 'DŽ', 'ǅ' => 'Dž', 'ǆ' => 'dž', 
-	'Ĳ' => 'IJ', 'ĳ' => 'ij', 'Ǉ' => 'LJ', 'ǈ' => 'Lj', 'ǉ' => 'lj', 'Ǌ' => 'NJ', 'ǋ' => 'Nj', 'ǌ' => 'nj', 
-	'ȸ' => 'db', 'ȹ' => 'qp', 'Ꝡ' => 'VY', 'ꝡ' => 'vy',
-	# 'Œ' => 'OE', 'œ' => 'oe', 'Æ' => 'AE', 'æ' => 'ae', # Also ǢǣǼǽÆ̀æ̀Æ̂æ̂Æ̃æ̃... Also ꜲꜳꜴꜵꜶꜷꜸꜹꜼꜽꝎꝏ and ...
-	# 'ʩ' => 'fŋ', 'ʪ' => 'ls', 'ʫ' => 'lz', 'ɮ' => 'lʒ', 'ʨ' => 'tɕ', 'ʦ' => 'ts', 'ꭧ' => 'tʂ', 'ꭦ'=> 'dʐ', 'ʧ' => 'tʃ', 
-	# 'ƒ' => '<i>f</i>', 'Ƒ' => '<i>F</i>',
-});
 
 # Try to fix RLE/PDF (dumb BIDI encoding in PDFs)
 if (/[$LRE$RLE$PDF]/) {
@@ -166,17 +120,68 @@ tr/␀\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 while (s/^(.*)\n␡\n(\(\S+\)|\d\S*\.|\d+)$/$2 $1/gm) {}
 s/\n␡\n/ /g;
 
+##### Characters-level corrections #####
+
+# Keep ndash between hebrew words if not all words are seperated with ndash
+s/(?<=[א-ת])–(?=[א-ת])/&ndash;/g if /[א-ת][\־\-][א-ת]/;
+
+# General cleanup
+s/ ?\t\n/\n␡\n/g;             # This LF will be later removed
+s/(\n\r|\r\n|\r)/\n/g;        # Remove CR
+tr/\xA0\x{2000}-\x{200A}\x{202F}\x{205F}\x{2060}/ /; # Typographic spaces
+tr/\x{200B}-\x{200D}//d;      # Zero-width spaces
+tr/־–—‒―/-/;                  # Convert typographic dashes
+tr/‑/–/;
+# s/(?<![א-ת\x{05B0}-\x{05BD}])\x{05BF}/-/g; # Rafe (U+05BF) misused as dash
+s/\x{05BF} ?/-/g;             # Rafe (U+05BF) misused as dash
+tr/\xAD\x96\x97/-/;           # Convert more typographic dashes
+tr/״”“„‟″‶/"/;                # Convert typographic double quotes
+tr/`׳’‘‚‛′‵/'/;               # Convert typographic single quotes
+tr/;/;/;                      # Convert wrong OCRed semicolon
+s/(\x{FFFD}{2,})/' ' . ',' x length($1) . ' '/ge; # dots
+s/,( ¸){2,}|,{3,}/ /g;        # dots seperator
+tr/¸/,/;                      # Convert Cedilla used for comma
+tr/\x{F0A8}\x{F063}/□/;       # White square (special font)
+tr/º/°/;                      # ordinal indicatior meant to be degree sign
+s/…/.../g;
+tr/\x{FEFF}\x{FFFC}-\x{FFFF}//d;    # Unicode placeholders and junk
+tr/\x{F000}-\x{F031}\x{F07F}/□/;      # Replacement font codes, cannot recover without OCR.
+
+# Hebrew ligatures and alternative forms
+tr/ﬠﬡﬢﬣﬤﬥﬦﬧﬨ/עאדהכלםרת/;
+# Keep hebrew plus sign - tr/﬩/+/;
+# Keep math symbols     - tr/ℵℶℷℸ/אבגד/;
+$_ = s_lut($_, {
+	'אּ' => 'אּ', 'בּ' => 'בּ', 'גּ' => 'גּ', 'דּ' => 'דּ', 'הּ' => 'הּ', 'וּ' => 'וּ', 'זּ' => 'זּ', '﬷' => 'חּ', 'טּ' => 'טּ', 
+	'יּ' => 'יּ', 'ךּ' => 'ךּ', 'כּ' => 'כּ', 'לּ' => 'לּ', '﬽' => 'םּ', 'מּ' => 'מּ', '﬿' => 'ןּ', 'נּ' => 'נּ', 'סּ' => 'סּ', 
+	'﭂' => 'עּ', 'ףּ' => 'ףּ', 'פּ' => 'פּ', '﭅' => 'ץּ', 'צּ' => 'צּ', 'קּ' => 'קּ', 'רּ' => 'רּ', 'שּ' => 'שּ', 'תּ' => 'תּ', 
+	'שׁ' => 'שׁ', 'שׂ' => 'שׂ', 'שּׁ' => 'שּׁ', 'שּׂ' => 'שּׂ', 'אַ' => 'אַ', 'אָ' => 'אָ', 'יִ' => 'יִ', 'ײַ' => 'ײַ', 'ﭏ' => 'אל', '' => 'לֹ',
+	'וֹ' => 'וֹ', 'בֿ' => 'בֿ', 'כֿ' => 'כֿ', 'פֿ' => 'פֿ',
+});
+
+# Latin ligatures
+$_ = s_lut($_, {
+	'ﬀ' => 'ff', 'ﬁ' => 'fi', 'ﬂ' => 'fl', 'ﬃ' => 'ffi', 'ﬄ' => 'ffl', 'ﬅ' => 'ſt', 'ﬆ' => 'st', # '🙰' => 'et', '🙱' => 'et',
+	'Ǳ' => 'DZ', 'ǲ' => 'Dz', 'ǳ' => 'dz', 'Ǆ' => 'DŽ', 'ǅ' => 'Dž', 'ǆ' => 'dž', 
+	'Ĳ' => 'IJ', 'ĳ' => 'ij', 'Ǉ' => 'LJ', 'ǈ' => 'Lj', 'ǉ' => 'lj', 'Ǌ' => 'NJ', 'ǋ' => 'Nj', 'ǌ' => 'nj', 
+	'ȸ' => 'db', 'ȹ' => 'qp', 'Ꝡ' => 'VY', 'ꝡ' => 'vy',
+	# 'Œ' => 'OE', 'œ' => 'oe', 'Æ' => 'AE', 'æ' => 'ae', # Also ǢǣǼǽÆ̀æ̀Æ̂æ̂Æ̃æ̃... Also ꜲꜳꜴꜵꜶꜷꜸꜹꜼꜽꝎꝏ and ...
+	# 'ʩ' => 'fŋ', 'ʪ' => 'ls', 'ʫ' => 'lz', 'ɮ' => 'lʒ', 'ʨ' => 'tɕ', 'ʦ' => 'ts', 'ꭧ' => 'tʂ', 'ꭦ'=> 'dʐ', 'ʧ' => 'tʃ', 
+	# 'ƒ' => '<i>f</i>', 'Ƒ' => '<i>F</i>',
+});
+
 # Strange typos in reshumot (PDF)
 s/(?<=[0-9])(שׂ| שׂ )(?=[0-9])/×/g;
 s/(?<!ש)[\x{05C1}\x{05C2}]+//g;
 
+# Special encoding in rare cases
 $t1 = () = (/^[45T]+$/mg);
 $t2 = () = (/\n/mg);
 if ($t1>$t2/100) {
 	s/^\d? ?([TPF]\d?)+ ?\d?$//mg;
 }
 
-# Check if we've got all parentheses wrong.
+# Check if we got all parentheses wrong
 $t1 = () = (/[^()\n]*\n?\)\n?[^()\n]+\n?\(/gm);
 $t2 = () = (/[^()\n]\n?\(\n?[^()\n]+\n?\)/gm);
 # print STDERR "got $t1 and $t2.\n";
@@ -184,9 +189,12 @@ if ($t1 > $t2) {
 	tr/([{<>}])/)]}><{[(/;
 }
 
+##### Complex corrections rules #####
+
 $_ = fix_comments($_);
 
 s/\f/␌\f\n␊\n/gm;
+s/^ *\t+ *(.+)\n(\([^()]+\))$/$2 $1/gm;
 s/^\.(\d[\d\-]*)$/$1./gm;
 s/^(\d)\n+\.\n/$1\.\n/gm;
 # s/\n([0-9]+|-)\n/ $1 /g;
@@ -194,7 +202,8 @@ s/\n(\.\.\.|[,.:;])(?!\.{3,})/$1/g;
 s/([\(\[])\n/$1/g;
 
 # Join lines, but not all
-s/([:].*)$/$1␊/gm;
+s/^(.*[:].+)$/␊$1␊/gm;
+# s/([:].*)$/␊$1␊/gm;
 s/^([א-ת]+ [א-ת0-9 ]{1,20})$/␊$1␊/gm;
 s/(?<=[א-ת'"])\n((- )?['"]?[א-ת]|[0-9][א-ת0-9, \-\[\]'"()]*␊?$)/ $1/gm;
 # s/(?<=[א-ת'"])\n((- )?[א-ת'"][א-ת0-9, \-\[\]'"()]*[:;.]?␊?|[0-9][א-ת0-9, \-\[\]'"()]*␊?)$/ $1/gm;
@@ -203,6 +212,7 @@ s/[␊␌]//g;  # But keep \f.
 
 # s/\n("?\(\D.{0,2}\))\n([^\(].*)\n(\(\d.{0,2}\))\n/\n$1 $3 $2\n/g;
 # while (s/\n(.*)\n("?\(.{1,2}\)|\*|[0-9]|[1-9].?\.)\n/\n$2 $1\n/g) {}
+
 
 # Clean HTML markups
 s/\n/ /g if (/<html>/ and /<body/);
@@ -232,7 +242,7 @@ $_ = fix_symbols($_) if (/[\x{1D400}-\x{1D7FF}]/);
 # s/^[:;]+-? *//gm;
 
 # tr/\r//d;          # Remove CR
-# tr/\t\xA0/ /;      # Tab and hardspace are whitespaces
+tr/\t\xA0/ /;      # Tab and hardspace are whitespaces
 s/^ +//mg;         # Remove redundant whitespaces
 s/ +$//mg;         # Remove redundant whitespaces
 s/ {2,}/ /g;       # Pack  long spaces
