@@ -19,8 +19,7 @@ binmode STDERR, "utf8";
 
 use constant { true => 1, false => 0 };
 
-our $id;
-our $eng_title;
+our ($id, $bill_id, $eng_title);
 
 
 sub main() {
@@ -100,7 +99,7 @@ __PACKAGE__->main() unless (caller);
 ###################################################################################################
 
 sub clean_up {
-	$id = 0;
+	$id = $bill_id = 0;
 	$eng_title = false;
 }
 
@@ -116,6 +115,7 @@ sub parse_title {
 sub parse_db_link {
 	my ($str, %attr) = parse_attr(shift);
 	$id = $attr{'מזהה'} // 0;
+	$bill_id = $attr{'תיקון'} // 0;
 	return '';
 }
 
@@ -142,6 +142,7 @@ sub parse_bib {
 	$s =~ s/\n*$//s;
 	my $str = "{{ח:פתיח-התחלה}}\n";
 	$str .= "{{ח:מאגר|$id}} " if ($id);
+	$str .= "{{ח:מאגר2|$bill_id}} " if ($id==0 && $bill_id);
 	$str .= "$s\n";
 	$str .= "{{ח:סוגר}}\n";
 	$str .= "{{ח:מפריד}}\n";
