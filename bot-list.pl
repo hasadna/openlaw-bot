@@ -13,6 +13,10 @@ use Getopt::Long;
 use IO::Handle;
 use Time::Piece;
 
+sub max ($$) { $_[$_[0] < $_[1]] }
+sub min ($$) { $_[$_[0] > $_[1]] }
+
+
 binmode STDOUT, ":utf8";
 binmode STDERR, ":utf8";
 STDOUT->autoflush(1);
@@ -84,7 +88,10 @@ if (defined $selector) {
 
 
 my $export_path = '/tmp/Export';
+my $last_file = '';
+my $cnt = 0;
 
+FILE_LOOP: 
 foreach $page (@pages) {
 	next if ($page =~ /^משתמש:/);
 	next if ($page =~ /תזכיר|הצעת תנועת החירות לחוקת יסוד למדינת ישראל/);
@@ -138,36 +145,42 @@ foreach $page (@pages) {
 		}
 		
 	} elsif ($action eq 'pdf') {
-		my ($timestamp) = $bot->recent_edit_to_page("מקור:$page");
 		my $short1 = $page;
-		$timestamp = Time::Piece->strptime($timestamp, "%Y-%m-%dT%H:%M:%SZ")->epoch;
-		$short1 =~ s/\// – /g;
-		my $page2 = $page;
+		my ($timestamp) = $bot->recent_edit_to_page("מקור:$page"); $timestamp = Time::Piece->strptime($timestamp, "%Y-%m-%dT%H:%M:%SZ")->epoch;
+		# my ($ts2) = $bot->recent_edit_to_page($page); $ts2 = Time::Piece->strptime($ts2, "%Y-%m-%dT%H:%M:%SZ")->epoch;
+		# $timestamp = min($ts2, $timestamp);
+		$short1 =~ s/–/-/g;
+		$short1 =~ s/( - |\/)/ – /g;
 		$short1 =~ s/(^.{,80}[^,_ "])[,_ ].*$/$1.../ if (length($short1)>80);
 		$short1 =~ s/"/''/g;
-		# next if (-e "$export_path/$short1.pdf");
-		my $cnt = 0;
 		my $short2 = "$short1 (0)";
-		if (-e "$export_path/$short1.pdf" || -e "$export_path/$short2.pdf") { 
-			rename("$export_path/$short1.pdf", "$export_path/$short2.pdf") unless (-e "$export_path/$short2.pdf");
-			while (-e "$export_path/$short2.pdf") {
-				$cnt++;
-				$short2 =~ s/( \([0-9]+\)|)$/" ($cnt)"/e;
-			}
+		# next if (-e "$export_path/$short1.pdf");
+		if ($short1 eq $last_file) {
+			rename("$export_path/$short1.pdf", "$export_path/$short2.pdf") if ($cnt==0 && -e "$export_path/$short1.pdf" && !(-e "$export_path/$short2.pdf"));
+			$cnt++;
+			$short2 = "$short1 ($cnt)";
 		} else {
-			$short2 = $short1;
+			$last_file = $short1;
+			$short2 = $short1 unless (-e "$export_path/$short2.pdf");
+			$cnt = 0;
+		}
+		if (-e "$export_path/$short2.pdf" && (stat("$export_path/$short2.pdf"))[7]>0 && $timestamp==(stat("$export_path/$short2.pdf"))[9]) {
+			print STDERR "Skiping \"$short2.pdf\", not modified.\n";
+			next FILE_LOOP;
 		}
 		print STDERR "Fetching \"$short2.pdf\"... ";
+		my $page2 = $page;
 		$page2 =~ s/ /%20/g;
 		$page2 =~ s/"/%22/g;
 		$page2 =~ s/\//%2F/g;
 		system("wget -q \"https://he.wikisource.org/api/rest_v1/page/pdf/$page2\" -O \"$export_path/$short2.pdf\"");
-		if (-e "$export_path/$short2.pdf") {
+		if (-e "$export_path/$short2.pdf" && (stat("$export_path/$short2.pdf"))[7]>0) {
 			utime($timestamp, $timestamp, "$export_path/$short2.pdf");
 			print STDERR "Ok.\n";
-			sleep(3);
+			sleep(1);
 		} else {
 			print STDERR "Failed to fetch file.\n";
+			unlink("$export_path/$short2.pdf") if (-e "$export_path/$short2.pdf");
 		}
 	} elsif ($action eq 'src') {
 		my ($timestamp) = $bot->recent_edit_to_page("מקור:$page");
