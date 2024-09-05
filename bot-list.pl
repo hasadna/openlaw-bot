@@ -91,62 +91,70 @@ my $export_path = '/tmp/Export';
 my $last_file = '';
 my $cnt = 0;
 
-FILE_LOOP: 
-foreach $page (@pages) {
-	next if ($page =~ /^משתמש:/);
-	next if ($page =~ /תזכיר|הצעת תנועת החירות לחוקת יסוד למדינת ישראל/);
-	# next if ($page =~ /\//);
-	
-	# print STDERR "-- $page --\n";
-	$text = $bot->get_text("מקור:$page");
-	next if (!defined $text);
-	my $org = $text;
-	
-	my ($name, $org_name, $src, $knesset_id);
-	
-	$_ = $text;
-	
-	($name) = /<שם> *(.*)/m;
-	$name = $1 if (/<שם מלא> *(.*)/m);
-	$org_name = clean_str($name);
-	$name = canonic_name($name);
-	($src) = /<מקור>[ \n]*(.*?)(?=\n[<:\@_=])/s;
-	$src = clean_str($src // '');
-	
-	if ($action eq 'list') {
-		my $knesset_id = (/<מאגר (\d++)[^>]*>/) ? $1 : 0;
-		my $page2 = s_lut($page, { ' ' => '_', '&' => '$amp;', '"' => '&quot;'});
-		if ($knesset_id) {
-			printf("%s\t%s\t%07d\n", $name, $page2, $knesset_id);
-		} else {
-			printf("%s\t%s\n", $name, $page2);
-		}
-	} elsif ($action eq 'rename') {
-		next unless (/<שם (קודם|חדש)>/);
+
+if ($action eq 'list' || $action eq 'rename') {
+	foreach $page (@pages) {
+		next if ($page =~ /^משתמש:/);
+		next if ($page =~ /תזכיר|הצעת תנועת החירות לחוקת יסוד למדינת ישראל/);
+		# next if ($page =~ /\//);
 		
-		my ($altname, $type, @fixes, $str);
-		my @table = get_makor($src);
-		if ($org_name =~ s/ \(תיקון: *([^)]*?) *\) *$//m) { push @fixes, reverse(split(/, */, $1)); }
-		while (/<שם ([^>]+)> *(.*)/mg) {
-			($type, $altname) = ($1, $2);
-			$altname = clean_str($altname);
-			next if ($type =~ /מלא|קצר/);
-			next unless ($type =~ /קודם|חדש/);
-			if ($altname =~ s/ \(תיקון: *([^)]*?) *\) *$//m) { push @fixes, reverse(split(/, */, $1)); }
-			print STDERR "fixes = @fixes\n";
-			my $fix = shift @fixes;
-			if ($fix) {
-				$str = find_makor(\@table, $fix, $altname);
-				print "$altname\t$org_name\t(תיקון: $fix)\t$str\n";
+		# print STDERR "-- $page --\n";
+		$text = $bot->get_text("מקור:$page");
+		next if (!defined $text);
+		my $org = $text;
+		
+		my ($name, $org_name, $src, $knesset_id);
+		
+		$_ = $text;
+		
+		($name) = /<שם> *(.*)/m;
+		$name = $1 if (/<שם מלא> *(.*)/m);
+		$org_name = clean_str($name);
+		$name = canonic_name($name);
+		($src) = /<מקור>[ \n]*(.*?)(?=\n[<:\@_=])/s;
+		$src = clean_str($src // '');
+		
+		if ($action eq 'list') {
+			my $knesset_id = (/<מאגר (\d++)[^>]*>/) ? $1 : 0;
+			my $page2 = s_lut($page, { ' ' => '_', '&' => '$amp;', '"' => '&quot;'});
+			if ($knesset_id) {
+				printf("%s\t%s\t%07d\n", $name, $page2, $knesset_id);
 			} else {
-				print "$altname\t$org_name\t???\t\n";
+				printf("%s\t%s\n", $name, $page2);
 			}
-			if ($altname) { $org_name = $altname; }
+		} elsif ($action eq 'rename') {
+			next unless (/<שם (קודם|חדש)>/);
+			
+			my ($altname, $type, @fixes, $str);
+			my @table = get_makor($src);
+			if ($org_name =~ s/ \(תיקון: *([^)]*?) *\) *$//m) { push @fixes, reverse(split(/, */, $1)); }
+			while (/<שם ([^>]+)> *(.*)/mg) {
+				($type, $altname) = ($1, $2);
+				$altname = clean_str($altname);
+				next if ($type =~ /מלא|קצר/);
+				next unless ($type =~ /קודם|חדש/);
+				if ($altname =~ s/ \(תיקון: *([^)]*?) *\) *$//m) { push @fixes, reverse(split(/, */, $1)); }
+				print STDERR "fixes = @fixes\n";
+				my $fix = shift @fixes;
+				if ($fix) {
+					$str = find_makor(\@table, $fix, $altname);
+					print "$altname\t$org_name\t(תיקון: $fix)\t$str\n";
+				} else {
+					print "$altname\t$org_name\t???\t\n";
+				}
+				if ($altname) { $org_name = $altname; }
+			}
 		}
-		
-	} elsif ($action eq 'pdf') {
+	}
+} elsif ($action eq 'pdf') {
+FILE_LOOP: 
+	foreach $page (@pages) {
+		next if ($page =~ /^משתמש:/);
+		next if ($page =~ /תזכיר|הצעת תנועת החירות לחוקת יסוד למדינת ישראל/);
 		my $short1 = $page;
-		my ($timestamp) = $bot->recent_edit_to_page("מקור:$page"); $timestamp = Time::Piece->strptime($timestamp, "%Y-%m-%dT%H:%M:%SZ")->epoch;
+		my ($timestamp) = $bot->recent_edit_to_page("מקור:$page"); 
+		($timestamp) = $bot->recent_edit_to_page($page) unless ($timestamp);
+		$timestamp = Time::Piece->strptime($timestamp, "%Y-%m-%dT%H:%M:%SZ")->epoch;
 		# my ($ts2) = $bot->recent_edit_to_page($page); $ts2 = Time::Piece->strptime($ts2, "%Y-%m-%dT%H:%M:%SZ")->epoch;
 		# $timestamp = min($ts2, $timestamp);
 		$short1 =~ s/–/-/g;
@@ -176,13 +184,18 @@ foreach $page (@pages) {
 		system("wget -q \"https://he.wikisource.org/api/rest_v1/page/pdf/$page2\" -O \"$export_path/$short2.pdf\"");
 		if (-e "$export_path/$short2.pdf" && (stat("$export_path/$short2.pdf"))[7]>0) {
 			utime($timestamp, $timestamp, "$export_path/$short2.pdf");
+			system("cp -p \"$export_path/$short2.pdf\" $export_path/New/");
 			print STDERR "Ok.\n";
 			sleep(1);
 		} else {
 			print STDERR "Failed to fetch file.\n";
 			unlink("$export_path/$short2.pdf") if (-e "$export_path/$short2.pdf");
 		}
-	} elsif ($action eq 'src') {
+	} 
+} elsif ($action eq 'src') {
+	foreach $page (@pages) {
+		next if ($page =~ /^משתמש:/);
+		next if ($page =~ /תזכיר|הצעת תנועת החירות לחוקת יסוד למדינת ישראל/);
 		my ($timestamp) = $bot->recent_edit_to_page("מקור:$page");
 		my $short1 = $page;
 		$timestamp = Time::Piece->strptime($timestamp, "%Y-%m-%dT%H:%M:%SZ")->epoch;
@@ -214,8 +227,6 @@ foreach $page (@pages) {
 }
 
 exit 0;
-
-1;
 
 sub load_credentials {
 	my %obj;
