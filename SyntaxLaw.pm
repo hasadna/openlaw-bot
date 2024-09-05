@@ -12,8 +12,10 @@ use v5.14;
 no if ($]>=5.018), warnings => 'experimental';
 use strict;
 no strict 'refs';
-use English;
+no warnings 'misc::replacement_list_length';
 use utf8;
+use English;
+use Encode;
 # use Roman;
 use Time::HiRes 'time';
 use Getopt::Long;
@@ -102,11 +104,6 @@ sub convert {
 		# Throw away BIDI characters if LRE/RLE/PDF exists
 		tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 	}
-	
-	# # Replace subscript/superscript numerals
-	# s/(?<![0-9₀-₉\/\⁄])([₀-₉]+)(?![0-9₀-₉])/'<sub>' . $1=~tr|₀-₉|0-9|r . '<\/sub>'/ge;
-	# s/(?<![0-9⁰¹²³⁴-⁹])([⁰¹²³⁴-⁹]+)(?![0-9⁰¹²³⁴-⁹\/\⁄])/'<sup>' . $1=~tr|⁰¹²³⁴-⁹|0-9|r . '<\/sup>'/ge;
-	# s/<sup>([0-9]+)<\/sup>[\/\⁄]<sub>([0-9]+)<\/sub>/$1=~tr|0-9|⁰¹²³⁴-⁹|r . '⁄' . $2=~tr|0-9|₀-₉|r/ge;
 	
 	# Replace vulgar fractions
 	s/([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒↉])(\d+)/$2$1/g;
@@ -274,6 +271,9 @@ sub convert {
 	s/(\*{2,})/<span style="letter-spacing: -2pt; padding-inline-end: 2pt;">$1<\/span>/g;
 	# LTR wrapper for "300.-" and similar
 	s/ (?|[-–]\.([0-9]+)|\x{200E}([0-9]+)\.[-–]\x{200E}) / <span dir="ltr">$1.-<\/span> /g;
+	
+	# This syntax will be used to link booklets, but not supported yet.
+	s/(\d+) \[(\d{4,5})\]/$1/g;
 	
 	if ($do_expand) {
 		# Replace "=" within templates with {{=}}
@@ -526,7 +526,7 @@ sub parse_signatures {
 		if (/\|/) {}
 		elsif (/,/) { tr/,/|/; }
 		elsif (s/ +(?=ה?(שר[הת]?|נשיאת?|ראש|יושבת?[\-־ ]ראש)\b)/\|/) {}
-		else { s/^([א-ת\-–־]{2,} (?:[א-ת]]['.] |\([א-ת\-–־]{2,}\) |)[א-ת\-–־]{2,}) (.*)$/$1 | $2/; }
+		else { s/^([א-ת\-–־"״]{2,} (?:[א-ת]]['.] |\([א-ת\-–־]{2,}\) |)[א-ת\-–־"״]{2,}) (.*)$/$1 | $2/; }
 		# s/((?:אני )?[א-ת]+\.) *\|? */$1|/;
 		s/ *\| */ | /g;
 		$str .= "* $_\n";
@@ -1708,7 +1708,9 @@ sub find_reshumot_href {
 	$url = "https://fs.knesset.gov.il/$2/law/$2_ls$1_$3.pdf" if ($url =~ /^(?:ls|)([a-z]+):(\d+):(\d+)$/);
 	$url = "https://fs.knesset.gov.il/$2/law/$2_$1_$3.pdf" if ($url =~ /^([a-z]+_[a-z]+):(\d+):(\d+)$/);
 	$url = "https://supremedecisions.court.gov.il/Home/Download?path=HebrewVerdicts/$1/$3/$2/$4&fileName=$1$2$3_$4.pdf&type=4" if ($url =~ /^(\d\d)(\d\d\d)(\d\d\d)[_.]([a-zA-Z]\d\d)$/);
-	$url = "https://www.gov.il/he/departments/policies/$url" if ($url =~ /^(\d{4}[\-_]?de[sc]\d+|dec\d+[\-_]\d{4})$/);
+	$url = "https://www.gov.il/he/pages/$1" if ($url =~ /^(?|(\d{4}[\-_]?de[sc]\d+|dec\d+[\-_]\d{4}))$/);
+	$url = "https://www.gov.il/he/pages/$1" if ($url =~ /^(?:page:|des__)(.*)$/);
+	$url = "https://www.gov.il/he/service/$1" if ($url =~ /^service:(.*)$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1_$2.pdf" if ($url =~ /^(\d+)_(\d+)$/);
 	# $url = "http://knesset.gov.il/laws/data/law/$1/$1.pdf" if ($url =~ /^(\d{4})$/);
 	return $url;
