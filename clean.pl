@@ -110,12 +110,13 @@ if (/[$LRE$RLE$PDF]/) {
 	# s/^(.*?$RLE.*?$PDF.*)$/$LRE$1$PDF/gm;
 	s/([$LRE$RLE](?:[^$LRE$RLE$PDF]*|(?0))*$PDF)/&pop_embedded($1)/ge;
 	# Use internal seperators for very long words
-	s/([א-ת␀,\-.;:]{20,})/ $1 =~ tr|␀| |r /ge;
+	# s/([א-ת\-.,;:'"␀]{10,})/ $1 =~ tr|␀| |r /ge;
+	s/([^ ␀\n]{2,}␀[^ \n]{5,}[א-ת]{2,})/ $1 =~ s\␀|(?<=[א-ת])(?=[^␀ א-ת])|(?<=[^␀ א-ת])(?=[א-ת])\ \gr /ge;
 	tr/␀//d;
 }
 
 # Throw away remaining BIDI characters
-tr/␀\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
+tr/\x{200E}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}//d;
 # Join seperated lines with ␡ marker
 while (s/^(.*)\n␡\n(\(\S+\)|\d\S*\.|\d+)$/$2 $1/gm) {}
 s/\n␡\n/ /g;
@@ -123,13 +124,15 @@ s/\n␡\n/ /g;
 ##### Characters-level corrections #####
 
 # Keep ndash between hebrew words if not all words are seperated with ndash
-s/(?<=[א-ת])–(?=[א-ת])/&ndash;/g if /[א-ת][\־\-][א-ת]/;
+# s/(?<=[א-ת])–(?=[א-ת])/&ndash;/g if /[א-ת][\־\-][א-ת]/;
 
 # General cleanup
 s/ ?\t\n/\n␡\n/g;             # This LF will be later removed
 s/(\n\r|\r\n|\r)/\n/g;        # Remove CR
+tr/\x07\x08\x7F//d;           # Remove BELL, BS and DEL
+tr/\x11/\t/;                  # VT is Tab
 tr/\xA0\x{2000}-\x{200A}\x{202F}\x{205F}\x{2060}/ /; # Typographic spaces
-tr/\x{200B}-\x{200D}//d;      # Zero-width spaces
+tr/\x{200B}-\x{200D}//d;      # Zero-width spaces and ZWJ
 tr/־–—‒―/-/;                  # Convert typographic dashes
 tr/‑/–/;
 # s/(?<![א-ת\x{05B0}-\x{05BD}])\x{05BF}/-/g; # Rafe (U+05BF) misused as dash
@@ -144,7 +147,7 @@ tr/¸/,/;                      # Convert Cedilla used for comma
 tr/\x{F0A8}\x{F063}/□/;       # White square (special font)
 tr/º/°/;                      # ordinal indicatior meant to be degree sign
 s/…/.../g;
-tr/\x{FEFF}\x{FFFC}-\x{FFFF}//d;    # Unicode placeholders and junk
+s/()(?:(\n)|)[\x{FEFF}\x{FFFC}-\x{FFFF}](?:(\n)|)/$+/g;    # Unicode placeholders and junk
 tr/\x{F000}-\x{F031}\x{F07F}/□/;      # Replacement font codes, cannot recover without OCR.
 
 # Hebrew ligatures and alternative forms
@@ -189,30 +192,6 @@ if ($t1 > $t2) {
 	tr/([{<>}])/)]}><{[(/;
 }
 
-##### Complex corrections rules #####
-
-$_ = fix_comments($_);
-
-s/\f/␌\f\n␊\n/gm;
-s/^ *\t+ *(.+)\n(\([^()]+\))$/$2 $1/gm;
-s/^\.(\d[\d\-]*)$/$1./gm;
-s/^(\d)\n+\.\n/$1\.\n/gm;
-# s/\n([0-9]+|-)\n/ $1 /g;
-s/\n(\.\.\.|[,.:;])(?!\.{3,})/$1/g;
-s/([\(\[])\n/$1/g;
-
-# Join lines, but not all
-s/^(.*[:].+)$/␊$1␊/gm;
-# s/([:].*)$/␊$1␊/gm;
-s/^([א-ת]+ [א-ת0-9 ]{1,20})$/␊$1␊/gm;
-s/(?<=[א-ת'"])\n((- )?['"]?[א-ת]|[0-9][א-ת0-9, \-\[\]'"()]*␊?$)/ $1/gm;
-# s/(?<=[א-ת'"])\n((- )?[א-ת'"][א-ת0-9, \-\[\]'"()]*[:;.]?␊?|[0-9][א-ת0-9, \-\[\]'"()]*␊?)$/ $1/gm;
-# s/(?<=[א-ת0-9'"])\n([א-ת'"][א-ת0-9, \-\[\]'"()]*[;.]?|[0-9][א-ת0-9, \-\[\]'"()]*)$/ $1/gm;
-s/[␊␌]//g;  # But keep \f.
-
-# s/\n("?\(\D.{0,2}\))\n([^\(].*)\n(\(\d.{0,2}\))\n/\n$1 $3 $2\n/g;
-# while (s/\n(.*)\n("?\(.{1,2}\)|\*|[0-9]|[1-9].?\.)\n/\n$2 $1\n/g) {}
-
 
 # Clean HTML markups
 s/\n/ /g if (/<html>/ and /<body/);
@@ -223,6 +202,53 @@ s/<\/(div|td|p|tr|th).*?>/\n/gi; # Block elements
 # s/<\/(p|tr|th).*?>/\n\n/gi; # Block elements
 s/<\/?(?:".*?"|'.*?'|[^'">]*+)*>//g;
 $_ = unescape_text($_);
+
+if ($raw) { 
+	s/[␀␡]//g;
+	print $_; exit 0; 
+}
+
+##### Complex corrections rules #####
+
+$_ = fix_footnotes($_);
+
+s/\f/␌\f\n␊\n/gm;
+s/^ *\t+ *(.+)\n(\([^()]+\))$/$2 $1/gm;
+s/^\.(\d[\d\-]*)$/$1./gm;
+s/^(\d[0-9א-ת]*)\n+\.\n/$1\.\n/gm;
+# s/\n([0-9]+|-)\n/ $1 /g;
+
+
+# Join lines, but not all
+# - Don't join lines ending with dot, colon etc.
+# - Don't join short lines with colon which may be section title.
+s/^ +/␊/gm;
+s/^(\.\.\.|[,.:;])(?!\.{3,})/␡$1/gm;
+s/([\(\[])$/$1␡/gm;
+s/^(\(.+ .+\))$/␊$1␊/gm;
+s/([.:;0-9])$/$1␊/gm;
+s/^(_+)/␊$1/gm;
+s/^(.*[:].*[א-ת].*?)␊?$/␊$1␊/gm;
+s/^(")\n([^"\n]+)\n(")$/␊$1$2$3/gm;
+s/^("[^"\n]+)\n(")$/$1$2/gm;
+s/^([0-9][0-9א-ת]*\.)␊?/␡␡ $1␊/gm;
+s/^(-|[()0-9.,]+[;,]?|[א-ת "]+)(?=␊?$)/␡ $1 ␡/gm;
+s/([א-ת][0-9,\- ']*\n)((- )?[א-ת]|[0-9][א-ת0-9, \-\[\]'"()]*␊?$)/$1␡ $2/gm;
+
+s/ ␡\n␊?␡(?! )|(?<![ ␡])\n␡//g;
+s/( ␡\n␡ | ␡\n|\n␡ )/ /g;
+s/ *(␊ *\n?)+/␊\n/gm;
+s/^([^\n␊]+[^.:;\n␊])(?:␊\n|)␡ *([^\n␊]*)(␊?)$/$2 $1$3/gm;   # ␡␡ is a special mark when concatenating article numerals
+s/␡//g;
+
+# # Don't join short lines without puncuation marks
+# s/^([א-ת]+ [א-ת0-9 ]{1,20})$/␊$1␊/gm;
+
+# s/(?<=[א-ת'])\n((- )?['"]?[א-ת]|[0-9][א-ת0-9, \-\[\]'"()]*␊?$)/ $1/gm;
+# s/(?<=[א-ת'"])\n((- )?[א-ת'"][א-ת0-9, \-\[\]'"()]*[:;.]?␊?|[0-9][א-ת0-9, \-\[\]'"()]*␊?)$/ $1/gm;
+# s/(?<=[א-ת0-9'"])\n([א-ת'"][א-ת0-9, \-\[\]'"()]*[;.]?|[0-9][א-ת0-9, \-\[\]'"()]*)$/ $1/gm;
+s/[␊␌]//g;  # But keep \f.
+
 
 # Replace vulgar fractions
 s/([½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒↉])(\d+)/$2$1/g;
@@ -236,12 +262,14 @@ $_ = s_lut($_, {
 # Replcace Mathematical Alphanumeric Symbols (and create <b/i/tt> tags if nessesary)
 $_ = fix_symbols($_) if (/[\x{1D400}-\x{1D7FF}]/);
 
+# Escape control characters if found in the PDF stream...
+tr/\x00-\x08\x0b\x0d-\x1F\x7F/␀-␉␋␍-␟␡/;
+
 # [Don't] Clean WIKI markups
 # s/'''//g;
 # s/^ *=+ *(.*?) *=+ *$/$1/gm;
 # s/^[:;]+-? *//gm;
 
-# tr/\r//d;          # Remove CR
 tr/\t\xA0/ /;      # Tab and hardspace are whitespaces
 s/^ +//mg;         # Remove redundant whitespaces
 s/ +$//mg;         # Remove redundant whitespaces
@@ -257,7 +285,8 @@ s/(?<=\S) (\.\.\.|[,.:;])(?!\.{3,})/$1/g;  # Remove redundant whitespaces
 s/(?<!')''(?!')/"/g;
 s/("[א-ת])(\d{4})[-]/$1-$2/g;
 s/^[.](\d.*?) +/$1. /gm;
-s/(\S[([\-]) /$1/gm;
+s/^(\d.*?)\n\.\n/$1. /gm;
+s/([א-ת0-9A-z:][([\-]) /$1/gm;
 s/(?<=[א-ת]\b)( -| -)(?=[0-9])/-/g;
 s/(?<=[\(\[]) //g;
 s/ (?=[\)\]])//g;
@@ -311,16 +340,16 @@ sub pop_embedded {
 	if (/^([$LRE$RLE])(.*)[$PDF]$/) {
 		$type .= $1; $_ = $2;
 		s/(?<=[$PDF])(?=[$LRE$RLE])/␀/g;
-		dump_stderr("pop_embedded: got |$_|\n");
+		# dump_stderr("pop_embedded: got |$_|\n");
 		my @arr = (m/([^$LRE$RLE$PDF]+|[$LRE$RLE](?0)*[$PDF])/g);
 		if ($type eq "$LRE" && scalar(@arr)>1) {
 			# dump_stderr("pop_embedded: |" . join('|',@arr) . "|\n") if ($#arr>0);
 			# s/^([^$LRE$RLE$PDF]+)$/$LRE$1$PDF/ for @arr;
 		}
-		dump_stderr("pop_embedded: ($type) |" . join('|',@arr) . "|\n") if ($#arr>0);
+		# dump_stderr("pop_embedded: ($type) |" . join('|',@arr) . "|\n") if ($#arr>0);
 		@arr = map { pop_embedded($_,$type) } @arr;
 		@arr = reverse(@arr) if ($type eq "$LRE");  # [LRE]$_[PDF]
-		dump_stderr("pop_embedded: ret |" . join('|',@arr) . "|\n") if ($#arr>0);
+		# dump_stderr("pop_embedded: ret |" . join('|',@arr) . "|\n") if ($#arr>0);
 		return join('',@arr);
 	} 
 	if ($type =~ /$RLE/) {        # within RLE block
@@ -382,17 +411,17 @@ sub fix_symbols {
 }
 
 
-# fix_comments: Change order of lines in case of incorrect break due to numeric comment reference.
-sub fix_comments {
+# fix_footnotes: Change order of lines in case of incorrect break due to numeric comment reference.
+sub fix_footnotes {
 	my $text = shift;
 	# Check if comments fix is required.
 	my ($t1, $t2);
-	$t1 = () = ($text =~ /\d{4}␊?\n\d{1,2}[;,]/gm);
-	$t2 = () = ($text =~ /^\d{1,2}[;,].*\n.*\d{4}/gm);
-	print STDERR "fix_comments, before: $t1 correct, $t2 incorrect\n" if ($debug);
-	if ($t1>=$t2) { return $text; }
-	my ($cnt, $p_cnt1, $p_cnt2, $restart);
-	$cnt = $p_cnt1 = $p_cnt2 = 1; $restart = true;
+	$t1 = () = ($text =~ /\d{4}[ ␊\n]+\d{1,2}\)?[;,.]/gm);
+	$t2 = () = ($text =~ /^\d{1,2}\)?[;,.].*[␊\n]+.*\d{4}/gm);
+	print STDERR "fix_footnotes, before: $t1 correct, $t2 incorrect\n" if ($debug);
+	if ($t1>$t2) { return $text; }
+	my ($cnt, $p_cnt1, $p_cnt2, $restart, $flex);
+	$cnt = $p_cnt1 = $p_cnt2 = 1; $restart = true; $flex = 1;
 	my @lines = split(/\n/, $text);
 	for (my $i = 0; $i < scalar(@lines)-1; $i++) {
 		local $_ = $lines[$i];
@@ -402,20 +431,28 @@ sub fix_comments {
 			$cnt = max($p_cnt1, $cnt);
 			next;
 		}
-		/^([0-9]+)(?|([;,. ]).*|())$/ || next;
-		my ($n, $t) = (scalar($1), $2);
-		next if /^\d+ (ס"ח|ק"ת|י"פ) /;
-		next if ($t =~ /^[. ]?$/ && $lines[$i+1] !~ /\d{4}$/);
-		next unless ($n==$cnt || $n==$cnt+1 || ($restart && $n < 2) || $n==$p_cnt2);
-		print STDERR "fix_comments: replacing |${lines[$i]}| and |${lines[$i+1]}|\n" if ($debug);
-		$cnt = $n; $restart = false;
-		($lines[$i], $lines[$i+1]) = ($lines[$i+1].'␊', $lines[$i].'␊');
+		/^([0-9]+)(?|(\)?[;,. ])(.*)|()())$/ || next;
+		my ($n, $s, $t) = (scalar($1), $2, $3);
+		next if (/^\d+\.? (ס"ח|ק"ת|י"פ)|^\d+[,.]\d+/);
+		if ($n>9999 && $lines[$i+1] =~ /, ה?תש.?".-$/) {
+			$n =~ /^(\d{4})(\d+)$/;
+			$n = scalar($2);
+			$flex = min($flex+1, 2);
+		}
+		elsif ($s =~ /^[. ]?$/ && $lines[$i+1] !~ /\d{4} *$/) {
+			$flex = min($flex+1, 2);
+			next;
+		}
+		next unless (($n>=$cnt && $n<=$cnt+$flex) || ($restart && $n < 2) || $n==$p_cnt2);
+		print STDERR "fix_footnotes: replacing |${lines[$i]}| and |${lines[$i+1]}|\n" if ($debug);
+		$cnt = $n; $restart = false; $flex = 1;
+		($lines[$i], $lines[$i+1]) = ("$lines[$i+1]␊", "<!-- (footnote) --> $lines[$i]␊");
 		$i++; $cnt++;
 	}
 	$text = join("\n", @lines);
-	$t1 = () = ($text =~ /\d{4}␊?\n\d{1,2}[;,]/gm);
-	$t2 = () = ($text =~ /^\d{1,2}[;,].*\n.*\d{4}/gm);
-	print STDERR "fix_comments, after: $t1 correct, $t2 incorrect\n" if ($debug);
+	$t1 = () = ($text =~ /\d{4}[ ␊\n]+(<!--.*?--> *|)\d{1,2}\)?[;,.]/gm);
+	$t2 = () = ($text =~ /^\d{1,2}\)?[;,.].*[␊\n]+.*\d{4}/gm);
+	print STDERR "fix_footnotes, after: $t1 correct, $t2 incorrect\n" if ($debug);
 	return $text;
 }
 
