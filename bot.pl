@@ -10,6 +10,7 @@ use POSIX 'strftime';
 use Data::Dumper;
 use MediaWiki::Bot;
 use Getopt::Long;
+use IO::Socket::INET;
 
 use FindBin 1.51 qw( $RealBin );
 use lib $RealBin;
@@ -63,6 +64,11 @@ my $host = ( $credentials{host} || 'he.wikisource.org' );
 print "MediaWiki::API version is ", (MediaWiki::API->VERSION // "[Unavailable]"), "\n" if ($verbose);
 print "MediaWiki::Bot version is ", (MediaWiki::Bot->VERSION // "[Unavailable]"), "\n" if ($verbose);
 print "MediaWiki::Bot::Plugin::Admin version is ", (MediaWiki::Bot::Plugin::Admin->VERSION // "[Unavailable]"), "\n" if ($verbose);
+
+if (!check_connectivity()) {
+	print "Connection failed, aborting.\n";
+	exit -1;
+}
 
 print "HOST $host USER $credentials{username}\n";
 my $bot = MediaWiki::Bot->new({
@@ -393,6 +399,11 @@ sub process_law {
 	my $len1 = length($bot->get_text($page_dst) // '');
 	my $len2 = length($text);
 	
+#	if ($len>=2097152) {
+#		print "FAILED! Document exceeding article limit.\n";
+#		return "x בעיה בהמרה";
+#	}
+	
 	# print "Length changed from $len1 to $len2.\n";
 	$updated_pages{$page_dst} = '' if (((abs($len1-$len2)>2000) || ($comment =~ /תיקון|תיקונים/)) && !$minor) || ($new);
 	
@@ -494,7 +505,8 @@ sub auto_correct {
 	s/\=\n+@\n/=\n/g;
 	s/(חא"י),? (כרך [אב]'),? (פרק [א-ת"']+),? (עמ' )?/$1 $2 $3, עמ' /;
 	s/(19\d\d) (תוס' [12])/$1, $2/g;
-	s/ ([א-ת])(\[\[)/ $2$1/g;
+	s/\[\[ / \[\[/g;
+	s/ ([א-ת]{1,2}-?)(\[\[(?:[^\[\]\|\/:]+\||)[^\|]+\]\])/ $2$1/g;
 	s/;(?=\n\n+@)/./g;
 	s/^(:+-?)(?=[^ \n])/$1 /g;
 	s/(@ [^:]* \(תיקון) (.*\))/$1: $2/g;
@@ -510,17 +522,18 @@ sub auto_correct {
 	s/^(:+)([^\n]*)\n(?=[א-ת])/$1$2 /gm;
 	s/^(:+)([^\n]*\n)(?=\()/$1$2$1 /gm;
 	s/\n\|\|-\n */|-\n| /g;
-	s/\[\[([^\[\]]+)\[\[/[[$1]]/g;
+	s/\[\[([^\[\]]+)(?:\[\[|פפ(?![א-ת]))/[[$1]]/g;
 	s/^(:+ \([^ ()]+\)) (\([^ ()]+\))/$1$2/gm;
 	s/^(:+ (?:\([0-9א-ת]+\))+)([א-ת])/$1 $2/gm;
 	s/^(:+ [0-9]+\.)([א-ת]{2,})/$1 $2/gm;
 	s/^(:+)([^\n]+)\n"/$1$2\n$1- "/gm;
 	s/^(:+-) ([א-ת ]+" )/$1 "$2/gm;
 	s/^(:+-?) (:+-?) /$1 /gm;
+	s/^(@ [0-9][^ .)]*) /$1. /gm;
 	
 	s/^\|- *\n\|? +: +([0-9]+)\. /|- <עוגן פרט $1>\n| : $1. /gm;
 	
-	s/(?<=^|\n)(<מקור>([\n ]*).*?)\n+----+\n+(?=[^=<_:@])/$1\n\n<מבוא>$2/s;
+	s/(<מקור>([\n ]*).*?)\n+----+\n+(?=[^=<_:@])/$1\n\n<מבוא>$2/s;
 	
 	return $_;
 }
@@ -742,4 +755,21 @@ Optional flags:
   -a, --all             Check all pages
 EOP
 	exit 0;
+}
+
+
+sub check_connectivity {
+    my $socket = IO::Socket::INET->new(
+        PeerAddr => '8.8.8.8',
+        PeerPort => 53,
+        Proto    => 'udp',
+        Timeout  => 2,
+    );
+
+    if ($socket) {
+        close($socket);
+        return 1;
+    } else {
+        return 0;
+    }
 }
