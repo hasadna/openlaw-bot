@@ -12,7 +12,7 @@ use v5.14;
 no if ($]>=5.018), warnings => 'experimental';
 use strict;
 no strict 'refs';
-no warnings 'misc::replacement_list_length';
+# no warnings 'misc::replacement_list_length';
 use utf8;
 use English;
 use Encode;
