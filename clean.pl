@@ -3,9 +3,9 @@
 no if $] >= 5.018, warnings => 'experimental';
 use strict;
 no strict 'refs';
+no warnings 'misc';
 use English;
 use utf8;
-no warnings 'misc';
 
 use Data::Dumper;
 use Getopt::Long;
@@ -74,7 +74,13 @@ if (/\x{F8FF}/ and /\xD3/) { # Fix f*cked-up macos encoding
 	tr/\x{F8FF}/נ/;
 }
 
-if (/[\xE0-\xFA]{5,}/) { # Convert Windows-1255 codepage
+# Check if incorrect CP-862 encoded as CP-850
+if (/[ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ]{5,}/) {
+	tr/ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ/א-ת/;
+}
+
+# Check if Windows-1255 codepage
+if (/[\xE0-\xFA]{5,}/) { 
 	# Convert Windows-1255 to Unicode
 	tr/\xE0-\xFA/א-ת/;
 	tr/\xC0-\xCF/\x{05B0}-\x{05BF}/;
@@ -231,7 +237,7 @@ s/^(_+)/␊$1/gm;
 s/^(.*[:].*[א-ת].*?)␊?$/␊$1␊/gm;
 s/^(")\n([^"\n]+)\n(")$/␊$1$2$3/gm;
 s/^("[^"\n]+)\n(")$/$1$2/gm;
-s/^([0-9][0-9א-ת]*\.)␊?/␡␡ $1␊/gm;
+s/^([0-9][0-9א-ת]*\.)␊?(?=\n)/␡␡ $1␊/gm;
 s/^(-|[()0-9.,]+[;,]?|[א-ת "]+)(?=␊?$)/␡ $1 ␡/gm;
 s/([א-ת][0-9,\- ']*\n)((- )?[א-ת]|[0-9][א-ת0-9, \-\[\]'"()]*␊?$)/$1␡ $2/gm;
 
