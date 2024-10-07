@@ -425,12 +425,21 @@ sub process_law {
 	# $new_pages{$page_dst} = $lawid if ($new && $page_dst =~ /^(חוק|פקודת)/);
 	
 	# Check all possible redirections
-	if ($recent) {
+	if ($recent || $interactive) {
 		$text = "#הפניה [[$page_dst]]";
 		my @redirects = possible_redirects($page_dst, $src_text =~ /^<שם[^>\n]*> *(.*?) *$/gm);
 		foreach $page (@redirects) {
 			next if ($page eq $page_dst);
-			unless ($dryrun || $bot->get_id($page)) { $bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1}); }
+			unless ($dryrun || $bot->get_id($page)) {
+				$bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1});
+				my @redirects2 = $bot->what_links_here($page, 'redirects');
+				@redirects2 = map { $_->{title} } @redirects2;
+				# my @redirects = possible_redirects($src, $dst);
+				foreach my $page2 (@redirects2) {
+					next if ($page2 eq $page_dst);
+					$bot->edit({page => $page2, text => $text, summary => "הפניה", minor => 1});
+				}
+			}
 		}
 	}
 	
@@ -717,6 +726,7 @@ sub canonic_name {
 	tr/\x{05B0}-\x{05BD}//d;
 	s/ - / – /g;
 	s/^ *(.*?) *$/$1/;
+	s/\(\((.*?)\)\)/$1/g;
 	s/ {2,}/ /g;
 	return $_;
 }

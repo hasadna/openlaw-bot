@@ -74,7 +74,7 @@ if (/\x{F8FF}/ and /\xD3/) { # Fix f*cked-up macos encoding
 	tr/\x{F8FF}/נ/;
 }
 
-# Check if incorrect CP-862 encoded as CP-850
+# Check if CP-862 encoded as CP-850
 if (/[ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ]{5,}/) {
 	tr/ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ/א-ת/;
 }

@@ -132,7 +132,7 @@ sub convert {
 	s/($HE['׳]?(?:\(\()?)–(?=(?:\)\))?$HE|\d)/$1--/g; # Keep en-dash between Hebrew words
 	s/(\d$HE*)–(?=\d)/$1--/g; # Keep en-dash between numerals
 	
-	tr/\x{FEFF}//d;     # Unicode marker
+	tr/\x{FEFF}\x{FFFE}//d;     # Unicode marker
 	tr/\x{2000}-\x{200A}\x{202F}\x{205F}\x{2060}/ /; # Typographic spaces
 	tr/\x{200B}-\x{200D}\xAD//d;       # Remove zero-width spaces and soft-hyphen
 	tr/־–—‒―/-/;        # typographic dashes
@@ -178,8 +178,8 @@ sub convert {
 	
 	# [---] as span float left
 	unless ($div_table) {
-		s/ \[(?:—|-{2,4})\] *([^\n]*) *$/ <span style="float: left;">$1<\/span><div style="clear: left;"><\/div>/gm;
-		s/ \[(?:—|-{2,4})\] *([^\n]*) *$/ <span style="float: left;">$1<\/span><div style="clear: left;"><\/div>/gm;
+		s/ \[(?:—|-{2,4})\] *([^\n]*?) *$/ <span style="float: left;">$1<\/span><div style="clear: left;"><\/div>/gm;
+		s/ \[(?:—|-{2,4})\] *([^\n]*?) *$/ <span style="float: left;">$1<\/span><div style="clear: left;"><\/div>/gm;
 		s/ \[(?:—|-{2,4})\] */ /gm;
 	}
 	
@@ -240,6 +240,7 @@ sub convert {
 	s/(?<!\[)\[\[((?:(?!\]\]|\[\[).)*)\]\](\]?)/&parse_link('',"$1$2")/egm;
 	# s/(?<!\()(\(\(([^\n]*?)\)\)([^(\n]*?\)\))?)(?!\))/&parse_remark($1)/egs;
 	s/(?<!\()(\(\(([^()\n]++|(?R)|[()])*?\)\)([^(\n]*?\)\))?)(?!\))/&parse_remark($1)/egs;
+	s/␡(\{\{ריק\}\}|<nowiki\/>|<nowiki><\/nowiki>)|(\{\{ריק\}\}|<nowiki\/>|<nowiki><\/nowiki>)␡//g; s/␡//g;
 	
 	# Parse file linearly, constructing all ankors and links
 	$_ = linear_parser($_);
@@ -500,15 +501,15 @@ sub parse_remark {
 	if ($tip) {
 		$tip =~ s/^ *(.*?) *$/$1/;
 		$tip = escape_quote($tip);
-		$str = "<תיבה טקסט=\"$tip\"";
+		$str = "␡<תיבה טקסט=\"$tip\"";
 		if ($url) {
 			$url = '' if ($url =~ /^\d+[אב]?(_\d+)?$/);
 			$url = find_reshumot_href($url);
 			$str .= " קישור=\"$url\"";
 		}
-		$str .= ">$text</תיבה>";
+		$str .= ">␡$text␡</תיבה>␡";
 	} else {
-		$str = "<הערה>$text</הערה>";
+		$str = "␡<הערה>␡$text␡</הערה>␡";
 	}
 	return $str;
 }
@@ -526,7 +527,7 @@ sub parse_signatures {
 		s/^\*? *(.*?) *$/$1/;
 		if (/\|/) {}
 		elsif (/,/) { tr/,/|/; }
-		elsif (s/ +(?=ה?(שר[הת]?|נשיאת?|ראש|יושבת?[\-־ ]ראש|נציבת?)\b)/\|/) {}
+		elsif (s/ +(?=ה?(שר[הת]?|נשיאת?|ראש|יושבת?[\-־ ]ראש|נציבת?|מנהלת?)\b)/\|/) {}
 		else { s/^([א-ת\-–־"״]{2,} (?:[א-ת]]['.] |\([א-ת\-–־]{2,}\) |)[א-ת\-–־"״]{2,}) ([^ ]+ +.+)$/$1 | $2/; }
 		s/ *\| */ | /g;
 		$str .= "* $_\n";

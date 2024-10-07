@@ -47,7 +47,7 @@ sub convert {
 	local $_ = shift;
 	clean_up();
 	
-	s/^ *(.*?) *$/$1/g;
+	s/^ *(.*?) *$/$1/gm;
 	
 	s/(<שם>.*<\/שם>)\n?/&parse_title($1)/se;
 	s/(<מאגר.*?\/>)\n+/&parse_db_link($1)/se;
@@ -186,6 +186,7 @@ sub parse_signatures {
 		my $prefix = ''; my $prefix_cnt = 0;
 		$prefix .= "<".(++$prefix_cnt*10).">$&" while ($line =~ s/^((אני )?[א-ת]+[.,]?|בפקודת .*?)(␊|$)//);
 		$line =~ s/^(.*?)(?=␊|$)/'''$1'''/;
+		$line =~ s/^''''''␊|␊$//;
 		if ($prefix) {
 			$prefix =~ s/<([0-9]+)>([^␊]*)(␊|$)/<span style="float: inline-start; font-size: smaller; margin-inline-start: $1px; text-align: start;">$2<\/span>/g;
 			$line = "$prefix <br clear=\"all\"> $line";
