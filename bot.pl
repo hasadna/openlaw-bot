@@ -425,20 +425,27 @@ sub process_law {
 	# $new_pages{$page_dst} = $lawid if ($new && $page_dst =~ /^(חוק|פקודת)/);
 	
 	# Check all possible redirections
-	if ($recent || $interactive) {
+	if (($recent || $interactive) && !$dryrun) {
 		$text = "#הפניה [[$page_dst]]";
 		my @redirects = possible_redirects($page_dst, $src_text =~ /^<שם[^>\n]*> *(.*?) *$/gm);
 		foreach $page (@redirects) {
 			next if ($page eq $page_dst);
-			unless ($dryrun || $bot->get_id($page)) {
+			unless ($bot->get_id($page)) {
 				$bot->edit({page => $page, text => $text, summary => "הפניה", minor => 1});
-				my @redirects2 = $bot->what_links_here($page, 'redirects');
-				@redirects2 = map { $_->{title} } @redirects2;
-				# my @redirects = possible_redirects($src, $dst);
-				foreach my $page2 (@redirects2) {
-					next if ($page2 eq $page_dst);
-					$bot->edit({page => $page2, text => $text, summary => "הפניה", minor => 1});
-				}
+			}
+		}
+	}
+	if ($interactive && !$dryrun) {
+		$bot->edit({page => "שיחת מקור:$page_dst", text => "#הפניה [[שיחה:$page_dst]]", summary => "הפניה", minor => 1 });
+		$text = "#הפניה [[$page_dst]]";
+		my @redirects = map { $_->{title} } $bot->what_links_here($page_dst, 'redirects');
+		foreach $page (@redirects) {
+			print STDOUT "Redirect: $page -> $page_dst\n";
+			my @redirects2 = map { $_->{title} } $bot->what_links_here($page, 'redirects');
+			foreach my $page2 (@redirects2) {
+				print STDOUT "Redirect: $page2 -> $page -> $page_dst\n";
+				next if ($page2 eq $page_dst);
+				$bot->edit({page => $page2, text => $text, summary => "הפניה", minor => 1});
 			}
 		}
 	}
@@ -583,9 +590,7 @@ sub move_page {
 		}
 		$bot->edit({page => "שיחת מקור:$dst", text => "#הפניה [[שיחה:$dst]]", summary => "הפניה", minor => 1 });
 		$bot->edit({page => "$src", text => "#הפניה [[$dst]]", summary => "הפניה", minor => 1 });
-		my @redirects = $bot->what_links_here($src, 'redirects');
-		@redirects = map { $_->{title} } @redirects;
-		# my @redirects = possible_redirects($src, $dst);
+		my @redirects = map { $_->{title} } $bot->what_links_here($src, 'redirects');
 		foreach my $page (@redirects) {
 			next if ($page eq $dst);
 			$bot->edit({page => $page, text => "#הפניה [[$dst]]", summary => "הפניה", minor => 1});
@@ -599,6 +604,7 @@ sub possible_redirects {
 	while (my $page = shift) {
 		$page =~ s/ *\(תיקון:.*?\)$//;
 		$page =~ s/ *\[נוסח חדש\]//;
+		$page =~ s/\(\((.*?)\)\)/$1/g;
 		$page =~ s/(\,? ה?תש.?["״].[-–]\d{4}|, *[^ ]*\d{4}|, מס['׳] \d+ לשנת \d{4}| [-–] ה?תש.?["״]. מיום \d+.*|\, *\d+ עד \d+| [-–] ה?תש.?["״].|\ \(\d{4}\)|\ [-–] \d{4})$//;
 		$page =~ s/ {2,}/ /g;
 		$page =~ tr/“”״„’‘׳/""""'''/;

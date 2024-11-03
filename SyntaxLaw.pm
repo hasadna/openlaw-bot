@@ -439,12 +439,14 @@ sub parse_line {
 	$num =~ s/"/&quot;/g;
 	$num =~ s/ *\(\(\)\)$//;
 	$num =~ s/(?|(\[) (\])|(\() (\)))/$1\x{2002}$2/; # ensp
-	if (($num =~ /'''/)%2) {
+	if ((() = ($num =~ /'''/g))%2) {
 		$num =~ s/$/'''/;
 		$num = '' if ($num =~ /^''' *'''$/);
 		$line =~ s/^ */'''/;
 	}
-	$id = unparent($num);
+	$id = $num;
+	$id =~ s/'''//g;
+	$id = unparent($id);
 	$id = '' if $num =~ /\(\(.*\)\)/;
 	$len++ if ($num);
 	$type = "ת" x $len;
